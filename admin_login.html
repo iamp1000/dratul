@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sign In - Dr. Dhingra's Admin</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        'primary': '#272343', 'secondary': '#e3f6f5', 'accent': '#bae8e8', 'light': '#ffffff'
+                    },
+                    fontFamily: { sans: ['Inter', 'sans-serif'] },
+                }
+            }
+        }
+    </script>
+    <style> body { font-family: 'Inter', sans-serif; } </style>
+</head>
+<body class="bg-secondary flex items-center justify-center min-h-screen">
+    <div class="w-full max-w-4xl flex rounded-2xl shadow-2xl bg-light overflow-hidden">
+        <div class="hidden md:flex w-1/2 bg-primary text-light p-12 flex-col justify-center relative">
+            <div class="absolute bg-white/10 w-64 h-64 rounded-full -top-20 -left-20"></div>
+            <div class="absolute bg-white/10 w-48 h-48 rounded-full -bottom-16 right-0"></div>
+            <div class="relative z-10">
+                <h1 class="text-4xl font-extrabold mb-4">Clinic OS</h1>
+                <p class="text-accent">Advanced appointment and schedule management for Dr. Atul Dhingra.</p>
+            </div>
+        </div>
+        <div class="w-full md:w-1/2 p-8 sm:p-12 flex flex-col justify-center">
+            <div class="w-full max-w-sm mx-auto">
+                <h2 class="text-3xl font-bold text-primary">Sign In</h2>
+                <p class="mt-2 text-gray-600">Welcome back! Please enter your details.</p>
+                <form id="loginForm" class="mt-8 space-y-6">
+                    <div>
+                        <label for="username" class="text-sm font-medium text-primary">Username</label>
+                        <input id="username" name="username" type="text" required class="mt-1 w-full bg-secondary border-2 border-accent rounded-lg py-3 px-4 placeholder-gray-500 text-primary focus:outline-none focus:border-primary focus:bg-light transition" placeholder="atul_admin or clinic_staff">
+                    </div>
+                    <div>
+                        <label for="password" class="text-sm font-medium text-primary">Password</label>
+                        <input id="password" name="password" type="password" required class="mt-1 w-full bg-secondary border-2 border-accent rounded-lg py-3 px-4 placeholder-gray-500 text-primary focus:outline-none focus:border-primary focus:bg-light transition" placeholder="••••••••">
+                    </div>
+                    <div id="error-message" class="text-sm text-red-600 text-center hidden"></div>
+                    <div>
+                        <button type="submit" class="w-full flex justify-center py-3 px-4 font-semibold rounded-lg text-light bg-primary hover:bg-opacity-90 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary transition shadow-md hover:shadow-lg">
+                            Sign In
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+    <script>
+        const form = document.getElementById('loginForm');
+        const errorMessage = document.getElementById('error-message');
+        const API_BASE_URL = 'http://127.0.0.1:8000';
+
+        form.addEventListener('submit', async function(event) {
+            event.preventDefault();
+            errorMessage.classList.add('hidden');
+            
+            const formData = new FormData();
+            formData.append('username', form.username.value);
+            formData.append('password', form.password.value);
+
+            try {
+                const response = await fetch(`${API_BASE_URL}/token`, {
+                    method: 'POST',
+                    body: formData // Use FormData for OAuth2PasswordRequestForm
+                });
+
+                if (response.ok) {
+                    const data = await response.json();
+                    // Store token and role for the admin panel to use
+                    sessionStorage.setItem('accessToken', data.access_token);
+                    sessionStorage.setItem('userRole', data.role);
+                    window.location.href = './admin_panel.html';
+                } else {
+                    const errorData = await response.json();
+                    errorMessage.textContent = errorData.detail || 'Invalid credentials. Please try again.';
+                    errorMessage.classList.remove('hidden');
+                }
+            } catch (error) {
+                console.error('Login Error:', error);
+                errorMessage.textContent = 'Could not connect to the server.';
+                errorMessage.classList.remove('hidden');
+            }
+        });
+    </script>
+</body>
+</html>
+
