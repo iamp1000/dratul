@@ -4,6 +4,12 @@ from sqlalchemy import and_
 from datetime import datetime
 from . import models, schemas, security
 
+# Fix missing imports
+from datetime import datetime, time
+from sqlalchemy import select, update
+from . import models, schemas, security
+from app.schemas import LocationScheduleCreate
+
 # --- User CRUD Functions ---
 
 def get_user(db: Session, user_id: int):
@@ -70,15 +76,50 @@ def delete_user(db: Session, user_id: int):
 
 # --- Activity Log CRUD Functions ---
 
-def create_activity_log(db: Session, user_id: int, action: str, details: str = None):
-    db_log = models.ActivityLog(user_id=user_id, action=action, details=details)
+def create_activity_log(db: Session, user_id: int, action: str, details: str = None, category: str = "General"):
+    db_log = models.ActivityLog(
+        user_id=user_id, 
+        action=action, 
+        details=details, 
+        category=category
+    )
     db.add(db_log)
     db.commit()
     db.refresh(db_log)
     return db_log
 
+
+def create_prescription_share_log(db: Session, user_id: int, patient_id: int, method: str, success: bool):
+    action = f"Share Prescription via {method.title()}"
+    status = "Success" if success else "Failed"
+    details = f"Prescription shared to patient ID {patient_id} via {method} - {status}"
+    
+    return create_activity_log(db, user_id, action, details, "Prescription")
+
+def create_patient(db: Session, patient: schemas.PatientCreate):
+    db_patient = models.Patient(
+        name=patient.name,
+        phone_number=patient.phone_number,
+        email=patient.email,
+        date_of_birth=patient.date_of_birth,
+        address=patient.address,
+        whatsapp_number=patient.whatsapp_number
+    )
+    db.add(db_patient)
+    db.commit()
+    db.refresh(db_patient)
+    return db_patient
+
 def get_activity_logs(db: Session, skip: int = 0, limit: int = 100):
     return db.query(models.ActivityLog).options(joinedload(models.ActivityLog.user)).order_by(models.ActivityLog.timestamp.desc()).offset(skip).limit(limit).all()
+
+def get_activity_logs_by_category(db: Session, category: str = None, skip: int = 0, limit: int = 100):
+    query = db.query(models.ActivityLog).options(joinedload(models.ActivityLog.user))
+    
+    if category:
+        query = query.filter(models.ActivityLog.category == category)
+    
+    return query.order_by(models.ActivityLog.timestamp.desc()).offset(skip).limit(limit).all()
 
 
 # --- Appointment CRUD Functions ---
@@ -130,6 +171,29 @@ def create_patient(db: Session, patient: schemas.PatientCreate):
     return db_patient
 
 # --- Location CRUD Functions ---
+# Location Schedule CRUD
+def create_location_schedule(db: Session, schedule: LocationScheduleCreate):
+    db_schedule = models.LocationSchedule(**schedule.model_dump())
+    db.add(db_schedule)
+    db.commit()
+    db.refresh(db_schedule)
+    return db_schedule
+
+def get_location_schedules(db: Session, location_id: int):
+    return db.query(models.LocationSchedule).filter(
+        models.LocationSchedule.location_id == location_id,
+        models.LocationSchedule.is_active == True
+    ).all()
+
+def get_available_locations_for_time(db: Session, day_of_week: int, time_slot: time):
+    """Get locations that are available at a specific day and time"""
+    return db.query(models.Location).join(models.LocationSchedule).filter(
+        models.LocationSchedule.day_of_week == day_of_week,
+        models.LocationSchedule.start_time <= time_slot,
+        models.LocationSchedule.end_time >= time_slot,
+        models.LocationSchedule.is_active == True
+    ).all()
+
 
 def get_locations(db: Session, skip: int = 0, limit: int = 100):
     return db.query(models.Location).offset(skip).limit(limit).all()
@@ -163,3 +227,17 @@ def get_patient_details(db: Session, patient_id: int):
         selectinload(models.Patient.remarks).joinedload(models.Remark.author)
     ).filter(models.Patient.id == patient_id).first()
 
+
+def get_document(db: Session, document_id: int):
+    return db.query(models.Document).filter(models.Document.id == document_id).first()
+
+def get_patient_documents(db: Session, patient_id: int, document_type: str = None):
+    query = db.query(models.Document).filter(models.Document.patient_id == patient_id)
+    if document_type:
+        query = query.filter(models.Document.document_type == document_type)
+    return query.order_by(models.Document.upload_date.desc()).all()
+
+def get_patient_remarks(db: Session, patient_id: int):
+    return db.query(models.Remark).filter(
+        models.Remark.patient_id == patient_id
+    ).order_by(models.Remark.created_at.desc()).all()

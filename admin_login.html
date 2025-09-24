@@ -3,56 +3,283 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Sign In - Dr. Dhingra's Admin</title>
+    <title>Medical Admin Portal - Dr. Dhingra's Clinic</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <script>
         tailwind.config = {
             theme: {
                 extend: {
                     colors: {
-                        'primary': '#272343', 'secondary': '#e3f6f5', 'accent': '#bae8e8', 'light': '#ffffff'
+                        'medical-blue': '#0B4D6B',
+                        'medical-light': '#E6F3F8',
+                        'medical-accent': '#2196F3',
+                        'medical-success': '#10B981',
+                        'medical-warning': '#F59E0B',
+                        'medical-error': '#EF4444',
+                        'medical-dark': '#1E293B',
+                        'medical-gray': '#64748B',
+                        'medical-light-gray': '#F8FAFC',
                     },
-                    fontFamily: { sans: ['Inter', 'sans-serif'] },
+                    fontFamily: {
+                        'primary': ['Poppins', 'sans-serif'],
+                        'secondary': ['Inter', 'sans-serif']
+                    },
+                    animation: {
+                        'fade-in': 'fadeIn 0.6s ease-out',
+                        'slide-up': 'slideUp 0.5s ease-out',
+                        'pulse-gentle': 'pulseGentle 2s infinite',
+                    },
+                    keyframes: {
+                        fadeIn: {
+                            '0%': { opacity: '0', transform: 'translateY(10px)' },
+                            '100%': { opacity: '1', transform: 'translateY(0)' }
+                        },
+                        slideUp: {
+                            '0%': { opacity: '0', transform: 'translateY(30px)' },
+                            '100%': { opacity: '1', transform: 'translateY(0)' }
+                        },
+                        pulseGentle: {
+                            '0%, 100%': { opacity: '0.4' },
+                            '50%': { opacity: '0.6' }
+                        }
+                    }
                 }
             }
         }
     </script>
-    <style> body { font-family: 'Inter', sans-serif; } </style>
+    <style>
+        body {
+            font-family: 'Poppins', sans-serif;
+            background: linear-gradient(135deg, #0B4D6B 0%, #2196F3 50%, #E6F3F8 100%);
+            min-height: 100vh;
+        }
+
+        .glass-effect {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+
+        .medical-card {
+            background: rgba(255, 255, 255, 0.98);
+            backdrop-filter: blur(20px);
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.15);
+        }
+
+        .floating-elements::before {
+            content: '';
+            position: absolute;
+            top: -50px;
+            right: -50px;
+            width: 200px;
+            height: 200px;
+            background: radial-gradient(circle, rgba(33, 150, 243, 0.1) 0%, transparent 70%);
+            border-radius: 50%;
+            animation: pulse-gentle 3s infinite;
+        }
+
+        .floating-elements::after {
+            content: '';
+            position: absolute;
+            bottom: -80px;
+            left: -80px;
+            width: 300px;
+            height: 300px;
+            background: radial-gradient(circle, rgba(11, 77, 107, 0.08) 0%, transparent 70%);
+            border-radius: 50%;
+            animation: pulse-gentle 4s infinite reverse;
+        }
+
+        .input-group {
+            position: relative;
+        }
+
+        .input-group input:focus + label,
+        .input-group input:not(:placeholder-shown) + label {
+            transform: translateY(-24px) scale(0.85);
+            color: #2196F3;
+        }
+
+        .input-group label {
+            position: absolute;
+            left: 16px;
+            top: 16px;
+            color: #64748B;
+            transition: all 0.3s ease;
+            pointer-events: none;
+            background: white;
+            padding: 0 4px;
+        }
+
+        .medical-button {
+            background: linear-gradient(135deg, #2196F3 0%, #0B4D6B 100%);
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .medical-button::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
+            transition: left 0.5s;
+        }
+
+        .medical-button:hover::before {
+            left: 100%;
+        }
+
+        .medical-button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 15px 35px rgba(33, 150, 243, 0.4);
+        }
+    </style>
 </head>
-<body class="bg-secondary flex items-center justify-center min-h-screen">
-    <div class="w-full max-w-4xl flex rounded-2xl shadow-2xl bg-light overflow-hidden">
-        <div class="hidden md:flex w-1/2 bg-primary text-light p-12 flex-col justify-center relative">
-            <div class="absolute bg-white/10 w-64 h-64 rounded-full -top-20 -left-20"></div>
-            <div class="absolute bg-white/10 w-48 h-48 rounded-full -bottom-16 right-0"></div>
+<body class="min-h-screen flex items-center justify-center p-4">
+    <div class="w-full max-w-6xl flex rounded-3xl overflow-hidden medical-card animate-fade-in">
+        <!-- Left Side - Medical Branding -->
+        <div class="hidden lg:flex w-1/2 bg-gradient-to-br from-medical-blue via-medical-accent to-medical-blue text-white p-12 flex-col justify-center relative floating-elements">
             <div class="relative z-10">
-                <h1 class="text-4xl font-extrabold mb-4">Clinic OS</h1>
-                <p class="text-accent">Advanced appointment and schedule management for Dr. Atul Dhingra.</p>
+                <div class="flex items-center mb-8">
+                    <div class="w-16 h-16 bg-white/20 rounded-2xl flex items-center justify-center mr-4">
+                        <i class="fas fa-stethoscope text-2xl text-white"></i>
+                    </div>
+                    <div>
+                        <h1 class="text-3xl font-bold font-primary">Medical Portal</h1>
+                        <p class="text-blue-100 font-secondary">Dr. Dhingra's Clinic Management</p>
+                    </div>
+                </div>
+
+                <div class="space-y-6">
+                    <h2 class="text-4xl font-bold font-primary leading-tight">
+                        Advanced Healthcare<br>
+                        <span class="text-blue-200">Management System</span>
+                    </h2>
+                    <p class="text-lg text-blue-100 font-secondary leading-relaxed">
+                        Secure access to patient records, appointment scheduling, and comprehensive clinic operations management.
+                    </p>
+                </div>
+
+                <div class="mt-12 grid grid-cols-2 gap-6">
+                    <div class="bg-white/10 p-4 rounded-xl">
+                        <div class="flex items-center mb-2">
+                            <i class="fas fa-shield-alt text-blue-200 mr-3"></i>
+                            <span class="font-semibold">Secure Access</span>
+                        </div>
+                        <p class="text-sm text-blue-100">HIPAA compliant security</p>
+                    </div>
+                    <div class="bg-white/10 p-4 rounded-xl">
+                        <div class="flex items-center mb-2">
+                            <i class="fas fa-clock text-blue-200 mr-3"></i>
+                            <span class="font-semibold">24/7 Access</span>
+                        </div>
+                        <p class="text-sm text-blue-100">Always available portal</p>
+                    </div>
+                </div>
             </div>
         </div>
-        <div class="w-full md:w-1/2 p-8 sm:p-12 flex flex-col justify-center">
-            <div class="w-full max-w-sm mx-auto">
-                <h2 class="text-3xl font-bold text-primary">Sign In</h2>
-                <p class="mt-2 text-gray-600">Welcome back! Please enter your details.</p>
-                <form id="loginForm" class="mt-8 space-y-6">
-                    <div>
-                        <label for="username" class="text-sm font-medium text-primary">Username</label>
-                        <input id="username" name="username" type="text" required class="mt-1 w-full bg-secondary border-2 border-accent rounded-lg py-3 px-4 placeholder-gray-500 text-primary focus:outline-none focus:border-primary focus:bg-light transition" placeholder="atul_admin or clinic_staff">
+
+        <!-- Right Side - Login Form -->
+        <div class="w-full lg:w-1/2 p-8 lg:p-16 flex flex-col justify-center bg-white">
+            <div class="w-full max-w-md mx-auto">
+                <!-- Mobile Logo -->
+                <div class="lg:hidden flex items-center justify-center mb-8">
+                    <div class="w-12 h-12 bg-medical-accent rounded-xl flex items-center justify-center mr-3">
+                        <i class="fas fa-stethoscope text-white text-xl"></i>
                     </div>
                     <div>
-                        <label for="password" class="text-sm font-medium text-primary">Password</label>
-                        <input id="password" name="password" type="password" required class="mt-1 w-full bg-secondary border-2 border-accent rounded-lg py-3 px-4 placeholder-gray-500 text-primary focus:outline-none focus:border-primary focus:bg-light transition" placeholder="••••••••">
+                        <h1 class="text-2xl font-bold text-medical-dark font-primary">Medical Portal</h1>
+                        <p class="text-medical-gray font-secondary text-sm">Dr. Dhingra's Clinic</p>
                     </div>
-                    <div id="error-message" class="text-sm text-red-600 text-center hidden"></div>
-                    <div>
-                        <button type="submit" class="w-full flex justify-center py-3 px-4 font-semibold rounded-lg text-light bg-primary hover:bg-opacity-90 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary transition shadow-md hover:shadow-lg">
-                            Sign In
-                        </button>
+                </div>
+
+                <div class="mb-8 animate-slide-up">
+                    <h2 class="text-3xl font-bold text-medical-dark font-primary mb-2">Welcome Back</h2>
+                    <p class="text-medical-gray font-secondary">Please sign in to access the medical dashboard</p>
+                </div>
+
+                <form id="loginForm" class="space-y-6">
+                    <div class="input-group">
+                        <input 
+                            type="text" 
+                            id="username" 
+                            name="username" 
+                            placeholder=" "
+                            class="w-full px-4 py-4 border-2 border-gray-200 rounded-xl focus:border-medical-accent focus:outline-none transition-all duration-300 font-secondary"
+                            required
+                        />
+                        <label for="username" class="text-medical-gray font-secondary">Username</label>
+                    </div>
+
+                    <div class="input-group">
+                        <input 
+                            type="password" 
+                            id="password" 
+                            name="password" 
+                            placeholder=" "
+                            class="w-full px-4 py-4 border-2 border-gray-200 rounded-xl focus:border-medical-accent focus:outline-none transition-all duration-300 font-secondary"
+                            required
+                        />
+                        <label for="password" class="text-medical-gray font-secondary">Password</label>
+                    </div>
+
+                    <div class="flex items-center justify-between">
+                        <label class="flex items-center text-medical-gray font-secondary">
+                            <input type="checkbox" class="w-4 h-4 text-medical-accent border-gray-300 rounded focus:ring-medical-accent mr-2">
+                            Remember me
+                        </label>
+                        <a href="#" class="text-medical-accent hover:text-medical-blue font-medium font-secondary transition-colors">
+                            Forgot password?
+                        </a>
+                    </div>
+
+                    <button 
+                        type="submit" 
+                        class="w-full py-4 medical-button text-white font-semibold rounded-xl font-secondary tracking-wide relative z-10"
+                    >
+                        <span class="flex items-center justify-center">
+                            <i class="fas fa-sign-in-alt mr-2"></i>
+                            Sign In to Portal
+                        </span>
+                    </button>
+
+                    <div id="error-message" class="hidden bg-medical-error/10 border border-medical-error/20 text-medical-error px-4 py-3 rounded-xl font-secondary">
+                        <div class="flex items-center">
+                            <i class="fas fa-exclamation-triangle mr-2"></i>
+                            <span>Invalid credentials. Please try again.</span>
+                        </div>
                     </div>
                 </form>
+
+                <div class="mt-8 pt-6 border-t border-gray-200">
+                    <div class="flex items-center justify-center space-x-4 text-sm text-medical-gray font-secondary">
+                        <span class="flex items-center">
+                            <i class="fas fa-shield-alt text-medical-success mr-1"></i>
+                            Secure Login
+                        </span>
+                        <span class="flex items-center">
+                            <i class="fas fa-lock text-medical-success mr-1"></i>
+                            Encrypted
+                        </span>
+                        <span class="flex items-center">
+                            <i class="fas fa-user-md text-medical-success mr-1"></i>
+                            HIPAA Compliant
+                        </span>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
+
     <script>
         const form = document.getElementById('loginForm');
         const errorMessage = document.getElementById('error-message');
@@ -61,7 +288,7 @@
         form.addEventListener('submit', async function(event) {
             event.preventDefault();
             errorMessage.classList.add('hidden');
-            
+
             const formData = new FormData();
             formData.append('username', form.username.value);
             formData.append('password', form.password.value);
@@ -76,20 +303,19 @@
                     const data = await response.json();
                     // Store token and role for the admin panel to use
                     sessionStorage.setItem('accessToken', data.access_token);
+                    sessionStorage.setItem('tokenType', data.token_type);
                     sessionStorage.setItem('userRole', data.role);
+
+                    // Redirect to admin panel
                     window.location.href = './admin_panel.html';
                 } else {
-                    const errorData = await response.json();
-                    errorMessage.textContent = errorData.detail || 'Invalid credentials. Please try again.';
                     errorMessage.classList.remove('hidden');
                 }
             } catch (error) {
-                console.error('Login Error:', error);
-                errorMessage.textContent = 'Could not connect to the server.';
+                console.error('Login error:', error);
                 errorMessage.classList.remove('hidden');
             }
         });
     </script>
 </body>
 </html>
-

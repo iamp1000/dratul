@@ -1,5 +1,8 @@
-# models.py
-from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, Text,Date, Enum as SQLAlchemyEnum
+from datetime import time
+from sqlalchemy import (
+    Column, Integer, String, DateTime, Time, ForeignKey, Text, Date,
+    Enum as SQLAlchemyEnum, Boolean
+)
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 import enum
@@ -32,6 +35,7 @@ class ActivityLog(Base):
     timestamp = Column(DateTime(timezone=True), server_default=func.now())
     action = Column(String, nullable=False)
     details = Column(Text)
+    category = Column(String, nullable=True, default="General")  
 
     user = relationship("User", back_populates="logs")
 
@@ -44,6 +48,8 @@ class Patient(Base):
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
     date_of_birth = Column(Date, nullable=True) 
+    whatsapp_number = Column(String, nullable=True) 
+    address = Column(String, nullable=True)
     appointments = relationship("Appointment", back_populates="patient")
     documents = relationship("Document", back_populates="patient", cascade="all, delete-orphan")
     remarks = relationship("Remark", back_populates="patient", cascade="all, delete-orphan")
@@ -51,10 +57,27 @@ class Patient(Base):
 # --- Location Model ---
 class Location(Base):
     __tablename__ = "locations"
+    
     id = Column(Integer, primary_key=True, index=True)
     name = Column(String, unique=True, nullable=False)
-
+    
+    # Add this missing relationship
+    schedules = relationship("LocationSchedule", back_populates="location", cascade="all, delete-orphan")
     appointments = relationship("Appointment", back_populates="location")
+    
+    
+class LocationSchedule(Base):
+    __tablename__ = "location_schedules"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    location_id = Column(Integer, ForeignKey("locations.id"), nullable=False)
+    day_of_week = Column(Integer, nullable=False)  # 0=Monday, 1=Tuesday, etc.
+    start_time = Column(Time, nullable=False)
+    end_time = Column(Time, nullable=False)
+    is_active = Column(Boolean, default=True)
+    
+    location = relationship("Location", back_populates="schedules")
+    
 
 
 # --- Appointment Model ---
@@ -69,6 +92,7 @@ class Appointment(Base):
     status = Column(String, nullable=False, default="Confirmed")
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+    remarks = Column(Text, nullable=True)
 
     patient = relationship("Patient", back_populates="appointments")
     location = relationship("Location", back_populates="appointments")
@@ -79,7 +103,8 @@ class Document(Base):
     __tablename__ = "documents"
     id = Column(Integer, primary_key=True, index=True)
     patient_id = Column(Integer, ForeignKey("patients.id"), nullable=False)
-    file_path = Column(String, nullable=False) # Stores the path to the saved file
+    file_path = Column(String, nullable=False) 
+    document_type = Column(String, nullable=True, default="General") 
     description = Column(String)
     upload_date = Column(DateTime(timezone=True), server_default=func.now())
 

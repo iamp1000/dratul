@@ -1,6 +1,8 @@
-# app/schemas.py
-from pydantic import BaseModel, ConfigDict, EmailStr, Field, model_validator
-from typing import Optional, List
+from datetime import time, datetime
+from pydantic_settings import BaseSettings
+from pydantic import Field,BaseModel,ConfigDict,EmailStr, model_validator
+
+from typing import List, Optional
 from datetime import datetime, date
 from .models import UserRole
 import re
@@ -39,14 +41,31 @@ class Token(BaseModel):
     access_token: str
     token_type: str
     user: User
+    
+class ActivityLogCreate(BaseModel):
+    action: str
+    details: Optional[str] = None
+    category: Optional[str] = "General"
 
 class ActivityLog(BaseModel):
     id: int
     timestamp: datetime
     action: str
     details: Optional[str] = None
+    category: Optional[str] = None
     user: User
     model_config = ConfigDict(from_attributes=True)
+    
+    
+class PrescriptionShare(BaseModel):
+    patient_id: int
+    document_id: int
+    method: str = Field(..., pattern="^(whatsapp|email)$")
+    whatsapp_number: Optional[str] = None
+    email: Optional[str] = None
+    message: Optional[str] = None
+
+    
 class Location(BaseModel):
     id: int
     name: str
@@ -55,6 +74,7 @@ class Location(BaseModel):
 class DocumentBase(BaseModel):
     description: Optional[str] = None
     file_path: str
+    document_type: Optional[str] = "General"
 
 class Document(DocumentBase):
     id: int
@@ -63,13 +83,14 @@ class Document(DocumentBase):
     model_config = ConfigDict(from_attributes=True)
 
 class RemarkCreate(BaseModel):
-    text: str
+    pass
     
 class Remark(BaseModel):
     id: int
-    text: str
+    patient_id: int
+    author_id: int
     created_at: datetime
-    author: User
+    
     model_config = ConfigDict(from_attributes=True)
 
 class AppointmentBase(BaseModel):
@@ -78,12 +99,18 @@ class AppointmentBase(BaseModel):
     end_time: datetime
     reason: Optional[str] = None
     status: str
+    
+class AppointmentReschedule(BaseModel):
+    new_start_time: datetime
+    new_end_time: datetime
 
 class PatientBase(BaseModel):
     name: str
     phone_number: str
     email: Optional[EmailStr] = None
     date_of_birth: date 
+    address: Optional[str] = None
+    whatsapp_number: Optional[str] = None
 
 
 class AppointmentCreate(AppointmentBase):
@@ -108,9 +135,9 @@ class Patient(PatientBase):
     id: int
     created_at: datetime
     age: Optional[int] = None
-    appointments: List[Appointment] = []
-    documents: List[Document] = []
-    remarks: List[Remark] = []
+    appointments: List['Appointment'] = [] # <-- Use a string here
+    documents: List['Document'] = []      # <-- Add this line
+    remarks: List['Remark'] = []        # <-- Add this line
     model_config = ConfigDict(from_attributes=True)
 
     @model_validator(mode='after')
@@ -135,6 +162,38 @@ class Appointment(AppointmentBase):
     model_config = ConfigDict(from_attributes=True)
 
 # --- Location Schema ---
+class LocationScheduleBase(BaseModel):
+    day_of_week: int = Field(..., ge=0, le=6)  # 0=Monday, 6=Sunday
+    start_time: time
+    end_time: time
+    is_active: bool = True
+
+class LocationScheduleCreate(LocationScheduleBase):
+    id: int
+    location_id: int
+    
+    model_config = ConfigDict(from_attributes=True)
+
+class LocationSchedule(LocationScheduleBase):
+    id: int
+    location_id: int
+    
+    model_config = ConfigDict(from_attributes=True)
+
+# Enhanced Location schemas
+class LocationBase(BaseModel):
+    name: str
+
+class LocationCreate(LocationBase):
+    pass
+
+class LocationWithSchedules(LocationBase):
+    id: int
+    schedules: List[LocationSchedule] = []
+    
+    model_config = ConfigDict(from_attributes=True)
+
+
 class Location(BaseModel):
     id: int
     name: str
@@ -165,13 +224,27 @@ class Appointment(AppointmentBase):
 class DocumentBase(BaseModel):
     description: Optional[str] = None
     file_path: str
+    
+class DocumentCreate(DocumentBase):
+    patient_id: int
+    file_path: str
 
 class Document(BaseModel):
     id: int
+    patient_id: int
     file_path: str
-    description: Optional[str] = None
     upload_date: datetime
+    
     model_config = ConfigDict(from_attributes=True)
+    
+class PrescriptionShare(BaseModel):
+    patient_id: int
+    document_id: int
+    method: str = Field(..., pattern="^(whatsapp|email)$")
+    whatsapp_number: Optional[str] = None
+    email: Optional[str] = None
+    message: Optional[str] = None
+
 
 
 Patient.model_rebuild()

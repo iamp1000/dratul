@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>{{ subject }}</title>
+</head>
+<body style="font-family: Arial, sans-serif; color: #333; line-height: 1.6;">
+    <div style="max-width: 600px; margin: 0 auto; padding: 20px;">
+        <div style="background-color: #0B4D6B; color: white; padding: 20px; text-align: center;">
+            <h1 style="margin: 0;">Dr. Dhingra's Clinic</h1>
+            <p style="margin: 5px 0 0 0;">{{ email_type | default("Prescription Delivery") }}</p>
+        </div>
+        
+        <div style="padding: 30px 20px;">
+            <h2 style="color: #0B4D6B;">Dear {{ patient_name }},</h2>
+            
+            <p>{{ main_message | default("Please find your prescription attached to this email.") }}</p>
+            
+            {% if custom_message %}
+            <div style="background-color: #E6F3F8; padding: 15px; border-left: 4px solid #2196F3; margin: 20px 0;">
+                <p style="margin: 0;"><strong>Additional Note:</strong><br>{{ custom_message }}</p>
+            </div>
+            {% endif %}
+            
+            <div style="margin-top: 30px; padding-top: 20px; border-top: 1px solid #DDD;">
+                <p><strong>Best regards,</strong><br>Dr. Dhingra's Clinic Team</p>
+            </div>
+        </div>
+    </div>
+</body>
+</html>
