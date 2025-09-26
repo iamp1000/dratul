@@ -16,7 +16,10 @@ from app import models, crud, schemas, security
 from app.database import engine, get_db, SessionLocal
 from app.limiter import limiter
 from app.routers import auth, users, patients, appointments, locations, logs, prescriptions
-from fastapi.security import OAuth2PasswordRequestForm  
+from fastapi.security import OAuth2PasswordRequestForm  \
+    
+from sqlalchemy import text
+from sqlalchemy.exc import ProgrammingError, OperationalError
 
 # ---- Create database tables (sync engine) ----
 models.Base.metadata.create_all(bind=engine)
@@ -33,10 +36,7 @@ app = FastAPI(
 # ---- Middleware (single CORS) ----
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "http://127.0.0.1:5500",
-        "http://localhost:5501",
-    ],
+    allow_origins=["http://127.0.0.1:5501", "http://127.0.0.1:5501/admin_panel.html"],
     allow_credentials=True,
     allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
     allow_headers=["Authorization", "Content-Type"],
@@ -67,6 +67,24 @@ app.include_router(users.router, include_in_schema=False)
 app.include_router(patients.router, include_in_schema=False)
 app.include_router(appointments.router, include_in_schema=False)
 app.include_router(locations.router, include_in_schema=False)
+
+
+def ensure_schema(engine):
+    statements = [
+        "ALTER TABLE activity_logs ADD COLUMN category VARCHAR DEFAULT 'General';",
+        "ALTER TABLE documents ADD COLUMN document_type VARCHAR DEFAULT 'General';",
+        "ALTER TABLE appointments ADD COLUMN remarks TEXT;",
+        "ALTER TABLE patients ADD COLUMN whatsapp_number VARCHAR;"
+    ]
+    with engine.connect() as conn:
+        for sql in statements:
+            try:
+                conn.execute(text(sql))
+                conn.commit()
+                print(f"✓ Executed: {sql}")
+            except (ProgrammingError, OperationalError, Exception) as e:
+                # Ignore if column already exists or dialect-specific no-op
+                print(f"↺ Skipped: {sql} -> {e}")
 
 # ---- Root and Health ----
 
@@ -105,6 +123,7 @@ async def http_exception_handler(request, exc):
 # ---- Startup: ensure initial admin users (sync DB usage) ----
 @app.on_event("startup")
 def on_startup():
+    ensure_schema(engine)
     db = SessionLocal()
     try:
         if not crud.get_user_by_username(db, username="p1000"):
@@ -113,10 +132,6 @@ def on_startup():
             crud.create_initial_admin_user(db, username="dratul", password="dratulpassword")
     finally:
         db.close()
-
-# =========================
-# Inline endpoints (kept)
-# =========================
 
 # Location schedules
 @app.post("/locations/{location_id}/schedules", response_model=schemas.LocationSchedule)

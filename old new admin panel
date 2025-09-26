@@ -1,0 +1,1213 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8" />
+    <title>Clinic Admin Panel</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+    <!-- Basic, light styling (kept minimal to avoid design shifts) -->
+    <style>
+        :root {
+            --bg: #f5f7fb;
+            --card: #ffffff;
+            --text: #1f2937;
+            --muted: #6b7280;
+            --primary: #2563eb;
+            --primary-600: #1d4ed8;
+            --red: #ef4444;
+            --yellow: #f59e0b;
+            --green: #10b981;
+            --border: #e5e7eb;
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji";
+            background: var(--bg);
+            color: var(--text);
+        }
+
+        a {
+            color: inherit;
+            text-decoration: none;
+        }
+
+        button {
+            font: inherit;
+            cursor: pointer;
+            border: none;
+            border-radius: 6px;
+        }
+
+        input,
+        select,
+        textarea {
+            font: inherit;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            padding: 10px 12px;
+            width: 100%;
+            background: #fff;
+            color: var(--text);
+        }
+
+        table {
+            border-collapse: collapse;
+            width: 100%;
+            background: var(--card);
+        }
+
+        th,
+        td {
+            border-bottom: 1px solid var(--border);
+            padding: 10px 12px;
+            text-align: left;
+            font-size: 14px;
+        }
+
+        th {
+            font-weight: 600;
+            color: var(--muted);
+            background: #fafafa;
+        }
+
+        tr:hover td {
+            background: #fafbff;
+        }
+
+        /* Layout */
+        .topbar {
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            height: 60px;
+            background: var(--card);
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 16px;
+        }
+
+        .brand {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-weight: 700;
+            letter-spacing: 0.2px;
+        }
+
+        .brand-badge {
+            width: 10px;
+            height: 10px;
+            border-radius: 10px;
+            background: var(--primary);
+        }
+
+        .userbar {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .avatar {
+            width: 28px;
+            height: 28px;
+            border-radius: 50%;
+            background: #dbeafe;
+            display: inline-block;
+        }
+
+        .btn {
+            background: var(--primary);
+            color: #fff;
+            padding: 8px 12px;
+        }
+
+        .btn:hover {
+            background: var(--primary-600);
+        }
+
+        .btn-outline {
+            background: transparent;
+            border: 1px solid var(--border);
+            color: var(--text);
+            padding: 8px 12px;
+        }
+
+        .btn-danger {
+            background: var(--red);
+            color: #fff;
+        }
+
+        .btn-warning {
+            background: var(--yellow);
+            color: #111827;
+        }
+
+        .btn-success {
+            background: var(--green);
+            color: #fff;
+        }
+
+        .container {
+            display: grid;
+            grid-template-columns: 240px 1fr;
+            gap: 16px;
+            padding: 16px;
+        }
+
+        .sidebar {
+            position: sticky;
+            top: 76px;
+            height: calc(100vh - 92px);
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 12px;
+            overflow: auto;
+        }
+
+        .nav-section {
+            margin-bottom: 12px;
+        }
+
+        .nav-title {
+            font-size: 12px;
+            color: var(--muted);
+            text-transform: uppercase;
+            margin: 12px 8px 6px;
+        }
+
+        .nav-link {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 10px 12px;
+            margin: 4px 0;
+            border-radius: 8px;
+            color: #111827;
+        }
+
+        .nav-link.active,
+        .nav-link:hover {
+            background: #eef2ff;
+            color: #1e40af;
+        }
+
+        .content {
+            min-height: calc(100vh - 92px);
+        }
+
+        .cards {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 12px;
+            margin-bottom: 16px;
+        }
+
+        .card {
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 12px;
+        }
+
+        .card h3 {
+            margin: 0 0 6px 0;
+            font-size: 14px;
+            color: var(--muted);
+        }
+
+        .card .kpi {
+            font-size: 24px;
+            font-weight: 700;
+        }
+
+        .section {
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            margin-bottom: 16px;
+        }
+
+        .section-header {
+            padding: 12px;
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .section-title {
+            display: flex;
+            align-items: baseline;
+            gap: 12px;
+        }
+
+        .section-actions {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+        }
+
+        .section-body {
+            padding: 12px;
+        }
+
+        .row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+        }
+
+        .row3 {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            gap: 12px;
+        }
+
+        .filters {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+
+        .muted {
+            color: var(--muted);
+        }
+
+        .tag {
+            display: inline-block;
+            padding: 2px 8px;
+            border-radius: 999px;
+            font-size: 12px;
+            border: 1px solid var(--border);
+            color: var(--muted);
+            background: #fafafa;
+        }
+
+        .table-actions {
+            display: flex;
+            gap: 6px;
+        }
+
+        /* Modal */
+        .modal-backdrop {
+            position: fixed;
+            inset: 0;
+            background: rgba(15, 23, 42, 0.45);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            padding: 16px;
+            z-index: 2000;
+        }
+
+        .modal {
+            width: 100%;
+            max-width: 720px;
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            overflow: hidden;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.12);
+        }
+
+        .modal-header {
+            padding: 12px;
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .modal-body {
+            padding: 12px;
+        }
+
+        .modal-footer {
+            display: flex;
+            justify-content: flex-end;
+            gap: 8px;
+            padding: 12px;
+            border-top: 1px solid var(--border);
+        }
+
+        .hidden {
+            display: none !important;
+        }
+
+        /* Responsive */
+        @media (max-width: 1100px) {
+            .cards {
+                grid-template-columns: repeat(2, 1fr);
+            }
+
+            .container {
+                grid-template-columns: 1fr;
+            }
+
+            .sidebar {
+                position: relative;
+                height: auto;
+                top: 0;
+            }
+        }
+
+        @media (max-width: 640px) {
+            .cards {
+                grid-template-columns: 1fr;
+            }
+
+            .row,
+            .row3 {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+
+<body>
+
+    <!-- Topbar -->
+    <header class="topbar">
+        <div class="brand">
+            <span class="brand-badge"></span>
+            <span>Clinic Admin</span>
+            <span class="tag">v1</span>
+        </div>
+        <div class="userbar">
+            <span class="muted" id="currentUserName">Loading...</span>
+            <span class="avatar" title="Current User"></span>
+            <button class="btn-outline" id="logoutBtn">Logout</button>
+        </div>
+    </header>
+
+    <div class="container">
+        <!-- Sidebar -->
+        <aside class="sidebar">
+            <div class="nav-section">
+                <div class="nav-title">Overview</div>
+                <a href="#dashboard" class="nav-link active" data-target="dashboardSection">Dashboard</a>
+            </div>
+            <div class="nav-section">
+                <div class="nav-title">Manage</div>
+                <a href="#patients" class="nav-link" data-target="patientsSection">Patients</a>
+                <a href="#appointments" class="nav-link" data-target="appointmentsSection">Appointments</a>
+                <a href="#locations" class="nav-link" data-target="locationsSection">Locations</a>
+            </div>
+            <div class="nav-section">
+                <div class="nav-title">Tools</div>
+                <a href="#search" class="nav-link" data-target="searchSection">Search</a>
+                <a href="#reports" class="nav-link" data-target="reportsSection">Reports</a>
+            </div>
+        </aside>
+
+        <!-- Content -->
+        <main class="content">
+            <!-- Dashboard -->
+            <section id="dashboardSection" class="section">
+                <div class="section-header">
+                    <div class="section-title">
+                        <h2>Dashboard</h2>
+                        <span class="muted">Today</span>
+                    </div>
+                    <div class="section-actions">
+                        <button class="btn-outline" id="refreshDashboardBtn">Refresh</button>
+                    </div>
+                </div>
+                <div class="section-body">
+                    <div class="cards">
+                        <div class="card">
+                            <h3>Total Patients</h3>
+                            <div class="kpi" id="kpiPatients">0</div>
+                            <div class="muted">All-time</div>
+                        </div>
+                        <div class="card">
+                            <h3>Appointments (30d)</h3>
+                            <div class="kpi" id="kpiAppts">0</div>
+                            <div class="muted">Scheduled range</div>
+                        </div>
+                        <div class="card">
+                            <h3>Locations</h3>
+                            <div class="kpi" id="kpiLocations">0</div>
+                            <div class="muted">Active</div>
+                        </div>
+                        <div class="card">
+                            <h3>Unconfirmed</h3>
+                            <div class="kpi" id="kpiUnconfirmed">0</div>
+                            <div class="muted">Today</div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Patients -->
+            <section id="patientsSection" class="section hidden">
+                <div class="section-header">
+                    <div class="section-title">
+                        <h2>Patients</h2>
+                        <span class="muted" id="patientsCountTag">0 records</span>
+                    </div>
+                    <div class="section-actions">
+                        <input id="patientSearchInput" placeholder="Search by name or phone..." />
+                        <button class="btn" id="addPatientBtn">Add Patient</button>
+                    </div>
+                </div>
+                <div class="section-body">
+                    <div class="row3">
+                        <div>
+                            <label class="muted">Name</label>
+                            <input id="filterPatientName" placeholder="e.g. John" />
+                        </div>
+                        <div>
+                            <label class="muted">Phone</label>
+                            <input id="filterPatientPhone" placeholder="e.g. 555-555" />
+                        </div>
+                        <div style="display:flex;gap:8px;align-items:flex-end">
+                            <button class="btn-outline" id="clearPatientFilters">Clear</button>
+                            <button class="btn" id="applyPatientFilters">Apply</button>
+                        </div>
+                    </div>
+
+                    <div style="overflow:auto; margin-top:12px;">
+                        <table id="patientsTable">
+                            <thead>
+                                <tr>
+                                    <th>ID</th>
+                                    <th>Name</th>
+                                    <th>Phone</th>
+                                    <th>WhatsApp</th>
+                                    <th>Email</th>
+                                    <th>Created</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody><!-- injected --></tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Appointments -->
+            <section id="appointmentsSection" class="section hidden">
+                <div class="section-header">
+                    <div class="section-title">
+                        <h2>Appointments</h2>
+                        <span class="muted" id="apptsCountTag">0 records</span>
+                    </div>
+                    <div class="section-actions">
+                        <div class="filters">
+                            <input type="date" id="startDate" />
+                            <input type="date" id="endDate" />
+                            <select id="apptStatus">
+                                <option value="">All statuses</option>
+                                <option value="scheduled">Scheduled</option>
+                                <option value="cancelled">Cancelled</option>
+                                <option value="completed">Completed</option>
+                            </select>
+                            <button class="btn-outline" id="resetApptFilters">Reset</button>
+                            <button class="btn" id="refreshApptsBtn">Refresh</button>
+                        </div>
+                    </div>
+                </div>
+                <div class="section-body">
+                    <div style="overflow:auto;">
+                        <table id="appointmentsTable">
+                            <thead>
+                                <tr>
+                                    <th>ID</th>
+                                    <th>Date</th>
+                                    <th>Time</th>
+                                    <th>Patient</th>
+                                    <th>Location</th>
+                                    <th>Status</th>
+                                    <th>Remarks</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody><!-- injected --></tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Locations -->
+            <section id="locationsSection" class="section hidden">
+                <div class="section-header">
+                    <div class="section-title">
+                        <h2>Locations</h2>
+                        <span class="muted" id="locationsCountTag">0 records</span>
+                    </div>
+                    <div class="section-actions">
+                        <button class="btn-outline" id="refreshLocationsBtn">Refresh</button>
+                    </div>
+                </div>
+                <div class="section-body">
+                    <div style="overflow:auto;">
+                        <table id="locationsTable">
+                            <thead>
+                                <tr>
+                                    <th>ID</th>
+                                    <th>Name</th>
+                                    <th>Address</th>
+                                    <th>City</th>
+                                    <th>Phone</th>
+                                </tr>
+                            </thead>
+                            <tbody><!-- injected --></tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Search (basic) -->
+            <section id="searchSection" class="section hidden">
+                <div class="section-header">
+                    <div class="section-title">
+                        <h2>Search</h2>
+                        <span class="muted">Lookup patients and appointments</span>
+                    </div>
+                    <div class="section-actions"></div>
+                </div>
+                <div class="section-body">
+                    <div class="row">
+                        <div>
+                            <label class="muted">Query</label>
+                            <input id="globalSearchInput" placeholder="Name, phone, ID..." />
+                        </div>
+                        <div style="display:flex; gap:8px; align-items:flex-end;">
+                            <button class="btn" id="runGlobalSearchBtn">Search</button>
+                        </div>
+                    </div>
+                    <div style="margin-top:12px;">
+                        <div class="muted" id="globalSearchStatus">Enter a query and press Search.</div>
+                        <div class="row" style="margin-top:10px;">
+                            <div class="card">
+                                <h3>Patients</h3>
+                                <div style="overflow:auto; max-height:300px;">
+                                    <table>
+                                        <thead>
+                                            <tr>
+                                                <th>ID</th>
+                                                <th>Name</th>
+                                                <th>Phone</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody id="searchPatientsBody"><!-- injected --></tbody>
+                                    </table>
+                                </div>
+                            </div>
+                            <div class="card">
+                                <h3>Appointments</h3>
+                                <div style="overflow:auto; max-height:300px;">
+                                    <table>
+                                        <thead>
+                                            <tr>
+                                                <th>ID</th>
+                                                <th>Date</th>
+                                                <th>Patient</th>
+                                                <th>Status</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody id="searchApptsBody"><!-- injected --></tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Reports (placeholder) -->
+            <section id="reportsSection" class="section hidden">
+                <div class="section-header">
+                    <div class="section-title">
+                        <h2>Reports</h2>
+                        <span class="muted">Exports and summaries</span>
+                    </div>
+                    <div class="section-actions">
+                        <button class="btn-outline" id="exportPatientsBtn">Export Patients CSV</button>
+                        <button class="btn-outline" id="exportApptsBtn">Export Appointments CSV</button>
+                    </div>
+                </div>
+                <div class="section-body">
+                    <div class="muted">Generate CSV exports or copy summary metrics.</div>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <!-- Patient Modal -->
+    <div class="modal-backdrop" id="patientModalBackdrop">
+        <div class="modal">
+            <div class="modal-header">
+                <strong id="patientModalTitle">Add Patient</strong>
+                <button class="btn-outline" id="closePatientModalBtn">✕</button>
+            </div>
+            <div class="modal-body">
+                <div class="row">
+                    <div>
+                        <label>Name</label>
+                        <input id="pm_name" placeholder="Full name" />
+                    </div>
+                    <div>
+                        <label>Phone</label>
+                        <input id="pm_phone" placeholder="+1 555 555 1234" />
+                    </div>
+                </div>
+                <div class="row">
+                    <div>
+                        <label>WhatsApp</label>
+                        <input id="pm_whatsapp" placeholder="+1 555 555 1234" />
+                    </div>
+                    <div>
+                        <label>Email</label>
+                        <input id="pm_email" placeholder="name@email.com" />
+                    </div>
+                </div>
+                <input type="hidden" id="pm_id" />
+            </div>
+            <div class="modal-footer">
+                <button class="btn-outline" id="cancelPatientModalBtn">Cancel</button>
+                <button class="btn" id="savePatientModalBtn">Save</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast / Alerts -->
+    <div id="toast" class="hidden"
+        style="position:fixed; right:16px; bottom:16px; background:#111827; color:#fff; padding:12px 14px; border-radius:10px; z-index:3000; box-shadow:0 6px 22px rgba(0,0,0,0.18);">
+    </div>
+
+    <!-- Backend shim + app logic -->
+    <script>
+        /*
+          Backend Shim
+          - Centralizes API base and Authorization.
+          - Keeps existing UI interactions simple.
+          - Toggle USE_V1 if only versioned routes are enabled on backend.
+        */
+        (function () {
+            const API_BASE = "http://127.0.0.1:8000";   // change if needed
+            const USE_V1 = false;                     // set true if only /api/v1 routes exist
+            const LOGIN_PAGE = "admin_login.html";
+            const TOKEN_KEY = "admin_token";
+
+            function getToken() { try { return localStorage.getItem(TOKEN_KEY) || ""; } catch { return ""; } }
+            function setToken(tok) { try { localStorage.setItem(TOKEN_KEY, tok || ""); } catch { } }
+            function clearToken() { try { localStorage.removeItem(TOKEN_KEY); } catch { } }
+
+            window.API = {
+                base: API_BASE,
+                useV1: USE_V1,
+                get token() { return getToken(); },
+                set token(v) { setToken(v); },
+                logout: () => { clearToken(); location.href = LOGIN_PAGE; },
+                url: (path) => {
+                    const absolute = /^https?:\/\//i.test(path);
+                    let u = absolute ? path : API_BASE + (path.startsWith("/") ? path : "/" + path);
+                    if (USE_V1 && !/\/api\/v\d\//i.test(u)) {
+                        const urlObj = new URL(u, API_BASE);
+                        if (!urlObj.pathname.startsWith("/api/")) {
+                            urlObj.pathname = "/api/v1" + (urlObj.pathname.startsWith("/") ? urlObj.pathname : "/" + urlObj.pathname);
+                        }
+                        u = urlObj.toString();
+                    }
+                    return u;
+                }
+            };
+
+            const originalFetch = window.fetch.bind(window);
+            window.fetch = async function (resource, init) {
+                let url = typeof resource === "string" ? resource : resource.url;
+                const cfg = Object.assign({ mode: "cors" }, init || {});
+                cfg.headers = new Headers(cfg.headers || {});
+                const tok = getToken();
+                if (tok && !cfg.headers.has("Authorization")) {
+                    cfg.headers.set("Authorization", "Bearer " + tok);
+                }
+                if (!cfg.headers.has("Content-Type") && (cfg.method || "GET").toUpperCase() !== "GET" && cfg.body && !(cfg.body instanceof FormData)) {
+                    cfg.headers.set("Content-Type", "application/json");
+                }
+                const isAbsolute = /^https?:\/\//i.test(url);
+                let finalUrl = isAbsolute ? url : API.base + (url.startsWith("/") ? url : "/" + url);
+                if (API.useV1 && !/\/api\/v\d\//i.test(finalUrl)) {
+                    const u = new URL(finalUrl, API.base);
+                    if (!u.pathname.startsWith("/api/")) {
+                        u.pathname = "/api/v1" + (u.pathname.startsWith("/") ? u.pathname : "/" + u.pathname);
+                    }
+                    finalUrl = u.toString();
+                }
+                const resp = await originalFetch(finalUrl, cfg);
+                if (resp.status === 401) {
+                    clearToken();
+                    if (!/admin_login\.html/i.test(location.pathname)) {
+                        location.href = LOGIN_PAGE;
+                    }
+                    return resp;
+                }
+                return resp;
+            };
+
+            window.fetchJSON = async function (path, options) {
+                const resp = await fetch(path, options);
+                const text = await resp.text();
+                try {
+                    const data = text ? JSON.parse(text) : null;
+                    if (!resp.ok) {
+                        const err = new Error((data && (data.detail || data.message)) || resp.statusText || "Request failed");
+                        err.status = resp.status;
+                        err.data = data;
+                        throw err;
+                    }
+                    return data;
+                } catch (e) {
+                    if (!resp.ok) {
+                        const err = new Error(text || resp.statusText || "Request failed");
+                        err.status = resp.status;
+                        err.data = text;
+                        throw err;
+                    }
+                    return text;
+                }
+            };
+
+            window.safeArray = (x) => Array.isArray(x) ? x : [];
+            window.nullToEmpty = (x) => (x == null ? "" : x);
+        })();
+    </script>
+
+    <script>
+        // Utilities
+        const $ = (sel, root = document) => root.querySelector(sel);
+        const $$ = (sel, root = document) => Array.from(root.querySelectorAll(sel));
+        function toast(msg, kind = "info") {
+            const el = $("#toast");
+            if (!el) return;
+            el.textContent = msg;
+            el.style.background = kind === "error" ? "#991b1b" : (kind === "success" ? "#065f46" : "#111827");
+            el.classList.remove("hidden");
+            clearTimeout(el._t);
+            el._t = setTimeout(() => el.classList.add("hidden"), 3000);
+        }
+        function setActiveSection(id) {
+            // Hide all sections
+            $$("#dashboardSection, #patientsSection, #appointmentsSection, #locationsSection, #searchSection, #reportsSection")
+                .forEach(s => s.classList.add("hidden"));
+            // Show target
+            const el = document.getElementById(id);
+            if (el) el.classList.remove("hidden");
+            // Sidebar highlight
+            $$(".nav-link").forEach(a => a.classList.remove("active"));
+            const active = $(`.nav-link[data-target="${id}"]`);
+            if (active) active.classList.add("active");
+        }
+        function dateToISO(d) {
+            const pad = (n) => String(n).padStart(2, "0");
+            return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+        }
+
+        // Session
+        async function loadCurrentUser() {
+            try {
+                const me = await fetchJSON("/users/me");
+                $("#currentUserName").textContent = me?.username || "Unknown";
+                window.CURRENT_USER = me || null;
+            } catch (e) {
+                $("#currentUserName").textContent = "Not signed in";
+            }
+        }
+
+        // Dashboard KPIs
+        async function loadDashboard() {
+            try {
+                const patients = await fetchJSON("/patients/");
+                $("#kpiPatients").textContent = safeArray(patients).length;
+
+                const locs = await fetchJSON("/locations/");
+                $("#kpiLocations").textContent = safeArray(locs).length;
+
+                // Appointments last 30 days
+                const end = new Date();
+                const start = new Date(end.getTime() - 29 * 86400000);
+                const appts = await fetchJSON(`/appointments/?start_date=${dateToISO(start)}&end_date=${dateToISO(end)}`);
+                const a = safeArray(appts);
+                $("#kpiAppts").textContent = a.length;
+
+                // Simple unconfirmed approx: status === 'scheduled' for today
+                const today = dateToISO(new Date());
+                const unconf = a.filter(x => (x?.status || "").toLowerCase() === "scheduled" && (x?.date || "").startsWith(today)).length;
+                $("#kpiUnconfirmed").textContent = unconf;
+            } catch (e) {
+                toast("Failed to load dashboard KPIs", "error");
+            }
+        }
+
+        // Patients
+        let patientsCache = [];
+        function renderPatientsTable(list) {
+            const body = $("#patientsTable tbody");
+            body.innerHTML = "";
+            safeArray(list).forEach(p => {
+                const tr = document.createElement("tr");
+                tr.innerHTML = `
+        <td>${p.id ?? ""}</td>
+        <td>${nullToEmpty(p.name)}</td>
+        <td>${nullToEmpty(p.phone_number || p.phone)}</td>
+        <td>${nullToEmpty(p.whatsapp_number || "")}</td>
+        <td>${nullToEmpty(p.email || "")}</td>
+        <td>${(p.created_at || "").toString().replace("T", " ").slice(0, 19)}</td>
+        <td>
+          <div class="table-actions">
+            <button class="btn-outline" data-act="edit" data-id="${p.id}">Edit</button>
+            <button class="btn-danger" data-act="del" data-id="${p.id}">Delete</button>
+          </div>
+        </td>
+      `;
+                body.appendChild(tr);
+            });
+            $("#patientsCountTag").textContent = `${safeArray(list).length} records`;
+        }
+        async function loadPatients() {
+            try {
+                const data = await fetchJSON("/patients/");
+                patientsCache = safeArray(data);
+                renderPatientsTable(patientsCache);
+            } catch (e) {
+                toast("Failed to load patients", "error");
+            }
+        }
+        function filteredPatients() {
+            const n = ($("#filterPatientName").value || "").toLowerCase();
+            const ph = ($("#filterPatientPhone").value || "").toLowerCase();
+            return patientsCache.filter(p => {
+                const name = (p.name || "").toLowerCase();
+                const phone = (p.phone_number || p.phone || "").toLowerCase();
+                return (!n || name.includes(n)) && (!ph || phone.includes(ph));
+            });
+        }
+
+        // Appointments
+        let apptCache = [];
+        function renderApptTable(list) {
+            const body = $("#appointmentsTable tbody");
+            body.innerHTML = "";
+            safeArray(list).forEach(a => {
+                const tr = document.createElement("tr");
+                const status = (a.status || "").toLowerCase();
+                tr.innerHTML = `
+        <td>${a.id ?? ""}</td>
+        <td>${nullToEmpty(a.date || "")}</td>
+        <td>${nullToEmpty(a.time || "")}</td>
+        <td>${nullToEmpty(a.patient?.name || a.patient_name || "")}</td>
+        <td>${nullToEmpty(a.location?.name || a.location_name || "")}</td>
+        <td><span class="tag">${status || "n/a"}</span></td>
+        <td>${nullToEmpty(a.remarks || "")}</td>
+        <td>
+          <div class="table-actions">
+            <button class="btn-outline" data-act="mark-done" data-id="${a.id}">Done</button>
+            <button class="btn-warning" data-act="cancel" data-id="${a.id}">Cancel</button>
+          </div>
+        </td>
+      `;
+                body.appendChild(tr);
+            });
+            $("#apptsCountTag").textContent = `${safeArray(list).length} records`;
+        }
+        async function loadAppointments() {
+            try {
+                const sd = $("#startDate").value;
+                const ed = $("#endDate").value;
+                const status = $("#apptStatus").value;
+                const end = ed || dateToISO(new Date());
+                const start = sd || dateToISO(new Date(Date.now() - 29 * 86400000));
+                let url = `/appointments/?start_date=${start}&end_date=${end}`;
+                if (status) url += `&status=${encodeURIComponent(status)}`;
+                const data = await fetchJSON(url);
+                apptCache = safeArray(data);
+                renderApptTable(apptCache);
+            } catch (e) {
+                toast("Failed to load appointments", "error");
+            }
+        }
+
+        // Locations
+        async function loadLocations() {
+            try {
+                const data = await fetchJSON("/locations/");
+                const list = safeArray(data);
+                const body = $("#locationsTable tbody");
+                body.innerHTML = "";
+                list.forEach(l => {
+                    const tr = document.createElement("tr");
+                    tr.innerHTML = `
+          <td>${l.id ?? ""}</td>
+          <td>${nullToEmpty(l.name)}</td>
+          <td>${nullToEmpty(l.address || "")}</td>
+          <td>${nullToEmpty(l.city || "")}</td>
+          <td>${nullToEmpty(l.phone || "")}</td>
+        `;
+                    body.appendChild(tr);
+                });
+                $("#locationsCountTag").textContent = `${list.length} records`;
+            } catch (e) {
+                toast("Failed to load locations", "error");
+            }
+        }
+
+        // Patients: modal and CRUD
+        function openPatientModal(edit = null) {
+            $("#patientModalTitle").textContent = edit ? "Edit Patient" : "Add Patient";
+            $("#pm_id").value = edit?.id || "";
+            $("#pm_name").value = edit?.name || "";
+            $("#pm_phone").value = edit?.phone_number || edit?.phone || "";
+            $("#pm_whatsapp").value = edit?.whatsapp_number || "";
+            $("#pm_email").value = edit?.email || "";
+            $("#patientModalBackdrop").style.display = "flex";
+        }
+        function closePatientModal() {
+            $("#patientModalBackdrop").style.display = "none";
+        }
+        async function savePatientFromModal() {
+            const id = $("#pm_id").value.trim();
+            const payload = {
+                name: $("#pm_name").value.trim(),
+                phone_number: $("#pm_phone").value.trim(),
+                whatsapp_number: $("#pm_whatsapp").value.trim(),
+                email: $("#pm_email").value.trim()
+            };
+            try {
+                if (id) {
+                    await fetchJSON(`/patients/${id}`, {
+                        method: "PATCH",
+                        body: JSON.stringify(payload)
+                    });
+                    toast("Patient updated", "success");
+                } else {
+                    await fetchJSON("/patients/", {
+                        method: "POST",
+                        body: JSON.stringify(payload)
+                    });
+                    toast("Patient created", "success");
+                }
+                closePatientModal();
+                await loadPatients();
+                await loadDashboard();
+            } catch (e) {
+                toast(e?.message || "Failed to save patient", "error");
+            }
+        }
+        async function deletePatient(id) {
+            if (!confirm("Delete this patient?")) return;
+            try {
+                await fetchJSON(`/patients/${id}`, { method: "DELETE" });
+                toast("Patient deleted", "success");
+                await loadPatients();
+                await loadDashboard();
+            } catch (e) {
+                toast(e?.message || "Failed to delete patient", "error");
+            }
+        }
+
+        // Appointments quick actions
+        async function cancelAppointment(id) {
+            const reason = prompt("Reason for cancellation?");
+            try {
+                await fetchJSON(`/appointments/${id}/cancel` + (reason ? `?reason=${encodeURIComponent(reason)}` : ""), { method: "PUT" });
+                toast("Appointment cancelled", "success");
+                await loadAppointments();
+                await loadDashboard();
+            } catch (e) {
+                toast(e?.message || "Failed to cancel appointment", "error");
+            }
+        }
+        async function markAppointmentDone(id) {
+            // If backend has a specific route, call it. Otherwise fallback to PATCH status.
+            try {
+                try {
+                    await fetchJSON(`/appointments/${id}`, { method: "PATCH", body: JSON.stringify({ status: "completed" }) });
+                } catch (_) {
+                    // ignore, maybe different route exists
+                }
+                toast("Appointment updated", "success");
+                await loadAppointments();
+                await loadDashboard();
+            } catch (e) {
+                toast(e?.message || "Failed to update appointment", "error");
+            }
+        }
+
+        // Global search (client-side across loaded caches)
+        function runGlobalSearch() {
+            const q = ($("#globalSearchInput").value || "").toLowerCase();
+            $("#globalSearchStatus").textContent = q ? `Results for "${q}"` : "Enter a query and press Search.";
+            const pBody = $("#searchPatientsBody");
+            const aBody = $("#searchApptsBody");
+            pBody.innerHTML = "";
+            aBody.innerHTML = "";
+            // Patients
+            safeArray(patientsCache)
+                .filter(p => (p.name || "").toLowerCase().includes(q) || (p.phone_number || p.phone || "").toLowerCase().includes(q) || String(p.id || "").includes(q))
+                .slice(0, 50)
+                .forEach(p => {
+                    const tr = document.createElement("tr");
+                    tr.innerHTML = `<td>${p.id ?? ""}</td><td>${nullToEmpty(p.name)}</td><td>${nullToEmpty(p.phone_number || p.phone || "")}</td>`;
+                    pBody.appendChild(tr);
+                });
+            // Appointments
+            safeArray(apptCache)
+                .filter(a => (a.patient?.name || a.patient_name || "").toLowerCase().includes(q) || String(a.id || "").includes(q) || (a.date || "").includes(q))
+                .slice(0, 50)
+                .forEach(a => {
+                    const tr = document.createElement("tr");
+                    tr.innerHTML = `<td>${a.id ?? ""}</td><td>${nullToEmpty(a.date || "")}</td><td>${nullToEmpty(a.patient?.name || a.patient_name || "")}</td><td>${nullToEmpty(a.status || "")}</td>`;
+                    aBody.appendChild(tr);
+                });
+        }
+
+        // CSV exports
+        function toCSV(rows) {
+            if (!rows?.length) return "";
+            const headers = Object.keys(rows[0]);
+            const escape = (v) => {
+                const s = (v == null ? "" : String(v));
+                if (s.includes('"') || s.includes(",") || s.includes("\n")) {
+                    return '"' + s.replace(/"/g, '""') + '"';
+                }
+                return s;
+            };
+            const lines = [headers.join(",")];
+            for (const r of rows) {
+                lines.push(headers.map(h => escape(r[h])).join(","));
+            }
+            return lines.join("\n");
+        }
+        function download(name, text) {
+            const blob = new Blob([text], { type: "text/csv;charset=utf-8" });
+            const a = document.createElement("a");
+            a.href = URL.createObjectURL(blob);
+            a.download = name;
+            a.click();
+            URL.revokeObjectURL(a.href);
+        }
+        function exportPatientsCSV() {
+            const rows = safeArray(patientsCache).map(p => ({
+                id: p.id ?? "",
+                name: p.name ?? "",
+                phone_number: p.phone_number ?? p.phone ?? "",
+                whatsapp_number: p.whatsapp_number ?? "",
+                email: p.email ?? "",
+                created_at: p.created_at ?? ""
+            }));
+            download("patients.csv", toCSV(rows));
+        }
+        function exportApptsCSV() {
+            const rows = safeArray(apptCache).map(a => ({
+                id: a.id ?? "",
+                date: a.date ?? "",
+                time: a.time ?? "",
+                patient_name: a.patient?.name ?? a.patient_name ?? "",
+                location_name: a.location?.name ?? a.location_name ?? "",
+                status: a.status ?? "",
+                remarks: a.remarks ?? ""
+            }));
+            download("appointments.csv", toCSV(rows));
+        }
+
+        // Navigation wiring
+        function setupNav() {
+            $$(".nav-link").forEach(a => {
+                a.addEventListener("click", (e) => {
+                    e.preventDefault();
+                    const target = a.getAttribute("data-target");
+                    if (target) setActiveSection(target);
+                });
+            });
+        }
+
+        // Event bindings
+        function setupEvents() {
+            $("#logoutBtn").addEventListener("click", () => API.logout());
+
+            $("#refreshDashboardBtn").addEventListener("click", loadDashboard);
+
+            // Patients
+            $("#addPatientBtn").addEventListener("click", () => openPatientModal(null));
+            $("#closePatientModalBtn").addEventListener("click", closePatientModal);
+            $("#cancelPatientModalBtn").addEventListener("click", closePatientModal);
+            $("#savePatientModalBtn").addEventListener("click", savePatientFromModal);
+            $("#patientsTable").addEventListener("click", (e) => {
+                const btn = e.target.closest("button");
+                if (!btn) return;
+                const id = btn.getAttribute("data-id");
+                const act = btn.getAttribute("data-act");
+                if (!id || !act) return;
+                const patient = patientsCache.find(p => String(p.id) === String(id));
+                if (act === "edit") openPatientModal(patient || null);
+                if (act === "del") deletePatient(id);
+            });
+            $("#applyPatientFilters").addEventListener("click", () => renderPatientsTable(filteredPatients()));
+            $("#clearPatientFilters").addEventListener("click", () => {
+                $("#filterPatientName").value = "";
+                $("#filterPatientPhone").value = "";
+                $("#patientSearchInput").value = "";
+                renderPatientsTable(patientsCache);
+            });
+            $("#patientSearchInput").addEventListener("input", (e) => {
+                const q = (e.target.value || "").toLowerCase();
+                const filtered = patientsCache.filter(p => (p.name || "").toLowerCase().includes(q) || (p.phone_number || p.phone || "").toLowerCase().includes(q));
+                renderPatientsTable(filtered);
+            });
+
+            // Appointments
+            $("#refreshApptsBtn").addEventListener("click", loadAppointments);
+            $("#resetApptFilters").addEventListener("click", () => {
+                $("#startDate").value = "";
+                $("#endDate").value = "";
+                $("#apptStatus").value = "";
+                loadAppointments();
+            });
+            $("#appointmentsTable").addEventListener("click", (e) => {
+                const btn = e.target.closest("button");
+                if (!btn) return;
+                const id = btn.getAttribute("data-id");
+                const act = btn.getAttribute("data-act");
+                if (!id || !act) return;
+                if (act === "cancel") cancelAppointment(id);
+                if (act === "mark-done") markAppointmentDone(id);
+            });
+
+            // Locations
+            $("#refreshLocationsBtn").addEventListener("click", loadLocations);
+
+            // Search
+            $("#runGlobalSearchBtn").addEventListener("click", runGlobalSearch);
+
+            // Reports
+            $("#exportPatientsBtn").addEventListener("click", exportPatientsCSV);
+            $("#exportApptsBtn").addEventListener("click", exportApptsCSV);
+        }
+
+        // Initial load
+        async function init() {
+            setupNav();
+            setupEvents();
+            await loadCurrentUser();
+            // Load all main datasets in background
+            loadDashboard();
+            loadPatients();
+            loadAppointments();
+            loadLocations();
+        }
+        document.addEventListener("DOMContentLoaded", init);
+    </script>
+</body>
+
+</html>

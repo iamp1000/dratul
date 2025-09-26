@@ -4,29 +4,137 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Admin Panel - Clinic OS</title>
+    <title>Medical Dashboard - Dr. Dhingra's Clinic OS</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
     <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link
+        href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800&family=Inter:wght@300;400;500;600;700&display=swap"
+        rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <script>
         tailwind.config = {
             theme: {
                 extend: {
                     colors: {
-                        'primary': '#272343', 'secondary': '#e3f6f5', 'accent': '#bae8e8', 'light': '#ffffff',
-                        'text-dark': '#2d334a', 'text-light': '#5a5e74',
+                        'medical-blue': '#0B4D6B',
+                        'medical-light': '#E6F3F8',
+                        'medical-accent': '#2196F3',
+                        'medical-success': '#10B981',
+                        'medical-warning': '#F59E0B',
+                        'medical-error': '#EF4444',
+                        'medical-dark': '#1E293B',
+                        'medical-gray': '#64748B',
+                        'medical-light-gray': '#F8FAFC',
+                        'medical-purple': '#8B5CF6',
+                        'medical-teal': '#14B8A6',
+                        'medical-orange': '#F97316',
+                        'primary': '#0B4D6B',
+                        'secondary': '#E6F3F8',
+                        'accent': '#2196F3',
+                        'light': '#ffffff',
+                        'text-dark': '#1E293B',
+                        'text-light': '#64748B',
                     },
-                    fontFamily: { sans: ['Inter', 'sans-serif'] },
+                    fontFamily: {
+                        'primary': ['Poppins', 'sans-serif'],
+                        'secondary': ['Inter', 'sans-serif'],
+                        sans: ['Poppins', 'sans-serif']
+                    },
+                    animation: {
+                        'fade-in': 'fadeIn 0.5s ease-out',
+                        'slide-in': 'slideIn 0.3s ease-out',
+                        'pulse-gentle': 'pulseGentle 2s infinite',
+                        'float': 'float 3s ease-in-out infinite',
+                        'glow': 'glow 2s ease-in-out infinite alternate',
+                    },
+                    keyframes: {
+                        fadeIn: {
+                            '0%': { opacity: '0', transform: 'translateY(10px)' },
+                            '100%': { opacity: '1', transform: 'translateY(0)' }
+                        },
+                        slideIn: {
+                            '0%': { opacity: '0', transform: 'translateX(-20px)' },
+                            '100%': { opacity: '1', transform: 'translateX(0)' }
+                        },
+                        pulseGentle: {
+                            '0%, 100%': { opacity: '0.4' },
+                            '50%': { opacity: '0.6' }
+                        },
+                        float: {
+                            '0%, 100%': { transform: 'translateY(0px)' },
+                            '50%': { transform: 'translateY(-10px)' }
+                        },
+                        glow: {
+                            '0%': { boxShadow: '0 0 5px rgba(33, 150, 243, 0.2)' },
+                            '100%': { boxShadow: '0 0 20px rgba(33, 150, 243, 0.4)' }
+                        }
+                    },
+                    backdropBlur: {
+                        'xs': '2px',
+                    }
                 }
             }
         }
     </script>
     <style>
         body {
-            font-family: 'Inter', sans-serif;
-            background-color: #e3f6f5;
+            font-family: 'Poppins', sans-serif;
+            background: linear-gradient(135deg, #E6F3F8 0%, #F8FAFC 100%);
+            min-height: 100vh;
+        }
+
+        .glass-effect {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+
+        .medical-card {
+            background: rgba(255, 255, 255, 0.98);
+            backdrop-filter: blur(20px);
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+
+        .medical-sidebar {
+            background: linear-gradient(180deg, #0B4D6B 0%, #2196F3 100%);
+            box-shadow: 4px 0 20px rgba(11, 77, 107, 0.15);
+        }
+
+        .medical-nav-item {
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .medical-nav-item::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.1), transparent);
+            transition: left 0.5s;
+        }
+
+        .medical-nav-item:hover::before {
+            left: 100%;
+        }
+
+        .medical-nav-item.active {
+            background: rgba(255, 255, 255, 0.15);
+            border-right: 4px solid #ffffff;
+            transform: translateX(4px);
+        }
+
+        .medical-header {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(20px);
+            border-bottom: 1px solid rgba(11, 77, 107, 0.1);
+            box-shadow: 0 2px 20px rgba(0, 0, 0, 0.05);
         }
 
         .modal-backdrop {
@@ -35,55 +143,184 @@
             left: 0;
             right: 0;
             bottom: 0;
-            background-color: rgba(0, 0, 0, 0.5);
+            background-color: rgba(11, 77, 107, 0.4);
             display: flex;
             justify-content: center;
             align-items: center;
             z-index: 50;
-            backdrop-filter: blur(2px);
+            backdrop-filter: blur(8px);
         }
 
         .modal-content {
-            background-color: white;
+            background: rgba(255, 255, 255, 0.98);
+            backdrop-filter: blur(20px);
             padding: 2rem;
-            border-radius: 0.75rem;
+            border-radius: 1rem;
             width: 90%;
-            max-width: 500px;
-            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
+            max-width: 600px;
+            box-shadow: 0 25px 50px rgba(0, 0, 0, 0.15);
+            border: 1px solid rgba(255, 255, 255, 0.2);
             transform: scale(0.95);
             opacity: 0;
             animation: zoomIn 0.3s forwards cubic-bezier(0.165, 0.84, 0.44, 1);
         }
 
         .spinner {
-            border: 4px solid rgba(0, 0, 0, 0.1);
-            width: 36px;
-            height: 36px;
+            border: 4px solid rgba(33, 150, 243, 0.1);
+            border-left: 4px solid #2196F3;
             border-radius: 50%;
-            border-left-color: #272343;
-            animation: spin 1s ease infinite;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
         }
 
-        @keyframes spin {
-            to {
-                transform: rotate(360deg);
-            }
+        .medical-button {
+            background: linear-gradient(135deg, #2196F3 0%, #0B4D6B 100%);
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .medical-button::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+            transition: left 0.5s;
+        }
+
+        .medical-button:hover::before {
+            left: 100%;
+        }
+
+        .medical-button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(33, 150, 243, 0.3);
+        }
+
+        .medical-stats-card {
+            background: linear-gradient(135deg, rgba(255, 255, 255, 0.9) 0%, rgba(255, 255, 255, 0.7) 100%);
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            transition: all 0.3s ease;
+        }
+
+        .medical-stats-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 15px 35px rgba(0, 0, 0, 0.1);
+        }
+
+        .medical-table {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+
+        .medical-input {
+            background: rgba(255, 255, 255, 0.9);
+            backdrop-filter: blur(10px);
+            border: 2px solid rgba(33, 150, 243, 0.1);
+            transition: all 0.3s ease;
+        }
+
+        .medical-input:focus {
+            border-color: #2196F3;
+            background: rgba(255, 255, 255, 1);
+            box-shadow: 0 0 20px rgba(33, 150, 243, 0.1);
         }
 
         @keyframes zoomIn {
             to {
-                transform: scale(1);
                 opacity: 1;
+                transform: scale(1);
             }
+        }
+
+        @keyframes spin {
+            0% {
+                transform: rotate(0deg);
+            }
+
+            100% {
+                transform: rotate(360deg);
+            }
+        }
+
+        .status-confirmed {
+            background: linear-gradient(135deg, #10B981 0%, #059669 100%);
+        }
+
+        .status-completed {
+            background: linear-gradient(135deg, #2196F3 0%, #1976D2 100%);
+        }
+
+        .status-cancelled {
+            background: linear-gradient(135deg, #EF4444 0%, #DC2626 100%);
+        }
+
+        .status-pending {
+            background: linear-gradient(135deg, #F59E0B 0%, #D97706 100%);
+        }
+
+        .floating-elements {
+            position: relative;
+        }
+
+        .floating-elements::before {
+            content: '';
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            width: 100px;
+            height: 100px;
+            background: radial-gradient(circle, rgba(33, 150, 243, 0.1) 0%, transparent 70%);
+            border-radius: 50%;
+            animation: float 4s infinite;
+        }
+
+        .chart-container {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(20px);
+            border-radius: 1rem;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+
+        .medical-badge {
+            background: linear-gradient(135deg, #8B5CF6 0%, #7C3AED 100%);
+            color: white;
+            font-weight: 500;
+            padding: 0.25rem 0.75rem;
+            border-radius: 9999px;
+            font-size: 0.75rem;
+        }
+
+        .medical-alert {
+            background: rgba(239, 68, 68, 0.1);
+            border: 1px solid rgba(239, 68, 68, 0.2);
+            color: #DC2626;
+        }
+
+        .medical-success {
+            background: rgba(16, 185, 129, 0.1);
+            border: 1px solid rgba(16, 185, 129, 0.2);
+            color: #059669;
+        }
+
+        .medical-warning {
+            background: rgba(245, 158, 11, 0.1);
+            border: 1px solid rgba(245, 158, 11, 0.2);
+            color: #D97706;
         }
     </style>
 </head>
 
-<body>
+<body class="bg-medical-light-gray min-h-screen">
     <div id="root"></div>
 
-    <script type="text/babel">
-        const { useState, useEffect, useMemo, createContext, useContext } = React;
+    <script type="text/babel">const { useState, useEffect, useMemo, createContext, useContext } = React;
 
         // --- API Communication Helper ---
         const API_BASE_URL = 'http://127.0.0.1:8000';
@@ -601,12 +838,12 @@
 
                     const initialData = {
                         id: appointment ? appointment.id : null,
-                        patient_id: appointment ? appointment.patient_id : '',
-                        location_id: appointment ? appointment.location_id : '',
-                        start_time: startTime,
-                        end_time: endTime, // Add the end_time here
-                        reason: appointment ? appointment.reason : '',
-                        status: appointment ? appointment.status : 'Confirmed',
+                        patient_id: parseInt(patient_id),
+                        location_id: parseInt(location_id),
+                        start_time: start_datetime,
+                        end_time: end_datetime,
+                        status: status,
+                        reason: reason || null
                     };
                     setFormData(initialData);
                 }
@@ -1380,8 +1617,141 @@
         }
 
 
-        ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+        ReactDOM.createRoot(document.getElementById('root')).render(<App />);</script>
+    <script>
+
+        (function () {
+            const API_BASE = "http://127.0.0.1:8000";
+            const USE_V1 = false;
+            const LOGIN_PAGE = "admin_login.html";
+
+            // Token helpers
+            const TOKEN_KEY = "admin_token";
+            function getToken() { try { return localStorage.getItem(TOKEN_KEY) || ""; } catch { return ""; } }
+            function setToken(tok) { try { localStorage.setItem(TOKEN_KEY, tok || ""); } catch { } }
+            function clearToken() { try { localStorage.removeItem(TOKEN_KEY); } catch { } }
+
+            // Expose a tiny API facade in case panel scripts want to use it directly
+            window.API = {
+                base: API_BASE,
+                useV1: USE_V1,
+                get token() { return getToken(); },
+                set token(v) { setToken(v); },
+                logout: () => { clearToken(); location.href = LOGIN_PAGE; },
+                url: (path) => {
+                    const absolute = /^https?:\/\//i.test(path);
+                    let u = absolute ? path : API_BASE + (path.startsWith("/") ? path : "/" + path);
+                    if (USE_V1 && !/\/api\/v\d\//i.test(u)) {
+                        // Insert /api/v1 after host if not present
+                        const urlObj = new URL(u, API_BASE);
+                        if (!urlObj.pathname.startsWith("/api/")) {
+                            urlObj.pathname = "/api/v1" + (urlObj.pathname.startsWith("/") ? urlObj.pathname : "/" + urlObj.pathname);
+                        }
+                        u = urlObj.toString();
+                    }
+                    return u;
+                }
+            };
+
+            // Monkey‑patch fetch to add base URL and Authorization automatically
+            const originalFetch = window.fetch.bind(window);
+            window.fetch = async function (resource, init) {
+                let url = typeof resource === "string" ? resource : resource.url;
+                const cfg = Object.assign({ mode: "cors" }, init || {});
+                // Normalize headers
+                cfg.headers = new Headers(cfg.headers || {});
+                const tok = getToken();
+                if (tok && !cfg.headers.has("Authorization")) {
+                    cfg.headers.set("Authorization", "Bearer " + tok);
+                }
+                // Always send JSON unless caller overrides
+                if (!cfg.headers.has("Content-Type") && (cfg.method || "GET").toUpperCase() !== "GET" && cfg.body && !(cfg.body instanceof FormData)) {
+                    cfg.headers.set("Content-Type", "application/json");
+                }
+
+                // Rewrite URL to API base
+                const isAbsolute = /^https?:\/\//i.test(url);
+                let finalUrl = isAbsolute ? url : API_BASE + (url.startsWith("/") ? url : "/" + url);
+
+                // Optional versioning
+                if (USE_V1 && !/\/api\/v\d\//i.test(finalUrl)) {
+                    const u = new URL(finalUrl, API_BASE);
+                    if (!u.pathname.startsWith("/api/")) {
+                        u.pathname = "/api/v1" + (u.pathname.startsWith("/") ? u.pathname : "/" + u.pathname);
+                    }
+                    finalUrl = u.toString();
+                }
+
+                const resp = await originalFetch(finalUrl, cfg);
+
+                // If unauthorized, clear token and redirect to login
+                if (resp.status === 401) {
+                    clearToken();
+                    try { console.warn("Unauthorized, redirecting to login…"); } catch { }
+                    if (!/admin_login\.html/i.test(location.pathname)) {
+                        location.href = LOGIN_PAGE;
+                    }
+                    return resp;
+                }
+
+                return resp;
+            };
+
+            // Optional: verify session on panel load; harmless if panel already does this
+            async function verifySession() {
+                try {
+                    if (!getToken()) return; // let the panel decide what to do when no token
+                    const meResp = await fetch("/users/me");
+                    if (meResp.status === 401) {
+                        clearToken();
+                        location.href = LOGIN_PAGE;
+                        return;
+                    }
+                    // Optionally store current user
+                    try {
+                        const me = await meResp.json();
+                        window.CURRENT_USER = me;
+                    } catch { }
+                } catch (e) {
+                    // Leave to existing UI error handling
+                    console.error("Session check failed:", e);
+                }
+            }
+
+            // Kick off session check, but do not block UI
+            verifySession();
+
+            // Provide a helper for JSON requests
+            window.fetchJSON = async function (path, options) {
+                const resp = await fetch(path, options);
+                const text = await resp.text();
+                try {
+                    const data = text ? JSON.parse(text) : null;
+                    if (!resp.ok) {
+                        const err = new Error((data && (data.detail || data.message)) || resp.statusText || "Request failed");
+                        err.status = resp.status;
+                        err.data = data;
+                        throw err;
+                    }
+                    return data;
+                } catch (e) {
+                    // Non‑JSON responses
+                    if (!resp.ok) {
+                        const err = new Error(text || resp.statusText || "Request failed");
+                        err.status = resp.status;
+                        err.data = text;
+                        throw err;
+                    }
+                    return text;
+                }
+            };
+
+            window.safeArray = (x) => Array.isArray(x) ? x : [];
+            window.nullToEmpty = (x) => (x == null ? "" : x);
+
+        })();
     </script>
+
 </body>
 
 </html>
