@@ -4,260 +4,464 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Medical Admin Dashboard - Dr. Dhingra's Clinic</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
-    <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
-    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-    <link
-        href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800&family=Inter:wght@300;400;500;600;700&display=swap"
-        rel="stylesheet">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <script>
-        tailwind.config = {
-            theme: {
-                extend: {
-                    colors: {
-                        'medical-blue': '#0B4D6B',
-                        'medical-light': '#E6F3F8',
-                        'medical-accent': '#2196F3',
-                        'medical-success': '#10B981',
-                        'medical-warning': '#F59E0B',
-                        'medical-error': '#EF4444',
-                        'medical-dark': '#1E293B',
-                        'medical-gray': '#64748B',
-                        'medical-light-gray': '#F8FAFC',
-                    },
-                    fontFamily: {
-                        'primary': ['Poppins', 'sans-serif'],
-                        'secondary': ['Inter', 'sans-serif']
-                    },
-                    animation: {
-                        'fade-in': 'fadeIn 0.6s ease-out',
-                        'slide-up': 'slideUp 0.5s ease-out',
-                        'slide-in': 'slideIn 0.4s ease-out',
-                        'pulse-gentle': 'pulseGentle 2s infinite',
-                        'bounce-gentle': 'bounceGentle 1s ease-out',
-                    },
-                    keyframes: {
-                        fadeIn: {
-                            '0%': { opacity: '0', transform: 'translateY(10px)' },
-                            '100%': { opacity: '1', transform: 'translateY(0)' }
-                        },
-                        slideUp: {
-                            '0%': { opacity: '0', transform: 'translateY(30px)' },
-                            '100%': { opacity: '1', transform: 'translateY(0)' }
-                        },
-                        slideIn: {
-                            '0%': { opacity: '0', transform: 'translateX(-20px)' },
-                            '100%': { opacity: '1', transform: 'translateX(0)' }
-                        },
-                        pulseGentle: {
-                            '0%, 100%': { opacity: '0.4' },
-                            '50%': { opacity: '0.6' }
-                        },
-                        bounceGentle: {
-                            '0%, 20%, 50%, 80%, 100%': { transform: 'translateY(0)' },
-                            '40%': { transform: 'translateY(-10px)' },
-                            '60%': { transform: 'translateY(-5px)' }
-                        }
-                    }
-                }
-            }
-        }
-    </script>
+    <title>Dr. Dhingra's Clinic - Admin Panel</title>
     <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            --bg-primary: #0f172a;
+            --bg-secondary: #1e293b;
+            --bg-card: #334155;
+            --text-primary: #f8fafc;
+            --text-secondary: #cbd5e1;
+            --text-muted: #64748b;
+            --accent: #3b82f6;
+            --accent-hover: #2563eb;
+            --success: #10b981;
+            --warning: #f59e0b;
+            --danger: #ef4444;
+            --border: #475569;
+            --border-light: #64748b;
+        }
+
         body {
-            font-family: 'Poppins', sans-serif;
-            background: linear-gradient(135deg, #0B4D6B 0%, #2196F3 50%, #E6F3F8 100%);
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, var(--bg-primary) 0%, #1e293b 100%);
+            color: var(--text-primary);
             min-height: 100vh;
         }
 
-        .glass-effect {
-            background: rgba(255, 255, 255, 0.95);
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        /* Login Page Styles */
+        .login-container {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            background: linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #334155 100%);
+        }
+
+        .login-card {
+            background: rgba(51, 65, 85, 0.8);
             backdrop-filter: blur(20px);
-            border: 1px solid rgba(255, 255, 255, 0.2);
-        }
-
-        .medical-card {
-            background: rgba(255, 255, 255, 0.98);
-            backdrop-filter: blur(20px);
-            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.15);
-        }
-
-        .sidebar-card {
-            background: rgba(11, 77, 107, 0.95);
-            backdrop-filter: blur(20px);
-            border: 1px solid rgba(255, 255, 255, 0.1);
-        }
-
-        .floating-elements::before {
-            content: '';
-            position: absolute;
-            top: -50px;
-            right: -50px;
-            width: 200px;
-            height: 200px;
-            background: radial-gradient(circle, rgba(33, 150, 243, 0.1) 0%, transparent 70%);
-            border-radius: 50%;
-            animation: pulse-gentle 3s infinite;
-        }
-
-        .floating-elements::after {
-            content: '';
-            position: absolute;
-            bottom: -80px;
-            left: -80px;
-            width: 300px;
-            height: 300px;
-            background: radial-gradient(circle, rgba(11, 77, 107, 0.08) 0%, transparent 70%);
-            border-radius: 50%;
-            animation: pulse-gentle 4s infinite reverse;
-        }
-
-        .input-group {
-            position: relative;
-        }
-
-        .input-group input:focus+label,
-        .input-group input:not(:placeholder-shown)+label,
-        .input-group select:focus+label,
-        .input-group select:not([value=""])+label {
-            transform: translateY(-24px) scale(0.85);
-            color: #2196F3;
-        }
-
-        .input-group label {
-            position: absolute;
-            left: 16px;
-            top: 16px;
-            color: #64748B;
-            transition: all 0.3s ease;
-            pointer-events: none;
-            background: white;
-            padding: 0 4px;
-        }
-
-        .medical-button {
-            background: linear-gradient(135deg, #2196F3 0%, #0B4D6B 100%);
-            transition: all 0.3s ease;
-            position: relative;
-            overflow: hidden;
-        }
-
-        .medical-button::before {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: -100%;
+            border: 1px solid var(--border);
+            border-radius: 20px;
+            padding: 40px;
             width: 100%;
-            height: 100%;
-            background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
-            transition: left 0.5s;
+            max-width: 450px;
+            box-shadow: 0 25px 50px rgba(0, 0, 0, 0.5);
         }
 
-        .medical-button:hover::before {
-            left: 100%;
+        .login-header {
+            text-align: center;
+            margin-bottom: 30px;
         }
 
-        .medical-button:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 15px 35px rgba(33, 150, 243, 0.4);
+        .clinic-logo {
+            width: 60px;
+            height: 60px;
+            background: linear-gradient(135deg, var(--accent) 0%, var(--success) 100%);
+            border-radius: 15px;
+            margin: 0 auto 15px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 24px;
+            font-weight: bold;
         }
 
-        .sidebar-item {
+        .login-title {
+            font-size: 28px;
+            font-weight: 700;
+            margin-bottom: 10px;
+            background: linear-gradient(135deg, var(--text-primary) 0%, var(--text-secondary) 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .login-subtitle {
+            color: var(--text-muted);
+            font-size: 16px;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 500;
+            color: var(--text-secondary);
+        }
+
+        .form-input {
+            width: 100%;
+            padding: 15px;
+            background: rgba(15, 23, 42, 0.6);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            color: var(--text-primary);
+            font-size: 16px;
             transition: all 0.3s ease;
-            position: relative;
         }
 
-        .sidebar-item:hover {
-            background: rgba(255, 255, 255, 0.1);
-            transform: translateX(4px);
+        .form-input:focus {
+            outline: none;
+            border-color: var(--accent);
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
         }
 
-        .sidebar-item.active {
-            background: rgba(255, 255, 255, 0.15);
-            border-right: 3px solid #E6F3F8;
+        .btn {
+            width: 100%;
+            padding: 15px;
+            background: linear-gradient(135deg, var(--accent) 0%, var(--accent-hover) 100%);
+            border: none;
+            border-radius: 12px;
+            color: white;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            margin-top: 10px;
+        }
+
+        .btn:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 25px rgba(59, 130, 246, 0.3);
+        }
+
+        .btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .alert {
+            padding: 12px 16px;
+            border-radius: 8px;
+            margin: 15px 0;
+            font-size: 14px;
+        }
+
+        .alert-error {
+            background: rgba(239, 68, 68, 0.1);
+            border: 1px solid rgba(239, 68, 68, 0.2);
+            color: #fca5a5;
+        }
+
+        .alert-success {
+            background: rgba(16, 185, 129, 0.1);
+            border: 1px solid rgba(16, 185, 129, 0.2);
+            color: #6ee7b7;
+        }
+
+        /* Dashboard Styles */
+        .header {
+            background: rgba(51, 65, 85, 0.8);
+            backdrop-filter: blur(20px);
+            border-radius: 15px;
+            padding: 20px 30px;
+            margin-bottom: 30px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border: 1px solid var(--border);
+        }
+
+        .header-left {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+
+        .header-logo {
+            width: 40px;
+            height: 40px;
+            background: linear-gradient(135deg, var(--accent) 0%, var(--success) 100%);
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            font-size: 16px;
+        }
+
+        .header-title {
+            font-size: 24px;
+            font-weight: 700;
+        }
+
+        .header-user {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+
+        .user-info {
+            text-align: right;
+        }
+
+        .user-name {
+            font-weight: 600;
+            color: var(--text-primary);
+        }
+
+        .user-role {
+            font-size: 14px;
+            color: var(--text-muted);
+        }
+
+        .btn-logout {
+            background: rgba(239, 68, 68, 0.1);
+            border: 1px solid rgba(239, 68, 68, 0.3);
+            color: var(--danger);
+            padding: 8px 16px;
+            border-radius: 8px;
+            font-size: 14px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .btn-logout:hover {
+            background: rgba(239, 68, 68, 0.2);
+        }
+
+        /* Stats Grid */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
         }
 
         .stat-card {
+            background: rgba(51, 65, 85, 0.8);
+            backdrop-filter: blur(20px);
+            border: 1px solid var(--border);
+            border-radius: 15px;
+            padding: 25px;
+            text-align: center;
             transition: all 0.3s ease;
         }
 
         .stat-card:hover {
-            transform: translateY(-4px);
-            box-shadow: 0 8px 30px rgba(0, 0, 0, 0.12);
+            transform: translateY(-5px);
+            box-shadow: 0 15px 35px rgba(0, 0, 0, 0.3);
         }
 
-        .table-row {
+        .stat-icon {
+            width: 50px;
+            height: 50px;
+            border-radius: 12px;
+            margin: 0 auto 15px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 20px;
+        }
+
+        .stat-icon.patients {
+            background: linear-gradient(135deg, var(--accent) 0%, #1d4ed8 100%);
+        }
+
+        .stat-icon.appointments {
+            background: linear-gradient(135deg, var(--success) 0%, #047857 100%);
+        }
+
+        .stat-icon.pending {
+            background: linear-gradient(135deg, var(--warning) 0%, #d97706 100%);
+        }
+
+        .stat-icon.week {
+            background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%);
+        }
+
+        .stat-value {
+            font-size: 32px;
+            font-weight: 800;
+            margin-bottom: 5px;
+        }
+
+        .stat-label {
+            color: var(--text-muted);
+            font-size: 14px;
+            font-weight: 500;
+        }
+
+        /* Content Grid */
+        .content-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 30px;
+        }
+
+        .content-card {
+            background: rgba(51, 65, 85, 0.8);
+            backdrop-filter: blur(20px);
+            border: 1px solid var(--border);
+            border-radius: 15px;
+            padding: 25px;
+        }
+
+        .card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+
+        .card-title {
+            font-size: 20px;
+            font-weight: 600;
+        }
+
+        .card-actions {
+            display: flex;
+            gap: 10px;
+        }
+
+        .btn-sm {
+            padding: 8px 16px;
+            background: rgba(59, 130, 246, 0.1);
+            border: 1px solid rgba(59, 130, 246, 0.3);
+            color: var(--accent);
+            border-radius: 8px;
+            font-size: 14px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .btn-sm:hover {
+            background: rgba(59, 130, 246, 0.2);
+        }
+
+        /* Table Styles */
+        .table-container {
+            overflow-x: auto;
+        }
+
+        .table {
+            width: 100%;
+            border-collapse: separate;
+            border-spacing: 0;
+        }
+
+        .table th {
+            background: rgba(15, 23, 42, 0.6);
+            color: var(--text-secondary);
+            font-weight: 600;
+            padding: 12px 15px;
+            text-align: left;
+            font-size: 12px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .table th:first-child {
+            border-top-left-radius: 8px;
+        }
+
+        .table th:last-child {
+            border-top-right-radius: 8px;
+        }
+
+        .table td {
+            padding: 15px;
+            border-bottom: 1px solid var(--border);
+            vertical-align: middle;
+        }
+
+        .table tbody tr {
             transition: all 0.2s ease;
         }
 
-        .table-row:hover {
-            background: rgba(33, 150, 243, 0.02);
-            transform: scale(1.001);
+        .table tbody tr:hover {
+            background: rgba(59, 130, 246, 0.05);
         }
 
-        .calendar-day {
-            aspect-ratio: 1;
-            transition: all 0.2s ease;
+        /* Status Pills */
+        .status-pill {
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 500;
+            text-transform: capitalize;
         }
 
-        .calendar-day:hover {
-            background: #e0f2fe;
-            transform: scale(1.05);
+        .status-pill.scheduled {
+            background: rgba(59, 130, 246, 0.2);
+            color: #93c5fd;
         }
 
-        .calendar-day.active {
-            background: linear-gradient(135deg, #0ea5e9 0%, #0284c7 100%);
-            color: white;
+        .status-pill.confirmed {
+            background: rgba(16, 185, 129, 0.2);
+            color: #6ee7b7;
         }
 
-        .calendar-day.has-appointments {
-            position: relative;
+        .status-pill.completed {
+            background: rgba(34, 197, 94, 0.2);
+            color: #86efac;
         }
 
-        .calendar-day.has-appointments::after {
-            content: '';
-            position: absolute;
-            bottom: 2px;
-            right: 2px;
-            width: 6px;
-            height: 6px;
-            background: #22c55e;
+        .status-pill.cancelled {
+            background: rgba(239, 68, 68, 0.2);
+            color: #fca5a5;
+        }
+
+        .status-pill.checked_in {
+            background: rgba(245, 158, 11, 0.2);
+            color: #fbbf24;
+        }
+
+        .status-pill.in_progress {
+            background: rgba(139, 92, 246, 0.2);
+            color: #c4b5fd;
+        }
+
+        /* Search */
+        .search-container {
+            margin-bottom: 15px;
+        }
+
+        .search-input {
+            width: 100%;
+            padding: 10px 15px;
+            background: rgba(15, 23, 42, 0.6);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            color: var(--text-primary);
+            font-size: 14px;
+        }
+
+        .search-input:focus {
+            outline: none;
+            border-color: var(--accent);
+        }
+
+        /* Loading */
+        .loading {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 40px;
+        }
+
+        .spinner {
+            width: 40px;
+            height: 40px;
+            border: 3px solid rgba(59, 130, 246, 0.3);
+            border-top: 3px solid var(--accent);
             border-radius: 50%;
-        }
-
-        .calendar-day.unavailable {
-            background: #fee2e2;
-            color: #dc2626;
-            opacity: 0.7;
-        }
-
-        .notification-badge {
-            animation: pulse 2s infinite;
-        }
-
-        @keyframes pulse {
-            0% {
-                box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7);
-            }
-
-            70% {
-                box-shadow: 0 0 0 10px rgba(239, 68, 68, 0);
-            }
-
-            100% {
-                box-shadow: 0 0 0 0 rgba(239, 68, 68, 0);
-            }
-        }
-
-        .loading-spinner {
-            border: 3px solid rgba(33, 150, 243, 0.3);
-            border-top: 3px solid #2196F3;
-            border-radius: 50%;
-            width: 20px;
-            height: 20px;
             animation: spin 1s linear infinite;
         }
 
@@ -271,1390 +475,572 @@
             }
         }
 
-        .modal-backdrop {
-            background: rgba(0, 0, 0, 0.5);
-            backdrop-filter: blur(5px);
-        }
-
-        .success-animation {
-            animation: bounce-gentle 1s ease-out;
-        }
-
-        .error-shake {
-            animation: shake 0.5s ease-in-out;
-        }
-
-        @keyframes shake {
-
-            0%,
-            100% {
-                transform: translateX(0);
+        /* Responsive */
+        @media (max-width: 768px) {
+            .content-grid {
+                grid-template-columns: 1fr;
             }
 
-            25% {
-                transform: translateX(-5px);
+            .header {
+                flex-direction: column;
+                gap: 15px;
+                text-align: center;
             }
 
-            75% {
-                transform: translateX(5px);
+            .stats-grid {
+                grid-template-columns: 1fr;
             }
         }
 
-        .building-badge {
-            background: linear-gradient(135deg, #F59E0B 0%, #D97706 100%);
-            color: white;
-            padding: 4px 12px;
-            border-radius: 20px;
-            font-size: 12px;
-            font-weight: 600;
-            animation: pulse-gentle 2s infinite;
+        .hidden {
+            display: none !important;
         }
     </style>
 </head>
 
-<body class="min-h-screen">
-    <div id="root"></div>
+<body>
+    <!-- Login Page -->
+    <div id="loginPage" class="login-container">
+        <div class="login-card">
+            <div class="login-header">
+                <div class="clinic-logo">🏥</div>
+                <h1 class="login-title">Dr. Dhingra's Clinic</h1>
+                <p class="login-subtitle">Admin Panel Access</p>
+            </div>
 
-    <script type="text/babel">
-        const { useState, useEffect, useRef } = React;
-
-        // API Configuration and Helpers
-        const API_BASE = 'http://127.0.0.1:8000';
-
-        const getAuthToken = () => sessionStorage.getItem('accessToken') || '';
-
-        const apiRequest = async (endpoint, options = {}) => {
-            const token = getAuthToken();
-            const config = {
-                headers: {
-                    'Content-Type': 'application/json',
-                    ...(token && { 'Authorization': `Bearer ${token}` }),
-                    ...options.headers,
-                },
-                ...options,
-            };
-
-            try {
-                const res = await fetch(`${API_BASE}${endpoint}`, config);
-                if (!res.ok) {
-                    const errorData = await res.json().catch(() => ({ message: res.statusText }));
-                    throw new Error(errorData.message || `HTTP ${res.status}`);
-                }
-                return await res.json();
-            } catch (error) {
-                console.error(`API Error (${endpoint}):`, error);
-                throw error;
-            }
-        };
-
-        const get = (endpoint) => apiRequest(endpoint);
-        const post = (endpoint, data) => apiRequest(endpoint, { method: 'POST', body: JSON.stringify(data) });
-        const patch = (endpoint, data) => apiRequest(endpoint, { method: 'PATCH', body: JSON.stringify(data) });
-        const deleteReq = (endpoint) => apiRequest(endpoint, { method: 'DELETE' });
-
-        // Utility Components
-        const LoadingSpinner = ({ size = 'small' }) => (
-            <div className={`loading-spinner ${size === 'large' ? 'w-8 h-8' : 'w-5 h-5'}`}></div>
-        );
-
-        const Modal = ({ isOpen, onClose, title, children, size = 'md' }) => {
-            if (!isOpen) return null;
-
-            const sizeClasses = {
-                sm: 'max-w-md',
-                md: 'max-w-2xl',
-                lg: 'max-w-4xl',
-                xl: 'max-w-6xl'
-            };
-
-            return (
-                <div className="fixed inset-0 z-50 flex items-center justify-center modal-backdrop">
-                    <div className={`medical-card rounded-3xl p-6 m-4 w-full ${sizeClasses[size]} animate-slide-up`}>
-                        <div className="flex justify-between items-center mb-6">
-                            <h2 className="text-2xl font-bold text-medical-dark font-primary">{title}</h2>
-                            <button
-                                onClick={onClose}
-                                className="text-medical-gray hover:text-medical-error transition-colors p-2 rounded-lg hover:bg-medical-light-gray"
-                            >
-                                <i className="fas fa-times text-xl"></i>
-                            </button>
-                        </div>
-                        {children}
-                    </div>
+            <form id="loginForm">
+                <div class="form-group">
+                    <label for="username" class="form-label">Username</label>
+                    <input type="text" id="username" class="form-input" required autocomplete="username">
                 </div>
-            );
-        };
 
-        const NotificationToast = ({ message, type, isVisible, onClose }) => {
-            useEffect(() => {
-                if (isVisible) {
-                    const timer = setTimeout(onClose, 5000);
-                    return () => clearTimeout(timer);
-                }
-            }, [isVisible, onClose]);
-
-            if (!isVisible) return null;
-
-            const typeStyles = {
-                success: 'bg-medical-success/10 border-medical-success/20 text-medical-success',
-                error: 'bg-medical-error/10 border-medical-error/20 text-medical-error',
-                warning: 'bg-medical-warning/10 border-medical-warning/20 text-medical-warning',
-                info: 'bg-medical-accent/10 border-medical-accent/20 text-medical-accent'
-            };
-
-            const iconMap = {
-                success: 'fas fa-check-circle',
-                error: 'fas fa-exclamation-triangle',
-                warning: 'fas fa-exclamation-circle',
-                info: 'fas fa-info-circle'
-            };
-
-            return (
-                <div className={`fixed top-4 right-4 z-50 p-4 rounded-xl border ${typeStyles[type]} animate-slide-in max-w-sm medical-card`}>
-                    <div className="flex items-center">
-                        <i className={`${iconMap[type]} mr-3`}></i>
-                        <span className="font-secondary">{message}</span>
-                        <button onClick={onClose} className="ml-4 opacity-70 hover:opacity-100">
-                            <i className="fas fa-times"></i>
-                        </button>
-                    </div>
+                <div class="form-group">
+                    <label for="password" class="form-label">Password</label>
+                    <input type="password" id="password" class="form-input" required autocomplete="current-password">
                 </div>
-            );
-        };
 
-        // Calendar Component
-        const Calendar = ({ selectedDate, onDateSelect, appointments = [], unavailableDates = [] }) => {
-            const [currentMonth, setCurrentMonth] = useState(new Date());
+                <button type="submit" class="btn" id="loginBtn">
+                    Sign In
+                </button>
 
-            const monthStart = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), 1);
-            const monthEnd = new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1, 0);
-            const startDate = new Date(monthStart);
-            startDate.setDate(startDate.getDate() - monthStart.getDay());
+                <div id="loginMessage"></div>
+            </form>
 
-            const days = [];
-            const date = new Date(startDate);
-
-            for (let i = 0; i < 42; i++) {
-                days.push(new Date(date));
-                date.setDate(date.getDate() + 1);
-            }
-
-            const getAppointmentsForDate = (date) => {
-                const dateStr = date.toISOString().split('T')[0];
-                return appointments.filter(apt =>
-                    apt.start_time && apt.start_time.split('T')[0] === dateStr
-                );
-            };
-
-            const isUnavailable = (date) => {
-                const dateStr = date.toISOString().split('T')[0];
-                return unavailableDates.includes(dateStr);
-            };
-
-            const isSelected = (date) => {
-                return selectedDate && date.toDateString() === selectedDate.toDateString();
-            };
-
-            return (
-                <div className="medical-card rounded-3xl p-6">
-                    <div className="flex justify-between items-center mb-6">
-                        <button
-                            onClick={() => setCurrentMonth(new Date(currentMonth.setMonth(currentMonth.getMonth() - 1)))}
-                            className="p-3 rounded-xl hover:bg-medical-light transition-colors medical-button text-white"
-                        >
-                            <i className="fas fa-chevron-left"></i>
-                        </button>
-                        <h3 className="text-2xl font-bold text-medical-dark font-primary">
-                            {currentMonth.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
-                        </h3>
-                        <button
-                            onClick={() => setCurrentMonth(new Date(currentMonth.setMonth(currentMonth.getMonth() + 1)))}
-                            className="p-3 rounded-xl hover:bg-medical-light transition-colors medical-button text-white"
-                        >
-                            <i className="fas fa-chevron-right"></i>
-                        </button>
-                    </div>
-
-                    <div className="grid grid-cols-7 gap-2 mb-4">
-                        {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(day => (
-                            <div key={day} className="p-3 text-center text-sm font-semibold text-medical-blue font-secondary">
-                                {day}
-                            </div>
-                        ))}
-                    </div>
-
-                    <div className="grid grid-cols-7 gap-2">
-                        {days.map((day, index) => {
-                            const appointmentsForDay = getAppointmentsForDate(day);
-                            const unavailable = isUnavailable(day);
-                            const selected = isSelected(day);
-                            const isCurrentMonth = day.getMonth() === currentMonth.getMonth();
-
-                            return (
-                                <button
-                                    key={index}
-                                    onClick={() => !unavailable && onDateSelect(day)}
-                                    disabled={unavailable}
-                                    className={`calendar-day p-3 rounded-xl text-sm font-medium font-secondary ${selected ? 'active shadow-lg' :
-                                            unavailable ? 'unavailable' :
-                                                appointmentsForDay.length > 0 ? 'has-appointments glass-effect' :
-                                                    isCurrentMonth ? 'hover:bg-medical-light text-medical-dark glass-effect' :
-                                                        'text-medical-gray glass-effect opacity-50'
-                                        }`}
-                                >
-                                    {day.getDate()}
-                                </button>
-                            );
-                        })}
-                    </div>
+            <!-- MFA Section -->
+            <div id="mfaSection" class="hidden">
+                <div class="form-group">
+                    <label for="mfaCode" class="form-label">Enter 6-digit MFA Code</label>
+                    <input type="text" id="mfaCode" class="form-input" maxlength="6" placeholder="123456"
+                        autocomplete="one-time-code">
                 </div>
-            );
-        };
 
-        // Dashboard Stats Component
-        const DashboardStats = ({ patients, appointments, users, logs }) => {
-            const today = new Date().toISOString().split('T')[0];
-            const todayAppointments = appointments.filter(apt =>
-                apt.start_time && apt.start_time.split('T')[0] === today
-            );
+                <button type="button" class="btn" id="mfaBtn">
+                    Verify Code
+                </button>
 
-            const stats = [
-                {
-                    title: 'Total Patients',
-                    value: patients.length,
-                    icon: 'fas fa-users',
-                    color: 'medical-accent',
-                    bgColor: 'medical-accent/10'
-                },
-                {
-                    title: "Today's Appointments",
-                    value: todayAppointments.length,
-                    icon: 'fas fa-calendar-day',
-                    color: 'medical-success',
-                    bgColor: 'medical-success/10'
-                },
-                {
-                    title: 'Active Users',
-                    value: users.length,
-                    icon: 'fas fa-user-md',
-                    color: 'medical-blue',
-                    bgColor: 'medical-blue/10'
-                },
-                {
-                    title: 'Recent Activities',
-                    value: logs.length,
-                    icon: 'fas fa-activity',
-                    color: 'medical-warning',
-                    bgColor: 'medical-warning/10'
-                }
-            ];
+                <div id="mfaMessage"></div>
+            </div>
+        </div>
+    </div>
 
-            return (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-                    {stats.map((stat, index) => (
-                        <div key={index} className={`stat-card medical-card rounded-3xl p-6 animate-fade-in`} style={{ animationDelay: `${index * 0.1}s` }}>
-                            <div className="flex items-center justify-between">
-                                <div>
-                                    <p className="text-medical-gray font-secondary text-sm mb-1">{stat.title}</p>
-                                    <p className={`text-4xl font-bold text-${stat.color} font-primary`}>{stat.value}</p>
-                                </div>
-                                <div className={`w-16 h-16 bg-${stat.color}/20 rounded-2xl flex items-center justify-center`}>
-                                    <i className={`${stat.icon} text-${stat.color} text-2xl`}></i>
-                                </div>
-                            </div>
-                        </div>
-                    ))}
-                </div>
-            );
-        };
-
-        // Patient Management Component (Working from old admin panel)
-        const PatientManagement = ({ patients, setPatients, showNotification }) => {
-            const [isModalOpen, setIsModalOpen] = useState(false);
-            const [editingPatient, setEditingPatient] = useState(null);
-            const [loading, setLoading] = useState(false);
-            const [formData, setFormData] = useState({
-                name: '',
-                phone_number: '',
-                email: '',
-                date_of_birth: '',
-                address: '',
-                whatsapp_number: ''
-            });
-
-            const resetForm = () => {
-                setFormData({
-                    name: '',
-                    phone_number: '',
-                    email: '',
-                    date_of_birth: '',
-                    address: '',
-                    whatsapp_number: ''
-                });
-                setEditingPatient(null);
-            };
-
-            const handleSubmit = async (e) => {
-                e.preventDefault();
-                setLoading(true);
-
-                try {
-                    const payload = {
-                        name: formData.name.trim(),
-                        phone_number: formData.phone_number.trim(),
-                        email: formData.email || null,
-                        date_of_birth: formData.date_of_birth,
-                        address: formData.address || null,
-                        whatsapp_number: formData.whatsapp_number || null
-                    };
-
-                    if (editingPatient) {
-                        const updatedPatient = await patch(`/patients/${editingPatient.id}`, payload);
-                        setPatients(prev => prev.map(p => p.id === editingPatient.id ? updatedPatient : p));
-                        showNotification('Patient updated successfully!', 'success');
-                    } else {
-                        const newPatient = await post('/patients/', payload);
-                        setPatients(prev => [...prev, newPatient]);
-                        showNotification('Patient created successfully!', 'success');
-                    }
-
-                    setIsModalOpen(false);
-                    resetForm();
-                } catch (error) {
-                    showNotification(`Failed to ${editingPatient ? 'update' : 'create'} patient: ${error.message}`, 'error');
-                } finally {
-                    setLoading(false);
-                }
-            };
-
-            const handleEdit = (patient) => {
-                setEditingPatient(patient);
-                setFormData({
-                    name: patient.name || '',
-                    phone_number: patient.phone_number || '',
-                    email: patient.email || '',
-                    date_of_birth: patient.date_of_birth || '',
-                    address: patient.address || '',
-                    whatsapp_number: patient.whatsapp_number || ''
-                });
-                setIsModalOpen(true);
-            };
-
-            const handleDelete = async (patientId) => {
-                if (!confirm('Are you sure you want to delete this patient?')) return;
-
-                try {
-                    await deleteReq(`/patients/${patientId}`);
-                    setPatients(prev => prev.filter(p => p.id !== patientId));
-                    showNotification('Patient deleted successfully!', 'success');
-                } catch (error) {
-                    showNotification(`Failed to delete patient: ${error.message}`, 'error');
-                }
-            };
-
-            return (
-                <div className="animate-fade-in">
-                    <div className="flex justify-between items-center mb-6">
-                        <h2 className="text-3xl font-bold text-medical-dark font-primary">
-                            <i className="fas fa-users mr-3 text-medical-accent"></i>
-                            Patient Management
-                        </h2>
-                        <button
-                            onClick={() => setIsModalOpen(true)}
-                            className="medical-button text-white px-8 py-4 rounded-2xl font-secondary font-semibold flex items-center shadow-lg"
-                        >
-                            <i className="fas fa-plus mr-2"></i>
-                            Add Patient
-                        </button>
-                    </div>
-
-                    <div className="medical-card rounded-3xl overflow-hidden">
-                        <div className="overflow-x-auto">
-                            <table className="w-full">
-                                <thead className="bg-gradient-to-r from-medical-blue to-medical-accent text-white">
-                                    <tr>
-                                        <th className="px-6 py-4 text-left font-semibold font-secondary">Name</th>
-                                        <th className="px-6 py-4 text-left font-semibold font-secondary">Phone</th>
-                                        <th className="px-6 py-4 text-left font-semibold font-secondary">Email</th>
-                                        <th className="px-6 py-4 text-left font-semibold font-secondary">DOB</th>
-                                        <th className="px-6 py-4 text-left font-semibold font-secondary">WhatsApp</th>
-                                        <th className="px-6 py-4 text-center font-semibold font-secondary">Actions</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {patients.map((patient) => (
-                                        <tr key={patient.id} className="table-row border-b border-medical-light">
-                                            <td className="px-6 py-4">
-                                                <div className="flex items-center">
-                                                    <div className="w-12 h-12 bg-gradient-to-br from-medical-accent to-medical-blue rounded-2xl flex items-center justify-center mr-4">
-                                                        <i className="fas fa-user text-white text-lg"></i>
-                                                    </div>
-                                                    <div>
-                                                        <p className="font-semibold text-medical-dark font-secondary text-lg">{patient.name}</p>
-                                                        <p className="text-sm text-medical-gray">ID: {patient.id}</p>
-                                                    </div>
-                                                </div>
-                                            </td>
-                                            <td className="px-6 py-4 text-medical-gray font-secondary">{patient.phone_number}</td>
-                                            <td className="px-6 py-4 text-medical-gray font-secondary">{patient.email || '-'}</td>
-                                            <td className="px-6 py-4 text-medical-gray font-secondary">{patient.date_of_birth || '-'}</td>
-                                            <td className="px-6 py-4 text-medical-gray font-secondary">{patient.whatsapp_number || '-'}</td>
-                                            <td className="px-6 py-4">
-                                                <div className="flex justify-center space-x-3">
-                                                    <button
-                                                        onClick={() => handleEdit(patient)}
-                                                        className="text-medical-accent hover:text-medical-blue p-3 rounded-xl hover:bg-medical-light transition-colors"
-                                                    >
-                                                        <i className="fas fa-edit text-lg"></i>
-                                                    </button>
-                                                    <button
-                                                        onClick={() => handleDelete(patient.id)}
-                                                        className="text-medical-error hover:text-red-700 p-3 rounded-xl hover:bg-red-50 transition-colors"
-                                                    >
-                                                        <i className="fas fa-trash text-lg"></i>
-                                                    </button>
-                                                </div>
-                                            </td>
-                                        </tr>
-                                    ))}
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>
-
-                    <Modal
-                        isOpen={isModalOpen}
-                        onClose={() => {
-                            setIsModalOpen(false);
-                            resetForm();
-                        }}
-                        title={editingPatient ? 'Edit Patient' : 'Add New Patient'}
-                    >
-                        <form onSubmit={handleSubmit} className="space-y-6">
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                <div className="input-group">
-                                    <input
-                                        type="text"
-                                        placeholder=" "
-                                        value={formData.name}
-                                        onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
-                                        className="w-full px-4 py-4 border-2 border-gray-200 rounded-xl focus:border-medical-accent focus:outline-none transition-all duration-300 font-secondary"
-                                        required
-                                    />
-                                    <label className="text-medical-gray font-secondary">Full Name</label>
-                                </div>
-
-                                <div className="input-group">
-                                    <input
-                                        type="tel"
-                                        placeholder=" "
-                                        value={formData.phone_number}
-                                        onChange={(e) => setFormData(prev => ({ ...prev, phone_number: e.target.value }))}
-                                        className="w-full px-4 py-4 border-2 border-gray-200 rounded-xl focus:border-medical-accent focus:outline-none transition-all duration-300 font-secondary"
-                                        required
-                                    />
-                                    <label className="text-medical-gray font-secondary">Phone Number</label>
-                                </div>
-
-                                <div className="input-group">
-                                    <input
-                                        type="email"
-                                        placeholder=" "
-                                        value={formData.email}
-                                        onChange={(e) => setFormData(prev => ({ ...prev, email: e.target.value }))}
-                                        className="w-full px-4 py-4 border-2 border-gray-200 rounded-xl focus:border-medical-accent focus:outline-none transition-all duration-300 font-secondary"
-                                    />
-                                    <label className="text-medical-gray font-secondary">Email Address</label>
-                                </div>
-
-                                <div className="input-group">
-                                    <input
-                                        type="date"
-                                        placeholder=" "
-                                        value={formData.date_of_birth}
-                                        onChange={(e) => setFormData(prev => ({ ...prev, date_of_birth: e.target.value }))}
-                                        className="w-full px-4 py-4 border-2 border-gray-200 rounded-xl focus:border-medical-accent focus:outline-none transition-all duration-300 font-secondary"
-                                    />
-                                    <label className="text-medical-gray font-secondary">Date of Birth</label>
-                                </div>
-
-                                <div className="input-group">
-                                    <input
-                                        type="tel"
-                                        placeholder=" "
-                                        value={formData.whatsapp_number}
-                                        onChange={(e) => setFormData(prev => ({ ...prev, whatsapp_number: e.target.value }))}
-                                        className="w-full px-4 py-4 border-2 border-gray-200 rounded-xl focus:border-medical-accent focus:outline-none transition-all duration-300 font-secondary"
-                                    />
-                                    <label className="text-medical-gray font-secondary">WhatsApp Number</label>
-                                </div>
-
-                                <div className="input-group md:col-span-2">
-                                    <textarea
-                                        placeholder=" "
-                                        value={formData.address}
-                                        onChange={(e) => setFormData(prev => ({ ...prev, address: e.target.value }))}
-                                        className="w-full px-4 py-4 border-2 border-gray-200 rounded-xl focus:border-medical-accent focus:outline-none transition-all duration-300 font-secondary resize-none"
-                                        rows="3"
-                                    />
-                                    <label className="text-medical-gray font-secondary">Address</label>
-                                </div>
-                            </div>
-
-                            <div className="flex justify-end space-x-4 pt-6 border-t border-gray-200">
-                                <button
-                                    type="button"
-                                    onClick={() => {
-                                        setIsModalOpen(false);
-                                        resetForm();
-                                    }}
-                                    className="px-8 py-3 border-2 border-gray-300 rounded-xl text-medical-gray hover:bg-gray-50 transition-colors font-secondary"
-                                >
-                                    Cancel
-                                </button>
-                                <button
-                                    type="submit"
-                                    disabled={loading}
-                                    className="medical-button text-white px-10 py-3 rounded-xl font-secondary font-semibold flex items-center disabled:opacity-50"
-                                >
-                                    {loading ? <LoadingSpinner /> : (
-                                        <>
-                                            <i className={`fas ${editingPatient ? 'fa-save' : 'fa-plus'} mr-2`}></i>
-                                            {editingPatient ? 'Update Patient' : 'Add Patient'}
-                                        </>
-                                    )}
-                                </button>
-                            </div>
-                        </form>
-                    </Modal>
-                </div>
-            );
-        };
-
-        // Appointment Calendar with Detail Modal (Working from old admin panel)
-        const AppointmentsCalendar = ({ appointments, setAppointments, patients, locations, showNotification }) => {
-            const [selectedDate, setSelectedDate] = useState(new Date());
-            const [selectedAppointment, setSelectedAppointment] = useState(null);
-            const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
-            const [emergencyMode, setEmergencyMode] = useState(false);
-
-            // Get appointments for selected date
-            const selectedDateStr = selectedDate.toISOString().split('T')[0];
-            const dayAppointments = appointments.filter(apt =>
-                apt.start_time && apt.start_time.split('T')[0] === selectedDateStr
-            );
-
-            const handleAppointmentClick = (appointment) => {
-                setSelectedAppointment(appointment);
-                setIsDetailModalOpen(true);
-            };
-
-            const handleEmergencyReschedule = async () => {
-                if (!confirm('This will notify all patients for today about rescheduling due to emergency. Continue?')) return;
-
-                try {
-                    showNotification('Emergency rescheduling notifications sent to all patients!', 'success');
-                    setEmergencyMode(false);
-                } catch (error) {
-                    showNotification('Failed to send emergency notifications: ' + error.message, 'error');
-                }
-            };
-
-            return (
-                <div className="space-y-6 animate-fade-in">
-                    <div className="flex justify-between items-center">
-                        <div>
-                            <h2 className="text-3xl font-bold text-medical-dark font-primary">
-                                <i className="fas fa-calendar-alt mr-3 text-medical-accent"></i>
-                                Appointment Calendar
-                            </h2>
-                            <p className="text-medical-gray font-secondary mt-2 text-lg">Manage appointments and schedule</p>
-                        </div>
-                        <div className="flex space-x-4">
-                            <button
-                                onClick={() => setEmergencyMode(!emergencyMode)}
-                                className={`px-6 py-3 rounded-2xl font-secondary transition-colors ${emergencyMode
-                                        ? 'bg-medical-error text-white shadow-lg'
-                                        : 'bg-medical-error/10 text-medical-error hover:bg-medical-error/20'
-                                    }`}
-                            >
-                                <i className="fas fa-exclamation-triangle mr-2"></i>
-                                Emergency Mode
-                            </button>
-                            <button className="medical-button text-white px-8 py-3 rounded-2xl font-secondary font-semibold shadow-lg">
-                                <i className="fas fa-plus mr-2"></i>
-                                New Appointment
-                            </button>
-                        </div>
-                    </div>
-
-                    {emergencyMode && (
-                        <div className="medical-card rounded-3xl p-6 bg-gradient-to-r from-medical-error/10 to-red-50 border-l-4 border-medical-error">
-                            <div className="flex items-center justify-between">
-                                <div>
-                                    <h3 className="text-xl font-semibold text-medical-error font-primary">Emergency Rescheduling</h3>
-                                    <p className="text-medical-error/80 font-secondary mt-1">Send emergency notifications to reschedule all appointments for selected date.</p>
-                                </div>
-                                <button
-                                    onClick={handleEmergencyReschedule}
-                                    className="bg-medical-error text-white px-8 py-3 rounded-2xl hover:bg-red-600 transition-colors font-secondary shadow-lg"
-                                >
-                                    <i className="fas fa-bell mr-2"></i>
-                                    Send Notifications
-                                </button>
-                            </div>
-                        </div>
-                    )}
-
-                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-                        {/* Calendar */}
-                        <div className="lg:col-span-2">
-                            <Calendar
-                                selectedDate={selectedDate}
-                                onDateSelect={setSelectedDate}
-                                appointments={appointments}
-                                unavailableDates={[]}
-                            />
-                        </div>
-
-                        {/* Appointments for Selected Date */}
-                        <div className="medical-card rounded-3xl p-6">
-                            <h3 className="text-xl font-semibold text-medical-dark mb-6 font-primary">
-                                <i className="fas fa-calendar-day mr-2 text-medical-accent"></i>
-                                {selectedDate.toLocaleDateString()}
-                            </h3>
-                            <div className="space-y-4">
-                                {dayAppointments.length > 0 ? (
-                                    dayAppointments.map(appointment => {
-                                        const patient = patients.find(p => p.id === appointment.patient_id);
-                                        return (
-                                            <div
-                                                key={appointment.id}
-                                                onClick={() => handleAppointmentClick(appointment)}
-                                                className="p-4 border-2 border-medical-light rounded-2xl hover:border-medical-accent cursor-pointer transition-all hover:shadow-lg medical-card"
-                                            >
-                                                <div className="flex justify-between items-start">
-                                                    <div className="flex items-center">
-                                                        <div className="w-12 h-12 bg-gradient-to-br from-medical-accent/20 to-medical-blue/20 rounded-xl flex items-center justify-center mr-3">
-                                                            <i className="fas fa-user-injured text-medical-blue"></i>
-                                                        </div>
-                                                        <div>
-                                                            <p className="font-semibold text-medical-dark font-secondary">
-                                                                {patient?.name || 'Unknown Patient'}
-                                                            </p>
-                                                            <p className="text-sm text-medical-gray">
-                                                                {new Date(appointment.start_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                                                            </p>
-                                                            <p className="text-xs text-medical-gray mt-1">
-                                                                {appointment.reason || 'General consultation'}
-                                                            </p>
-                                                        </div>
-                                                    </div>
-                                                    <span className={`px-3 py-1 rounded-full text-xs font-medium ${appointment.status === 'completed' ? 'bg-medical-success/20 text-medical-success' :
-                                                            appointment.status === 'confirmed' ? 'bg-medical-accent/20 text-medical-accent' :
-                                                                'bg-medical-warning/20 text-medical-warning'
-                                                        }`}>
-                                                        {appointment.status}
-                                                    </span>
-                                                </div>
-                                            </div>
-                                        );
-                                    })
-                                ) : (
-                                    <div className="text-center py-12 text-medical-gray">
-                                        <i className="fas fa-calendar-day text-5xl mb-4 opacity-50"></i>
-                                        <p className="font-secondary text-lg">No appointments for this date</p>
-                                    </div>
-                                )}
-                            </div>
-                        </div>
-                    </div>
-
-                    {/* Appointment Detail Modal */}
-                    {selectedAppointment && (
-                        <Modal
-                            isOpen={isDetailModalOpen}
-                            onClose={() => {
-                                setIsDetailModalOpen(false);
-                                setSelectedAppointment(null);
-                            }}
-                            title="Appointment Details"
-                            size="xl"
-                        >
-                            <div className="text-center py-12">
-                                <i className="fas fa-stethoscope text-6xl text-medical-accent mb-6"></i>
-                                <h3 className="text-2xl font-semibold text-medical-dark font-primary mb-4">
-                                    Appointment Details
-                                </h3>
-                                <p className="text-medical-gray font-secondary mb-6">
-                                    Patient details, remarks, prescriptions, and follow-ups functionality coming soon.
-                                </p>
-                                <span className="building-badge">Under Development</span>
-                            </div>
-                        </Modal>
-                    )}
-                </div>
-            );
-        };
-
-        // Activity Logs with Search and Filters (Working from old admin panel)
-        const ActivityLogs = ({ logs }) => {
-            const [selectedCategory, setSelectedCategory] = useState('all');
-            const [searchTerm, setSearchTerm] = useState('');
-
-            const categories = ['all', 'Patient', 'Appointment', 'User', 'System', 'General'];
-
-            const filteredLogs = logs.filter(log => {
-                const matchesCategory = selectedCategory === 'all' || log.category === selectedCategory;
-                const matchesSearch = searchTerm === '' ||
-                    log.action.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                    log.details?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                    log.user?.username.toLowerCase().includes(searchTerm.toLowerCase());
-
-                return matchesCategory && matchesSearch;
-            });
-
-            const getCategoryBadge = (category) => {
-                const categoryMap = {
-                    'Patient': { color: 'medical-accent', icon: 'fa-user' },
-                    'Appointment': { color: 'medical-blue', icon: 'fa-calendar' },
-                    'User': { color: 'medical-success', icon: 'fa-user-cog' },
-                    'System': { color: 'medical-warning', icon: 'fa-cog' },
-                    'General': { color: 'medical-gray', icon: 'fa-circle' }
-                };
-
-                const config = categoryMap[category] || categoryMap['General'];
-
-                return (
-                    <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-${config.color}/20 text-${config.color}`}>
-                        <i className={`fas ${config.icon} mr-1`}></i>
-                        {category}
-                    </span>
-                );
-            };
-
-            return (
-                <div className="space-y-6 animate-fade-in">
-                    <div className="flex justify-between items-center">
-                        <div>
-                            <h2 className="text-3xl font-bold text-medical-dark font-primary">
-                                <i className="fas fa-history mr-3 text-medical-accent"></i>
-                                Activity Logs
-                            </h2>
-                            <p className="text-medical-gray font-secondary mt-2 text-lg">Monitor system activities and user actions</p>
-                        </div>
-                    </div>
-
-                    {/* Filters */}
-                    <div className="medical-card rounded-3xl p-6">
-                        <div className="flex flex-col sm:flex-row gap-6">
-                            <div className="flex-1 relative">
-                                <i className="fas fa-search absolute left-4 top-1/2 transform -translate-y-1/2 text-medical-gray"></i>
-                                <input
-                                    type="text"
-                                    placeholder="Search logs by action, details, or user..."
-                                    value={searchTerm}
-                                    onChange={(e) => setSearchTerm(e.target.value)}
-                                    className="w-full pl-12 pr-4 py-4 border-2 border-gray-200 rounded-xl focus:border-medical-accent focus:outline-none transition-all font-secondary"
-                                />
-                            </div>
-                            <select
-                                value={selectedCategory}
-                                onChange={(e) => setSelectedCategory(e.target.value)}
-                                className="px-6 py-4 border-2 border-gray-200 rounded-xl focus:outline-none focus:border-medical-accent font-secondary min-w-48"
-                            >
-                                {categories.map(category => (
-                                    <option key={category} value={category}>
-                                        {category === 'all' ? 'All Categories' : category}
-                                    </option>
-                                ))}
-                            </select>
-                        </div>
-                    </div>
-
-                    {/* Logs Table */}
-                    <div className="medical-card rounded-3xl overflow-hidden">
-                        <div className="overflow-x-auto">
-                            <table className="w-full">
-                                <thead className="bg-gradient-to-r from-medical-blue to-medical-accent text-white">
-                                    <tr>
-                                        <th className="px-6 py-4 text-left font-semibold font-secondary">Timestamp</th>
-                                        <th className="px-6 py-4 text-left font-semibold font-secondary">User</th>
-                                        <th className="px-6 py-4 text-left font-semibold font-secondary">Action</th>
-                                        <th className="px-6 py-4 text-left font-semibold font-secondary">Category</th>
-                                        <th className="px-6 py-4 text-left font-semibold font-secondary">Details</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {filteredLogs.map((log) => (
-                                        <tr key={log.id} className="table-row border-b border-medical-light">
-                                            <td className="px-6 py-4">
-                                                <div className="text-medical-dark font-secondary">
-                                                    {log.timestamp ? new Date(log.timestamp).toLocaleDateString() : '-'}
-                                                </div>
-                                                <div className="text-sm text-medical-gray">
-                                                    {log.timestamp ? new Date(log.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '-'}
-                                                </div>
-                                            </td>
-                                            <td className="px-6 py-4">
-                                                <div className="flex items-center">
-                                                    <div className="w-10 h-10 bg-gradient-to-br from-medical-accent/20 to-medical-blue/20 rounded-xl flex items-center justify-center mr-3">
-                                                        <i className="fas fa-user text-medical-blue"></i>
-                                                    </div>
-                                                    <span className="font-medium text-medical-dark font-secondary">
-                                                        {log.user?.username || 'System'}
-                                                    </span>
-                                                </div>
-                                            </td>
-                                            <td className="px-6 py-4 text-medical-dark font-secondary font-medium">
-                                                {log.action}
-                                            </td>
-                                            <td className="px-6 py-4">
-                                                {getCategoryBadge(log.category || 'General')}
-                                            </td>
-                                            <td className="px-6 py-4 text-medical-gray font-secondary max-w-xs truncate">
-                                                {log.details || '-'}
-                                            </td>
-                                        </tr>
-                                    ))}
-                                </tbody>
-                            </table>
-                        </div>
-
-                        {filteredLogs.length === 0 && (
-                            <div className="text-center py-16">
-                                <i className="fas fa-search text-6xl text-medical-gray/30 mb-4"></i>
-                                <p className="text-medical-gray font-secondary text-lg">No logs found matching your criteria</p>
-                            </div>
-                        )}
-                    </div>
-                </div>
-            );
-        };
-
-        // User Management with Permissions (Working from old admin panel)
-        const UserManagement = ({ users, setUsers, currentUser, showNotification }) => {
-            const [isStaffViewOpen, setIsStaffViewOpen] = useState(false);
-
-            const isAdmin = currentUser?.role === 'admin';
-
-            const getRoleBadge = (role) => {
-                const config = role === 'admin'
-                    ? { color: 'medical-error', icon: 'fa-crown' }
-                    : { color: 'medical-accent', icon: 'fa-user' };
-
-                return (
-                    <span className={`inline-flex items-center px-3 py-2 rounded-full text-sm font-medium bg-${config.color}/20 text-${config.color}`}>
-                        <i className={`fas ${config.icon} mr-2`}></i>
-                        {role.charAt(0).toUpperCase() + role.slice(1)}
-                    </span>
-                );
-            };
-
-            return (
-                <div className="space-y-6 animate-fade-in">
-                    <div className="flex justify-between items-center">
-                        <div>
-                            <h2 className="text-3xl font-bold text-medical-dark font-primary">
-                                <i className="fas fa-user-cog mr-3 text-medical-accent"></i>
-                                User Management
-                            </h2>
-                            <p className="text-medical-gray font-secondary mt-2 text-lg">Manage users, roles, and permissions</p>
-                        </div>
-                        <div className="flex space-x-4">
-                            {isAdmin && (
-                                <button
-                                    onClick={() => setIsStaffViewOpen(true)}
-                                    className="px-6 py-3 bg-gradient-to-r from-purple-500 to-purple-600 text-white rounded-2xl hover:from-purple-600 hover:to-purple-700 transition-colors font-secondary shadow-lg"
-                                >
-                                    <i className="fas fa-eye mr-2"></i>
-                                    Staff View
-                                </button>
-                            )}
-                            <button className="medical-button text-white px-8 py-3 rounded-2xl font-secondary font-semibold shadow-lg">
-                                <i className="fas fa-plus mr-2"></i>
-                                Add User
-                            </button>
-                        </div>
-                    </div>
-
-                    {/* Users Table */}
-                    <div className="medical-card rounded-3xl overflow-hidden">
-                        <div className="overflow-x-auto">
-                            <table className="w-full">
-                                <thead className="bg-gradient-to-r from-medical-blue to-medical-accent text-white">
-                                    <tr>
-                                        <th className="px-6 py-4 text-left font-semibold font-secondary">User</th>
-                                        <th className="px-6 py-4 text-left font-semibold font-secondary">Contact</th>
-                                        <th className="px-6 py-4 text-left font-semibold font-secondary">Role</th>
-                                        <th className="px-6 py-4 text-left font-semibold font-secondary">Status</th>
-                                        <th className="px-6 py-4 text-left font-semibold font-secondary">Created</th>
-                                        <th className="px-6 py-4 text-center font-semibold font-secondary">Actions</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {users.map((user) => (
-                                        <tr key={user.id} className="table-row border-b border-medical-light">
-                                            <td className="px-6 py-4">
-                                                <div className="flex items-center">
-                                                    <div className={`w-12 h-12 rounded-2xl flex items-center justify-center mr-4 ${user.role === 'admin' ? 'bg-gradient-to-br from-red-400 to-red-600' : 'bg-gradient-to-br from-medical-accent to-medical-blue'
-                                                        }`}>
-                                                        <i className={`fas ${user.role === 'admin' ? 'fa-crown' : 'fa-user-md'} text-white`}></i>
-                                                    </div>
-                                                    <div>
-                                                        <p className="font-semibold text-medical-dark font-secondary text-lg">{user.username}</p>
-                                                        <p className="text-sm text-medical-gray">ID: {user.id}</p>
-                                                    </div>
-                                                </div>
-                                            </td>
-                                            <td className="px-6 py-4">
-                                                <div className="text-medical-gray font-secondary">
-                                                    <p>{user.email || 'No email'}</p>
-                                                    <p className="text-sm">{user.phone_number || 'No phone'}</p>
-                                                </div>
-                                            </td>
-                                            <td className="px-6 py-4">
-                                                {getRoleBadge(user.role)}
-                                            </td>
-                                            <td className="px-6 py-4">
-                                                <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-medical-success/20 text-medical-success">
-                                                    <i className="fas fa-circle mr-1 text-xs"></i>
-                                                    Active
-                                                </span>
-                                            </td>
-                                            <td className="px-6 py-4 text-medical-gray font-secondary">
-                                                {user.created_at ? new Date(user.created_at).toLocaleDateString() : '-'}
-                                            </td>
-                                            <td className="px-6 py-4">
-                                                <div className="flex justify-center space-x-3">
-                                                    {isAdmin && user.role === 'staff' && (
-                                                        <button
-                                                            onClick={() => showNotification('Permissions feature coming soon!', 'info')}
-                                                            className="text-purple-500 hover:text-purple-700 p-3 rounded-xl hover:bg-purple-50 transition-colors"
-                                                            title="Manage Permissions"
-                                                        >
-                                                            <i className="fas fa-shield-alt text-lg"></i>
-                                                        </button>
-                                                    )}
-                                                    <button
-                                                        className="text-medical-accent hover:text-medical-blue p-3 rounded-xl hover:bg-medical-light transition-colors"
-                                                        title="Edit User"
-                                                    >
-                                                        <i className="fas fa-edit text-lg"></i>
-                                                    </button>
-                                                    <button
-                                                        className="text-medical-error hover:text-red-700 p-3 rounded-xl hover:bg-red-50 transition-colors"
-                                                        title="Delete User"
-                                                    >
-                                                        <i className="fas fa-trash text-lg"></i>
-                                                    </button>
-                                                </div>
-                                            </td>
-                                        </tr>
-                                    ))}
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>
-
-                    {/* Staff View Modal */}
-                    <Modal isOpen={isStaffViewOpen} onClose={() => setIsStaffViewOpen(false)} title="Staff View Preview" size="xl">
-                        <div className="text-center py-12">
-                            <i className="fas fa-eye text-6xl text-medical-accent mb-6"></i>
-                            <h3 className="text-2xl font-semibold text-medical-dark font-primary mb-4">
-                                Staff View Simulation
-                            </h3>
-                            <p className="text-medical-gray font-secondary mb-6">
-                                Staff view preview and permission management system coming soon.
-                            </p>
-                            <span className="building-badge">Under Development</span>
-                        </div>
-                    </Modal>
-                </div>
-            );
-        };
-
-        // Building Placeholder Component
-        const BuildingPlaceholder = ({ title, icon, description, features = [] }) => (
-            <div className="space-y-6 animate-fade-in">
-                <div>
-                    <h2 className="text-3xl font-bold text-medical-dark font-primary">
-                        <i className={`${icon} mr-3 text-medical-accent`}></i>
-                        {title}
-                    </h2>
-                    <div className="flex items-center mt-2">
-                        <p className="text-medical-gray font-secondary text-lg">{description}</p>
-                        <span className="building-badge ml-4">Under Development</span>
+    <!-- Dashboard -->
+    <div id="dashboard" class="hidden">
+        <div class="container">
+            <!-- Header -->
+            <div class="header">
+                <div class="header-left">
+                    <div class="header-logo">🏥</div>
+                    <div>
+                        <h1 class="header-title">Admin Dashboard</h1>
+                        <p class="login-subtitle">Clinic Management System</p>
                     </div>
                 </div>
 
-                <div className="medical-card rounded-3xl p-12">
-                    <div className="text-center">
-                        <i className={`${icon} text-8xl text-medical-accent/30 mb-8`}></i>
-                        <h3 className="text-3xl font-semibold text-medical-dark font-primary mb-6">
-                            {title}
-                        </h3>
-                        <p className="text-medical-gray font-secondary mb-8 text-lg max-w-md mx-auto">
-                            {description}
-                        </p>
+                <div class="header-user">
+                    <div class="user-info">
+                        <div class="user-name" id="userName">Admin</div>
+                        <div class="user-role" id="userRole">Administrator</div>
+                    </div>
+                    <button class="btn-logout" id="logoutBtn">Logout</button>
+                </div>
+            </div>
 
-                        {features.length > 0 && (
-                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 max-w-4xl mx-auto">
-                                {features.map((feature, index) => (
-                                    <div key={index} className="p-6 bg-medical-light rounded-2xl">
-                                        <i className={`${feature.icon} text-medical-accent text-3xl mb-4`}></i>
-                                        <h4 className="font-semibold text-medical-dark mb-2 font-secondary">{feature.title}</h4>
-                                        <p className="text-sm text-medical-gray">{feature.description}</p>
-                                    </div>
-                                ))}
-                            </div>
-                        )}
+            <!-- Stats Grid -->
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <div class="stat-icon patients">👥</div>
+                    <div class="stat-value" id="totalPatients">-</div>
+                    <div class="stat-label">Total Patients</div>
+                </div>
 
-                        <div className="mt-12 p-6 bg-gradient-to-r from-medical-warning/10 to-yellow-50 rounded-2xl border-l-4 border-medical-warning">
-                            <div className="flex items-center justify-center">
-                                <i className="fas fa-hammer text-medical-warning text-2xl mr-4"></i>
-                                <div className="text-left">
-                                    <h4 className="font-semibold text-medical-warning font-primary">Feature Under Active Development</h4>
-                                    <p className="text-medical-warning/80 font-secondary">This feature is being built and will be available soon.</p>
-                                </div>
-                            </div>
+                <div class="stat-card">
+                    <div class="stat-icon appointments">📅</div>
+                    <div class="stat-value" id="todayAppointments">-</div>
+                    <div class="stat-label">Today's Appointments</div>
+                </div>
+
+                <div class="stat-card">
+                    <div class="stat-icon pending">⏰</div>
+                    <div class="stat-value" id="pendingAppointments">-</div>
+                    <div class="stat-label">Pending Appointments</div>
+                </div>
+
+                <div class="stat-card">
+                    <div class="stat-icon week">📊</div>
+                    <div class="stat-value" id="weekAppointments">-</div>
+                    <div class="stat-label">This Week</div>
+                </div>
+            </div>
+
+            <!-- Content Grid -->
+            <div class="content-grid">
+                <!-- Recent Appointments -->
+                <div class="content-card">
+                    <div class="card-header">
+                        <h2 class="card-title">Recent Appointments</h2>
+                        <div class="card-actions">
+                            <button class="btn-sm" id="refreshAppointments">Refresh</button>
                         </div>
+                    </div>
+
+                    <div class="table-container">
+                        <table class="table">
+                            <thead>
+                                <tr>
+                                    <th>ID</th>
+                                    <th>Patient</th>
+                                    <th>Time</th>
+                                    <th>Status</th>
+                                </tr>
+                            </thead>
+                            <tbody id="appointmentsTable">
+                                <tr>
+                                    <td colspan="4" class="loading">
+                                        <div class="spinner"></div>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- Patients -->
+                <div class="content-card">
+                    <div class="card-header">
+                        <h2 class="card-title">Patients</h2>
+                        <div class="card-actions">
+                            <button class="btn-sm" id="refreshPatients">Refresh</button>
+                        </div>
+                    </div>
+
+                    <div class="search-container">
+                        <input type="text" id="patientSearch" class="search-input"
+                            placeholder="Search patients by name or phone...">
+                    </div>
+
+                    <div class="table-container">
+                        <table class="table">
+                            <thead>
+                                <tr>
+                                    <th>ID</th>
+                                    <th>Name</th>
+                                    <th>Phone</th>
+                                    <th>Communication</th>
+                                </tr>
+                            </thead>
+                            <tbody id="patientsTable">
+                                <tr>
+                                    <td colspan="4" class="loading">
+                                        <div class="spinner"></div>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
                     </div>
                 </div>
             </div>
-        );
+        </div>
+    </div>
 
-        // Main App Component
-        const App = () => {
-            const [activeTab, setActiveTab] = useState('dashboard');
-            const [loading, setLoading] = useState(true);
-            const [currentUser, setCurrentUser] = useState(null);
+    <script>
+        // Global state
+        let accessToken = null;
+        let currentUser = null;
+        let mfaToken = null;
 
-            // Data states
-            const [patients, setPatients] = useState([]);
-            const [appointments, setAppointments] = useState([]);
-            const [users, setUsers] = useState([]);
-            const [locations, setLocations] = useState([]);
-            const [logs, setLogs] = useState([]);
+        // DOM elements
+        const loginPage = document.getElementById('loginPage');
+        const dashboard = document.getElementById('dashboard');
+        const loginForm = document.getElementById('loginForm');
+        const mfaSection = document.getElementById('mfaSection');
+        const loginMessage = document.getElementById('loginMessage');
+        const mfaMessage = document.getElementById('mfaMessage');
 
-            // Notification state
-            const [notification, setNotification] = useState({ message: '', type: '', isVisible: false });
+        // Utility functions
+        function showMessage(elementId, message, isError = true) {
+            const element = document.getElementById(elementId);
+            element.innerHTML = `<div class="alert ${isError ? 'alert-error' : 'alert-success'}">${message}</div>`;
+        }
 
-            const showNotification = (message, type = 'info') => {
-                setNotification({ message, type, isVisible: true });
+        function clearMessage(elementId) {
+            document.getElementById(elementId).innerHTML = '';
+        }
+
+        function showElement(element) {
+            element.classList.remove('hidden');
+        }
+
+        function hideElement(element) {
+            element.classList.add('hidden');
+        }
+
+        function formatDateTime(dateString) {
+            try {
+                const date = new Date(dateString);
+                return date.toLocaleDateString() + ' ' + date.toLocaleTimeString('en-US', {
+                    hour: '2-digit',
+                    minute: '2-digit'
+                });
+            } catch (e) {
+                return 'Invalid Date';
+            }
+        }
+
+        // API functions
+        async function apiCall(endpoint, options = {}) {
+            const baseURL = '';
+            const headers = {
+                'Content-Type': 'application/json',
+                ...options.headers
             };
 
-            const hideNotification = () => {
-                setNotification(prev => ({ ...prev, isVisible: false }));
-            };
+            if (accessToken) {
+                headers['Authorization'] = `Bearer ${accessToken}`;
+            }
 
-            useEffect(() => {
-                if (!getAuthToken()) {
-                    window.location.href = './admin_login.html';
+            try {
+                const response = await fetch(`${baseURL}${endpoint}`, {
+                    ...options,
+                    headers
+                });
+
+                const data = await response.json();
+
+                if (!response.ok) {
+                    throw new Error(data.detail || `HTTP ${response.status}`);
+                }
+
+                return data;
+            } catch (error) {
+                console.error('API call failed:', error);
+                throw error;
+            }
+        }
+
+        // Authentication
+        async function login(username, password) {
+            const formData = new URLSearchParams();
+            formData.append('username', username);
+            formData.append('password', password);
+
+            const response = await fetch('/api/v1/auth/token', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                },
+                body: formData
+            });
+
+            const data = await response.json();
+
+            if (response.status === 202 && data.mfa_required) {
+                mfaToken = data.mfa_token;
+                hideElement(loginForm);
+                showElement(mfaSection);
+                showMessage('loginMessage', 'Please enter your MFA code to continue.', false);
+                return 'mfa_required';
+            }
+
+            if (!response.ok) {
+                throw new Error(data.detail || 'Login failed');
+            }
+
+            accessToken = data.access_token;
+            currentUser = data.user;
+            return 'success';
+        }
+
+        async function verifyMFA(code) {
+            const data = await apiCall('/api/v1/auth/mfa/verify', {
+                method: 'POST',
+                body: JSON.stringify({
+                    mfa_token: mfaToken,
+                    mfa_code: code
+                })
+            });
+
+            accessToken = data.access_token;
+            currentUser = data.user;
+            return data;
+        }
+
+        async function logout() {
+            try {
+                await apiCall('/api/v1/auth/logout', { method: 'POST' });
+            } catch (error) {
+                console.error('Logout error:', error);
+            }
+
+            accessToken = null;
+            currentUser = null;
+            mfaToken = null;
+
+            hideElement(dashboard);
+            showElement(loginPage);
+            hideElement(mfaSection);
+            showElement(loginForm);
+            clearMessage('loginMessage');
+            clearMessage('mfaMessage');
+
+            // Reset form
+            document.getElementById('username').value = '';
+            document.getElementById('password').value = '';
+            document.getElementById('mfaCode').value = '';
+        }
+
+        // Dashboard functions
+        async function loadDashboard() {
+            try {
+                // Update user info
+                document.getElementById('userName').textContent = currentUser.username;
+                document.getElementById('userRole').textContent = currentUser.role.charAt(0).toUpperCase() + currentUser.role.slice(1);
+
+                // Load stats
+                await loadStats();
+
+                // Load data
+                await Promise.all([
+                    loadAppointments(),
+                    loadPatients()
+                ]);
+
+                hideElement(loginPage);
+                showElement(dashboard);
+            } catch (error) {
+                console.error('Dashboard load error:', error);
+                showMessage('loginMessage', 'Failed to load dashboard. Please try again.');
+            }
+        }
+
+        async function loadStats() {
+            try {
+                const stats = await apiCall('/api/v1/dashboard/stats');
+
+                document.getElementById('totalPatients').textContent = stats.total_patients || 0;
+                document.getElementById('todayAppointments').textContent = stats.appointments_today || 0;
+                document.getElementById('pendingAppointments').textContent = stats.pending_appointments || 0;
+                document.getElementById('weekAppointments').textContent = stats.appointments_week || 0;
+            } catch (error) {
+                console.error('Failed to load stats:', error);
+                // Set fallback values
+                document.getElementById('totalPatients').textContent = '0';
+                document.getElementById('todayAppointments').textContent = '0';
+                document.getElementById('pendingAppointments').textContent = '0';
+                document.getElementById('weekAppointments').textContent = '0';
+            }
+        }
+
+        async function loadAppointments() {
+            try {
+                const appointments = await apiCall('/api/v1/appointments?limit=10');
+                const tbody = document.getElementById('appointmentsTable');
+
+                if (!appointments || appointments.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="4" style="text-align: center; padding: 20px; color: var(--text-muted);">No appointments found</td></tr>';
                     return;
                 }
 
-                fetchData();
-            }, []);
+                tbody.innerHTML = appointments.map(appointment => {
+                    const timeStr = formatDateTime(appointment.start_time);
+                    const patientName = appointment.patient?.name || 'Unknown Patient';
 
-            const fetchData = async () => {
-                setLoading(true);
-                try {
-                    const [patientsData, appointmentsData, usersData, locationsData, logsData, userData] = await Promise.all([
-                        get('/patients/').catch(() => []),
-                        get('/appointments/').catch(() => []),
-                        get('/users/').catch(() => []),
-                        get('/locations/').catch(() => []),
-                        get('/users/logs').catch(() => []),
-                        get('/users/me').catch(() => null)
-                    ]);
+                    return `
+                        <tr>
+                            <td>#${appointment.id}</td>
+                            <td>${patientName}</td>
+                            <td>${timeStr}</td>
+                            <td><span class="status-pill ${appointment.status}">${appointment.status.replace('_', ' ')}</span></td>
+                        </tr>
+                    `;
+                }).join('');
+            } catch (error) {
+                console.error('Failed to load appointments:', error);
+                document.getElementById('appointmentsTable').innerHTML = '<tr><td colspan="4" style="text-align: center; padding: 20px; color: var(--danger);">Failed to load appointments</td></tr>';
+            }
+        }
 
-                    setPatients(Array.isArray(patientsData) ? patientsData : []);
-                    setAppointments(Array.isArray(appointmentsData) ? appointmentsData : []);
-                    setUsers(Array.isArray(usersData) ? usersData : []);
-                    setLocations(Array.isArray(locationsData) ? locationsData : []);
-                    setLogs(Array.isArray(logsData) ? logsData : []);
-                    setCurrentUser(userData);
-                } catch (error) {
-                    console.error('Failed to fetch data:', error);
-                    showNotification('Failed to load data. Please refresh the page.', 'error');
-                } finally {
-                    setLoading(false);
+        async function loadPatients(search = '') {
+            try {
+                const queryParam = search ? `?search=${encodeURIComponent(search)}` : '?limit=10';
+                const patients = await apiCall(`/api/v1/patients${queryParam}`);
+                const tbody = document.getElementById('patientsTable');
+
+                if (!patients || patients.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="4" style="text-align: center; padding: 20px; color: var(--text-muted);">No patients found</td></tr>';
+                    return;
                 }
-            };
 
-            const handleLogout = () => {
-                sessionStorage.removeItem('accessToken');
-                sessionStorage.removeItem('tokenType');
-                sessionStorage.removeItem('userRole');
-                window.location.href = './admin_login.html';
-            };
+                tbody.innerHTML = patients.map(patient => `
+                    <tr>
+                        <td>#${patient.id}</td>
+                        <td>${patient.name || 'N/A'}</td>
+                        <td>${patient.phone_number || 'N/A'}</td>
+                        <td>${(patient.preferred_communication || 'phone').replace('_', ' ')}</td>
+                    </tr>
+                `).join('');
+            } catch (error) {
+                console.error('Failed to load patients:', error);
+                document.getElementById('patientsTable').innerHTML = '<tr><td colspan="4" style="text-align: center; padding: 20px; color: var(--danger);">Failed to load patients</td></tr>';
+            }
+        }
 
-            const menuItems = [
-                { id: 'dashboard', icon: 'fas fa-chart-pie', label: 'Dashboard' },
-                { id: 'appointments', icon: 'fas fa-calendar-alt', label: 'Appointments' },
-                { id: 'schedule', icon: 'fas fa-calendar-week', label: 'Schedule' },
-                { id: 'patients', icon: 'fas fa-users', label: 'Patients' },
-                { id: 'prescriptions', icon: 'fas fa-prescription', label: 'Prescriptions' },
-                { id: 'users', icon: 'fas fa-user-cog', label: 'Users' },
-                { id: 'logs', icon: 'fas fa-history', label: 'Activity Logs' }
-            ];
+        // Event listeners
+        loginForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
 
-            if (loading) {
-                return (
-                    <div className="min-h-screen flex items-center justify-center">
-                        <div className="medical-card rounded-3xl p-16 text-center">
-                            <LoadingSpinner size="large" />
-                            <p className="mt-6 text-medical-gray font-secondary text-xl">Loading medical dashboard...</p>
-                        </div>
-                    </div>
-                );
+            const username = document.getElementById('username').value.trim();
+            const password = document.getElementById('password').value;
+
+            if (!username || !password) {
+                showMessage('loginMessage', 'Please enter both username and password.');
+                return;
             }
 
-            return (
-                <div className="min-h-screen flex">
-                    {/* Sidebar */}
-                    <aside className="w-80 sidebar-card text-white relative floating-elements">
-                        <div className="relative z-10 h-full flex flex-col">
-                            <div className="p-8">
-                                {/* Logo */}
-                                <div className="flex items-center mb-10">
-                                    <div className="w-16 h-16 bg-white/20 rounded-2xl flex items-center justify-center mr-4">
-                                        <i className="fas fa-stethoscope text-3xl"></i>
-                                    </div>
-                                    <div>
-                                        <h1 className="text-2xl font-bold font-primary">Medical Portal</h1>
-                                        <p className="text-blue-200 font-secondary">Dr. Dhingra's Clinic</p>
-                                    </div>
-                                </div>
+            const loginBtn = document.getElementById('loginBtn');
+            const originalText = loginBtn.textContent;
+            loginBtn.disabled = true;
+            loginBtn.textContent = 'Signing In...';
+            clearMessage('loginMessage');
 
-                                {/* User Info */}
-                                <div className="bg-white/10 rounded-2xl p-6 mb-10">
-                                    <div className="flex items-center">
-                                        <div className="w-14 h-14 bg-white/20 rounded-2xl flex items-center justify-center mr-4">
-                                            <i className={`fas ${currentUser?.role === 'admin' ? 'fa-crown' : 'fa-user-md'} text-xl`}></i>
-                                        </div>
-                                        <div>
-                                            <p className="font-semibold font-secondary text-lg">{currentUser?.username || 'Admin'}</p>
-                                            <p className="text-blue-200 font-secondary">{currentUser?.role || 'Administrator'}</p>
-                                        </div>
-                                    </div>
-                                </div>
+            try {
+                const result = await login(username, password);
 
-                                {/* Navigation */}
-                                <nav className="space-y-2">
-                                    {menuItems.map((item) => (
-                                        <button
-                                            key={item.id}
-                                            onClick={() => setActiveTab(item.id)}
-                                            className={`sidebar-item w-full flex items-center p-4 rounded-2xl transition-all duration-300 font-secondary text-lg ${activeTab === item.id ? 'active shadow-lg' : ''
-                                                }`}
-                                        >
-                                            <i className={`${item.icon} mr-4 text-xl w-6 text-center`}></i>
-                                            {item.label}
-                                        </button>
-                                    ))}
-                                </nav>
-                            </div>
+                if (result === 'success') {
+                    await loadDashboard();
+                }
+            } catch (error) {
+                showMessage('loginMessage', error.message);
+            } finally {
+                loginBtn.disabled = false;
+                loginBtn.textContent = originalText;
+            }
+        });
 
-                            {/* Logout */}
-                            <div className="mt-auto p-8">
-                                <button
-                                    onClick={handleLogout}
-                                    className="sidebar-item w-full flex items-center p-4 rounded-2xl transition-all duration-300 font-secondary text-lg text-red-300 hover:text-red-200 hover:bg-red-500/10"
-                                >
-                                    <i className="fas fa-sign-out-alt mr-4 text-xl w-6 text-center"></i>
-                                    Logout
-                                </button>
-                            </div>
-                        </div>
-                    </aside>
+        document.getElementById('mfaBtn').addEventListener('click', async () => {
+            const code = document.getElementById('mfaCode').value.trim();
 
-                    {/* Main Content */}
-                    <main className="flex-1 p-8 overflow-y-auto">
-                        <div className="max-w-7xl mx-auto">
-                            {/* Dashboard */}
-                            {activeTab === 'dashboard' && (
-                                <div className="space-y-8 animate-fade-in">
-                                    <div>
-                                        <h1 className="text-4xl font-bold text-medical-dark font-primary">
-                                            Medical Dashboard
-                                        </h1>
-                                        <p className="text-medical-gray font-secondary mt-2 text-xl">
-                                            Welcome back, Dr. {currentUser?.username}! Here's your clinic overview.
-                                        </p>
-                                    </div>
+            if (!code || code.length !== 6 || !/^\d{6}$/.test(code)) {
+                showMessage('mfaMessage', 'Please enter a valid 6-digit code.');
+                return;
+            }
 
-                                    <DashboardStats
-                                        patients={patients}
-                                        appointments={appointments}
-                                        users={users}
-                                        logs={logs}
-                                    />
+            const mfaBtn = document.getElementById('mfaBtn');
+            const originalText = mfaBtn.textContent;
+            mfaBtn.disabled = true;
+            mfaBtn.textContent = 'Verifying...';
+            clearMessage('mfaMessage');
 
-                                    {/* Quick Actions */}
-                                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                                        <div className="medical-card rounded-3xl p-8">
-                                            <h3 className="text-2xl font-bold text-medical-dark font-primary mb-6">
-                                                <i className="fas fa-clock mr-3 text-medical-accent"></i>
-                                                Today's Schedule
-                                            </h3>
-                                            <div className="space-y-4">
-                                                {appointments.filter(apt => {
-                                                    const today = new Date().toISOString().split('T')[0];
-                                                    return apt.start_time && apt.start_time.split('T')[0] === today;
-                                                }).slice(0, 5).map((appointment) => {
-                                                    const patient = patients.find(p => p.id === appointment.patient_id);
-                                                    return (
-                                                        <div key={appointment.id} className="flex items-center justify-between p-4 bg-medical-light rounded-2xl">
-                                                            <div className="flex items-center space-x-4">
-                                                                <div className="w-12 h-12 bg-gradient-to-br from-medical-accent/20 to-medical-blue/20 rounded-xl flex items-center justify-center">
-                                                                    <i className="fas fa-user text-medical-blue"></i>
-                                                                </div>
-                                                                <div>
-                                                                    <p className="font-semibold text-medical-dark font-secondary text-lg">
-                                                                        {patient?.name || 'Unknown Patient'}
-                                                                    </p>
-                                                                    <p className="text-medical-gray">
-                                                                        {new Date(appointment.start_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                                                                    </p>
-                                                                </div>
-                                                            </div>
-                                                            <span className={`px-3 py-1 rounded-full text-sm font-medium ${appointment.status === 'confirmed' ? 'bg-medical-success/20 text-medical-success' :
-                                                                    appointment.status === 'scheduled' ? 'bg-medical-accent/20 text-medical-accent' :
-                                                                        'bg-medical-warning/20 text-medical-warning'
-                                                                }`}>
-                                                                {appointment.status}
-                                                            </span>
-                                                        </div>
-                                                    );
-                                                })}
-                                            </div>
-                                        </div>
+            try {
+                await verifyMFA(code);
+                await loadDashboard();
+            } catch (error) {
+                showMessage('mfaMessage', error.message);
+            } finally {
+                mfaBtn.disabled = false;
+                mfaBtn.textContent = originalText;
+            }
+        });
 
-                                        <div className="medical-card rounded-3xl p-8">
-                                            <h3 className="text-2xl font-bold text-medical-dark font-primary mb-6">
-                                                <i className="fas fa-chart-line mr-3 text-medical-success"></i>
-                                                Quick Stats
-                                            </h3>
-                                            <div className="space-y-6">
-                                                <div className="flex justify-between items-center">
-                                                    <span className="text-medical-gray font-secondary text-lg">This Week's Appointments</span>
-                                                    <span className="font-bold text-medical-dark font-primary text-2xl">47</span>
-                                                </div>
-                                                <div className="flex justify-between items-center">
-                                                    <span className="text-medical-gray font-secondary text-lg">Completed Today</span>
-                                                    <span className="font-bold text-medical-success font-primary text-2xl">12</span>
-                                                </div>
-                                                <div className="flex justify-between items-center">
-                                                    <span className="text-medical-gray font-secondary text-lg">Pending Appointments</span>
-                                                    <span className="font-bold text-medical-warning font-primary text-2xl">8</span>
-                                                </div>
-                                                <div className="flex justify-between items-center">
-                                                    <span className="text-medical-gray font-secondary text-lg">New Patients This Month</span>
-                                                    <span className="font-bold text-medical-accent font-primary text-2xl">23</span>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-                            )}
+        // Allow Enter key in MFA input
+        document.getElementById('mfaCode').addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                document.getElementById('mfaBtn').click();
+            }
+        });
 
-                            {activeTab === 'appointments' && (
-                                <AppointmentsCalendar
-                                    appointments={appointments}
-                                    setAppointments={setAppointments}
-                                    patients={patients}
-                                    locations={locations}
-                                    showNotification={showNotification}
-                                />
-                            )}
+        document.getElementById('logoutBtn').addEventListener('click', logout);
 
-                            {activeTab === 'schedule' && (
-                                <BuildingPlaceholder
-                                    title="Doctor's Schedule"
-                                    icon="fas fa-calendar-week"
-                                    description="Integrated with Google Calendar for seamless scheduling"
-                                    features={[
-                                        {
-                                            icon: 'fas fa-calendar-sync',
-                                            title: 'Calendar Sync',
-                                            description: 'Two-way sync with Google Calendar'
-                                        },
-                                        {
-                                            icon: 'fas fa-ban',
-                                            title: 'Auto Block Dates',
-                                            description: 'Automatically prevent bookings on blocked dates'
-                                        },
-                                        {
-                                            icon: 'fas fa-bell',
-                                            title: 'Emergency Notifications',
-                                            description: 'Instant notifications for schedule changes'
-                                        }
-                                    ]}
-                                />
-                            )}
+        document.getElementById('refreshAppointments').addEventListener('click', loadAppointments);
+        document.getElementById('refreshPatients').addEventListener('click', () => loadPatients());
 
-                            {activeTab === 'patients' && (
-                                <PatientManagement
-                                    patients={patients}
-                                    setPatients={setPatients}
-                                    showNotification={showNotification}
-                                />
-                            )}
+        // Patient search with debouncing
+        let searchTimeout;
+        document.getElementById('patientSearch').addEventListener('input', (e) => {
+            clearTimeout(searchTimeout);
+            searchTimeout = setTimeout(() => {
+                loadPatients(e.target.value.trim());
+            }, 500);
+        });
 
-                            {activeTab === 'prescriptions' && (
-                                <BuildingPlaceholder
-                                    title="Digital Prescriptions"
-                                    icon="fas fa-prescription"
-                                    description="Create and manage digital prescriptions with advanced features"
-                                    features={[
-                                        {
-                                            icon: 'fas fa-pills',
-                                            title: 'Medicine Database',
-                                            description: 'Comprehensive medicine database with dosages'
-                                        },
-                                        {
-                                            icon: 'fas fa-calculator',
-                                            title: 'Dosage Calculator',
-                                            description: 'Automatic dosage calculations based on patient data'
-                                        },
-                                        {
-                                            icon: 'fas fa-file-pdf',
-                                            title: 'PDF Generation',
-                                            description: 'Professional PDF prescriptions with digital signatures'
-                                        }
-                                    ]}
-                                />
-                            )}
+        // Auto-refresh every 60 seconds
+        setInterval(() => {
+            if (accessToken && dashboard && !dashboard.classList.contains('hidden')) {
+                loadStats().catch(console.error);
+            }
+        }, 60000);
 
-                            {activeTab === 'users' && (
-                                <UserManagement
-                                    users={users}
-                                    setUsers={setUsers}
-                                    currentUser={currentUser}
-                                    showNotification={showNotification}
-                                />
-                            )}
+        // Handle browser refresh - try to restore session if token exists
+        document.addEventListener('DOMContentLoaded', () => {
+            const token = localStorage.getItem('accessToken');
+            const user = localStorage.getItem('currentUser');
 
-                            {activeTab === 'logs' && (
-                                <ActivityLogs logs={logs} />
-                            )}
-                        </div>
-                    </main>
+            if (token && user) {
+                try {
+                    accessToken = token;
+                    currentUser = JSON.parse(user);
 
-                    {/* Notifications */}
-                    <NotificationToast
-                        message={notification.message}
-                        type={notification.type}
-                        isVisible={notification.isVisible}
-                        onClose={hideNotification}
-                    />
-                </div>
-            );
+                    // Validate token by trying to load dashboard
+                    loadDashboard().catch(() => {
+                        // Token is invalid, clear and show login
+                        localStorage.removeItem('accessToken');
+                        localStorage.removeItem('currentUser');
+                        logout();
+                    });
+                } catch (e) {
+                    logout();
+                }
+            }
+        });
+
+        // Store token on successful login for session persistence
+        const originalLogin = login;
+        login = async function (username, password) {
+            const result = await originalLogin(username, password);
+            if (result === 'success' && accessToken && currentUser) {
+                localStorage.setItem('accessToken', accessToken);
+                localStorage.setItem('currentUser', JSON.stringify(currentUser));
+            }
+            return result;
         };
 
-        ReactDOM.render(<App />, document.getElementById('root'));
+        const originalVerifyMFA = verifyMFA;
+        verifyMFA = async function (code) {
+            const result = await originalVerifyMFA(code);
+            if (accessToken && currentUser) {
+                localStorage.setItem('accessToken', accessToken);
+                localStorage.setItem('currentUser', JSON.stringify(currentUser));
+            }
+            return result;
+        };
+
+        // Clear storage on logout
+        const originalLogout = logout;
+        logout = async function () {
+            localStorage.removeItem('accessToken');
+            localStorage.removeItem('currentUser');
+            await originalLogout();
+        };
+
     </script>
 </body>
 

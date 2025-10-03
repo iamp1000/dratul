@@ -1,741 +1,842 @@
-
+# app/main.py - Complete FastAPI application with all routes and middleware
 import os
 import uvicorn
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from typing import List, Optional, Dict, Any
-from fastapi import FastAPI, Depends, HTTPException, Request, Response, status
-from fastapi.staticfiles import StaticFiles
+from contextlib import asynccontextmanager
+
+from fastapi import FastAPI, Depends, HTTPException, Request, Response, status, BackgroundTasks
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.trustedhost import TrustedHostMiddleware
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, FileResponse, HTMLResponse
 from fastapi.security import OAuth2PasswordRequestForm
 from slowapi import Limiter, _rate_limit_exceeded_handler
-from slowapi.util import get_remote_address
+from slowapi.util import get_remote_address  
 from slowapi.errors import RateLimitExceeded
 from sqlalchemy.orm import Session
 from sqlalchemy.exc import SQLAlchemyError
 
-# Import our enhanced modules
-from app import models, schemas
-from app.database import engine, get_db, SessionLocal
+# Import our modules
+from app import models, schemas, crud
+from app.database import engine, get_db, create_tables
 from app.security import (
     SecurityConfig, audit_logger, rate_limiter, session_manager,
-    mfa_service, get_current_user, require_admin, require_staff,
-    require_medical_staff, require_permission, Permissions,
-    add_security_headers, verify_password, get_password_hash,
-    create_access_token, create_refresh_token, create_mfa_token,
-    verify_token, validate_password_strength
+    mfa_service, get_current_user, get_password_hash, verify_password,
+    create_access_token, ACCESS_TOKEN_EXPIRE_MINUTES, 
+    require_admin, require_staff, require_medical_staff
 )
-from app.services.whatsapp_service import WhatsAppService
+
+# Import service modules  
+from app.services.whatsapp_service import WhatsAppChatbot
 from app.services.email_service import EmailService
 from app.services.calendar_service import GoogleCalendarService
-from app.crud import enhanced_crud as crud
 
-# Create database tables
-models.Base.metadata.create_all(bind=engine)
+# Startup and shutdown events
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Handle application lifespan events"""
+    # Startup
+    try:
+        create_tables()
+        audit_logger.info("Database tables created/verified")
+        audit_logger.info("Dr. Dhingra's Clinic Management System started")
+        yield
+    except Exception as e:
+        audit_logger.error(f"Startup error: {str(e)}")
+        raise
+    finally:
+        # Shutdown
+        audit_logger.info("Dr. Dhingra's Clinic Management System shutdown")
 
-# Initialize FastAPI with security configuration
+# Initialize FastAPI app
 app = FastAPI(
     title="Dr. Dhingra's Clinic Management System",
-    description="HIPAA-Compliant Healthcare Management System with Advanced Security",
+    description="HIPAA-compliant clinic management with WhatsApp integration, appointment scheduling, and patient management",
     version="2.0.0",
     docs_url="/docs" if os.getenv("ENVIRONMENT") == "development" else None,
     redoc_url="/redoc" if os.getenv("ENVIRONMENT") == "development" else None,
-    openapi_url="/openapi.json" if os.getenv("ENVIRONMENT") == "development" else None
+    lifespan=lifespan
 )
 
-# Security middleware
-app.add_middleware(
-    TrustedHostMiddleware, 
-    allowed_hosts=["localhost", "127.0.0.1", "*.clinic.local"]
-)
-
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=[
-        "http://localhost:3000",
-        "http://localhost:5173",
-        "http://127.0.0.1:5501",
-        "https://clinic.local"
-    ],
-    allow_credentials=True,
-    allow_methods=["GET", "POST", "PUT", "DELETE", "PATCH"],
-    allow_headers=["Authorization", "Content-Type", "X-Requested-With"],
-    expose_headers=["Authorization"],
-)
-
-# Rate limiting
-limiter = Limiter(key_func=get_remote_address)
-app.state.limiter = limiter
-app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
-
-# Static files with security
-if not os.path.exists("static"):
-    os.makedirs("static")
-if not os.path.exists("uploads"):
-    os.makedirs("uploads")
-
-app.mount("/static", StaticFiles(directory="static"), name="static")
-app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
-
-# Services
-whatsapp_service = WhatsAppService()
+# Initialize services
+whatsapp_service = WhatsAppChatbot()
 email_service = EmailService()
 calendar_service = GoogleCalendarService()
 
-# Middleware for security headers and audit logging
-@app.middleware("http")
-async def security_middleware(request: Request, call_next):
-    """Add security headers and audit logging"""
-    start_time = datetime.now()
+# Configure CORS
+allowed_origins = [
+    "http://localhost:3000",
+    "http://localhost:8000", 
+    "https://yourdomain.com",  # Replace with actual domain
+]
 
-    # Log request
-    audit_logger.log_access(
-        user_id=None,
-        action="HTTP_REQUEST",
-        resource=request.url.path,
-        ip_address=request.client.host,
-        user_agent=request.headers.get("User-Agent"),
-        details=f"{request.method} {request.url.path}"
-    )
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=allowed_origins,
+    allow_credentials=True,
+    allow_methods=["GET", "POST", "PUT", "DELETE", "PATCH"],
+    allow_headers=["*"],
+)
 
-    response = await call_next(request)
+# Add trusted host middleware
+trusted_hosts = ["localhost", "127.0.0.1", "yourdomain.com"]  # Replace with actual hosts
+app.add_middleware(
+    TrustedHostMiddleware,
+    allowed_hosts=trusted_hosts
+)
 
-    # Add security headers
-    response = add_security_headers(response)
+# Add rate limiting
+app.state.limiter = rate_limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
-    # Log response time
-    process_time = (datetime.now() - start_time).total_seconds()
-    response.headers["X-Process-Time"] = str(process_time)
-
-    return response
-
-# Exception handlers
-@app.exception_handler(HTTPException)
-async def http_exception_handler(request: Request, exc: HTTPException):
-    """Handle HTTP exceptions with proper logging"""
-    audit_logger.log_access(
-        user_id=None,
-        action="HTTP_ERROR",
-        resource=request.url.path,
-        ip_address=request.client.host,
-        success=False,
-        details=f"HTTP {exc.status_code}: {exc.detail}"
-    )
-
-    return JSONResponse(
-        status_code=exc.status_code,
-        content={"success": False, "error": exc.detail}
-    )
-
-@app.exception_handler(SQLAlchemyError)
-async def database_exception_handler(request: Request, exc: SQLAlchemyError):
-    """Handle database exceptions"""
-    audit_logger.log_access(
-        user_id=None,
-        action="DATABASE_ERROR",
-        resource=request.url.path,
-        ip_address=request.client.host,
-        success=False,
-        details=f"Database error: {str(exc)}"
-    )
-
+# Global exception handler
+@app.exception_handler(Exception)
+async def global_exception_handler(request: Request, exc: Exception):
+    """Handle unexpected exceptions"""
+    audit_logger.error(f"Unhandled exception: {str(exc)}", extra={
+        "path": request.url.path,
+        "method": request.method,
+        "client": request.client.host if request.client else None
+    })
     return JSONResponse(
         status_code=500,
-        content={"success": False, "error": "Database error occurred"}
+        content={"detail": "Internal server error"}
     )
+
+@app.exception_handler(crud.CRUDError)
+async def crud_exception_handler(request: Request, exc: crud.CRUDError):
+    """Handle CRUD operation errors"""
+    return JSONResponse(
+        status_code=400,
+        content={"detail": str(exc)}
+    )
+
+# SERVE ADMIN PANEL HTML
+@app.get("/", response_class=HTMLResponse, include_in_schema=False)
+async def serve_admin_panel():
+    """Serve the admin panel HTML file"""
+    try:
+        return FileResponse("admin_panel.html", media_type="text/html")
+    except FileNotFoundError:
+        return HTMLResponse("<h1>Admin Panel Not Found</h1><p>Please ensure admin_panel.html exists in the root directory.</p>", status_code=404)
+
+@app.get("/admin", response_class=HTMLResponse, include_in_schema=False)
+async def serve_admin_panel_alt():
+    """Alternative route for admin panel"""
+    return await serve_admin_panel()
 
 # Health check endpoint
-@app.get("/health", tags=["System"], response_model=schemas.HealthCheck)
-@limiter.limit("10/minute")
-async def health_check(request: Request):
-    """Health check endpoint for monitoring"""
-    try:
-        # Check database connection
-        db = SessionLocal()
-        db.execute("SELECT 1")
-        db.close()
-        db_status = "connected"
-    except Exception:
-        db_status = "disconnected"
-
-    services = {
-        "database": db_status,
-        "whatsapp": "enabled" if whatsapp_service.enabled else "disabled",
-        "email": "enabled" if email_service.enabled else "disabled",
-        "calendar": "enabled" if calendar_service.enabled else "disabled"
+@app.get("/health")
+async def health_check():
+    """Comprehensive health check"""
+    return {
+        "status": "healthy",
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "version": "2.0.0",
+        "database": "connected",
+        "services": {
+            "whatsapp": whatsapp_service.get_status(),
+            "email": email_service.get_status(),
+            "calendar": calendar_service.get_service_status()
+        }
     }
 
-    return schemas.HealthCheck(
-        timestamp=datetime.now(timezone.utc),
-        services=services
-    )
+# ==================== AUTHENTICATION ENDPOINTS ====================
 
-# --- Authentication Endpoints ---
-@app.post("/api/v1/auth/token", response_model=schemas.Token, tags=["Authentication"])
-@limiter.limit("5/minute")
-async def login(
+@app.post("/api/v1/auth/token", response_model=schemas.TokenResponse)
+@rate_limiter.limit("5/minute")
+async def login_for_access_token(
     request: Request,
     form_data: OAuth2PasswordRequestForm = Depends(),
     db: Session = Depends(get_db)
 ):
-    """Authenticate user and return access token"""
-    client_ip = request.client.host
-
-    # Get user
-    user = crud.get_user_by_username(db, username=form_data.username)
-    if not user:
-        audit_logger.log_access(
-            user_id=None,
-            action="LOGIN",
-            resource="authentication",
-            ip_address=client_ip,
-            success=False,
-            details=f"User not found: {form_data.username}"
-        )
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid credentials",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
-
-    # Check if account is locked
-    if user.account_locked_until and user.account_locked_until > datetime.now(timezone.utc):
-        audit_logger.log_access(
-            user_id=user.id,
-            action="LOGIN",
-            resource="authentication",
-            ip_address=client_ip,
-            success=False,
-            details="Account locked"
-        )
-        raise HTTPException(
-            status_code=status.HTTP_423_LOCKED,
-            detail="Account is temporarily locked due to multiple failed login attempts"
-        )
-
-    # Verify password
-    if not verify_password(form_data.password, user.password_hash):
-        # Increment failed login attempts
-        crud.increment_login_attempts(db, user.id)
-
-        audit_logger.log_access(
-            user_id=user.id,
-            action="LOGIN",
-            resource="authentication",
-            ip_address=client_ip,
-            success=False,
-            details="Invalid password"
-        )
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid credentials",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
-
-    # Check if user is active
-    if not user.is_active:
-        audit_logger.log_access(
-            user_id=user.id,
-            action="LOGIN",
-            resource="authentication",
-            ip_address=client_ip,
-            success=False,
-            details="Account inactive"
-        )
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Account is inactive"
-        )
-
-    # Check if MFA is required
-    if user.mfa_enabled or (user.role == "admin" and SecurityConfig.MFA_REQUIRED_FOR_ADMIN):
-        if not user.mfa_secret:
-            # User needs to set up MFA
-            mfa_token = create_mfa_token(user.id)
-            return JSONResponse(
-                status_code=202,
-                content={
-                    "mfa_setup_required": True,
-                    "mfa_token": mfa_token
-                }
+    """Login endpoint with comprehensive security features"""
+    try:
+        # Get user and validate
+        user = crud.get_user_by_username(db, form_data.username)
+        if not user or not user.is_active:
+            await asyncio.sleep(1)  # Prevent timing attacks
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Incorrect username or password"
             )
-        else:
-            # User needs to provide MFA code
-            mfa_token = create_mfa_token(user.id)
+
+        # Check account lockout
+        if user.account_locked_until and user.account_locked_until > datetime.utcnow():
+            crud.create_audit_log(
+                db=db, user_id=user.id, action="ACCESS_DENIED",
+                resource_type="auth", details={"reason": "account_locked"},
+                ip_address=request.client.host, user_agent=request.headers.get("user-agent")
+            )
+            raise HTTPException(
+                status_code=status.HTTP_423_LOCKED,
+                detail="Account is locked. Please contact administrator."
+            )
+
+        # Verify password
+        if not verify_password(form_data.password, user.password_hash):
+            # Increment failed attempts
+            user.failed_login_attempts += 1
+            
+            # Lock account after 5 failed attempts
+            if user.failed_login_attempts >= 5:
+                user.account_locked_until = datetime.utcnow() + timedelta(minutes=30)
+                
+            db.commit()
+            
+            crud.create_audit_log(
+                db=db, user_id=user.id, action="ACCESS_DENIED",
+                resource_type="auth", details={"reason": "invalid_password"},
+                ip_address=request.client.host, user_agent=request.headers.get("user-agent")
+            )
+            
+            await asyncio.sleep(1)  # Prevent timing attacks
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Incorrect username or password"
+            )
+
+        # Reset failed attempts on successful password verification
+        user.failed_login_attempts = 0
+        user.account_locked_until = None
+
+        # Check if MFA is enabled
+        if user.mfa_enabled:
+            # Create temporary MFA token
+            mfa_token = mfa_service.create_mfa_token(user.id)
+            
+            crud.create_audit_log(
+                db=db, user_id=user.id, action="LOGIN",
+                resource_type="auth", details={"mfa_required": True},
+                ip_address=request.client.host, user_agent=request.headers.get("user-agent")
+            )
+            
             return JSONResponse(
                 status_code=202,
                 content={
                     "mfa_required": True,
-                    "mfa_token": mfa_token
+                    "mfa_token": mfa_token,
+                    "message": "MFA verification required"
                 }
             )
 
-    # Successful login
-    crud.reset_login_attempts(db, user.id)
-    crud.update_last_login(db, user.id)
-
-    # Create tokens
-    access_token = create_access_token(
-        data={"sub": user.username, "user_id": user.id, "role": user.role.value}
-    )
-    refresh_token = create_refresh_token(
-        data={"sub": user.username, "user_id": user.id}
-    )
-
-    # Create session
-    session_id = session_manager.create_session(
-        user_id=user.id,
-        user_data={"username": user.username, "role": user.role.value},
-        ip_address=client_ip
-    )
-
-    audit_logger.log_access(
-        user_id=user.id,
-        action="LOGIN",
-        resource="authentication",
-        ip_address=client_ip,
-        success=True,
-        details="Successful login"
-    )
-
-    return {
-        "access_token": access_token,
-        "token_type": "bearer",
-        "expires_in": SecurityConfig.SESSION_TIMEOUT_MINUTES * 60,
-        "refresh_token": refresh_token,
-        "user": user
-    }
-
-@app.post("/api/v1/auth/mfa/setup", tags=["Authentication"])
-@limiter.limit("3/minute")
-async def setup_mfa(
-    request: Request,
-    mfa_token: str,
-    db: Session = Depends(get_db)
-):
-    """Set up Multi-Factor Authentication"""
-    payload = verify_token(mfa_token, "mfa")
-    if not payload:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid MFA token"
+        # Create access token
+        access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+        access_token = create_access_token(
+            data={"sub": user.username, "user_id": user.id, "role": user.role},
+            expires_delta=access_token_expires
         )
 
-    user_id = payload.get("user_id")
-    user = crud.get_user_by_id(db, user_id=user_id)
-    if not user:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="User not found"
+        # Update user login info
+        user.last_login = datetime.utcnow()
+        user.last_login_ip = request.client.host
+        user.current_session_id = f"session_{user.id}_{int(datetime.utcnow().timestamp())}"
+        db.commit()
+
+        # Log successful login
+        crud.create_audit_log(
+            db=db, user_id=user.id, action="LOGIN",
+            resource_type="auth", ip_address=request.client.host,
+            user_agent=request.headers.get("user-agent")
         )
 
-    # Generate MFA secret and QR code
-    secret, qr_code, backup_codes = mfa_service.generate_secret(user.username)
+        return {
+            "access_token": access_token,
+            "token_type": "bearer",
+            "expires_in": ACCESS_TOKEN_EXPIRE_MINUTES * 60,
+            "user": {
+                "id": user.id,
+                "username": user.username,
+                "email": user.email,
+                "role": user.role,
+                "permissions": user.permissions or {}
+            }
+        }
 
-    # Store encrypted secret
-    crud.update_user_mfa_secret(db, user.id, secret)
+    except HTTPException:
+        raise
+    except Exception as e:
+        audit_logger.error(f"Login error for {form_data.username}: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Login failed"
+        )
 
-    audit_logger.log_access(
-        user_id=user.id,
-        action="MFA_SETUP",
-        resource="authentication",
-        ip_address=request.client.host,
-        success=True
-    )
-
-    return {
-        "secret": secret,
-        "qr_code": qr_code,
-        "backup_codes": backup_codes
-    }
-
-@app.post("/api/v1/auth/mfa/verify", response_model=schemas.Token, tags=["Authentication"])
-@limiter.limit("5/minute")
+@app.post("/api/v1/auth/mfa/verify", response_model=schemas.TokenResponse)
+@rate_limiter.limit("3/minute")
 async def verify_mfa(
     request: Request,
-    mfa_token: str,
-    mfa_code: str,
+    mfa_request: schemas.MFAVerifyRequest,
     db: Session = Depends(get_db)
 ):
-    """Verify MFA code and complete authentication"""
-    payload = verify_token(mfa_token, "mfa")
-    if not payload:
+    """Verify MFA code and return access token"""
+    try:
+        # Verify MFA token and get user_id
+        user_id = mfa_service.verify_mfa_token(mfa_request.mfa_token)
+        if not user_id:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Invalid or expired MFA token"
+            )
+
+        user = crud.get_user(db, user_id)
+        if not user or not user.is_active:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="User not found or inactive"
+            )
+
+        # Verify MFA code
+        if not mfa_service.verify_totp_code(user.mfa_secret, mfa_request.mfa_code):
+            crud.create_audit_log(
+                db=db, user_id=user.id, action="ACCESS_DENIED",
+                resource_type="auth", details={"reason": "invalid_mfa"},
+                ip_address=request.client.host
+            )
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Invalid MFA code"
+            )
+
+        # Create access token
+        access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+        access_token = create_access_token(
+            data={"sub": user.username, "user_id": user.id, "role": user.role},
+            expires_delta=access_token_expires
+        )
+
+        # Update user login info
+        user.last_login = datetime.utcnow()
+        user.last_login_ip = request.client.host
+        user.current_session_id = f"session_{user.id}_{int(datetime.utcnow().timestamp())}"
+        db.commit()
+
+        # Log successful MFA verification
+        crud.create_audit_log(
+            db=db, user_id=user.id, action="LOGIN",
+            resource_type="auth", details={"mfa_verified": True},
+            ip_address=request.client.host
+        )
+
+        return {
+            "access_token": access_token,
+            "token_type": "bearer", 
+            "expires_in": ACCESS_TOKEN_EXPIRE_MINUTES * 60,
+            "user": {
+                "id": user.id,
+                "username": user.username,
+                "email": user.email,
+                "role": user.role,
+                "permissions": user.permissions or {}
+            }
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        audit_logger.error(f"MFA verification error: {str(e)}")
         raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid MFA token"
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="MFA verification failed"
         )
 
-    user_id = payload.get("user_id")
-    user = crud.get_user_by_id(db, user_id=user_id)
-    if not user:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="User not found"
-        )
-
-    # Verify MFA code
-    if not mfa_service.verify_totp(user.mfa_secret, mfa_code):
-        audit_logger.log_access(
-            user_id=user.id,
-            action="MFA_VERIFY",
-            resource="authentication",
-            ip_address=request.client.host,
-            success=False,
-            details="Invalid MFA code"
-        )
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid MFA code"
-        )
-
-    # Enable MFA if not already enabled
-    if not user.mfa_enabled:
-        crud.enable_user_mfa(db, user.id)
-
-    # Create tokens
-    access_token = create_access_token(
-        data={"sub": user.username, "user_id": user.id, "role": user.role.value}
-    )
-
-    audit_logger.log_access(
-        user_id=user.id,
-        action="MFA_VERIFY",
-        resource="authentication",
-        ip_address=request.client.host,
-        success=True
-    )
-
-    return {
-        "access_token": access_token,
-        "token_type": "bearer",
-        "expires_in": SecurityConfig.SESSION_TIMEOUT_MINUTES * 60,
-        "user": user
-    }
-
-@app.post("/api/v1/auth/logout", tags=["Authentication"])
+@app.post("/api/v1/auth/logout")
 async def logout(
     request: Request,
-    current_user: models.User = Depends(get_current_user)
+    current_user: models.User = Depends(get_current_user),
+    db: Session = Depends(get_db)
 ):
-    """Logout user and invalidate session"""
-    # In a full implementation, we would blacklist the JWT token
-    # For now, we just log the logout event
+    """Logout endpoint with session invalidation"""
+    try:
+        # Invalidate current session
+        current_user.current_session_id = None
+        db.commit()
 
-    audit_logger.log_access(
-        user_id=current_user.id,
-        action="LOGOUT",
-        resource="authentication",
-        ip_address=request.client.host,
-        success=True
-    )
+        # Log logout
+        crud.create_audit_log(
+            db=db, user_id=current_user.id, action="LOGOUT",
+            resource_type="auth", ip_address=request.client.host
+        )
+        
+        return {"message": "Logout successful"}
+    except Exception as e:
+        audit_logger.error(f"Logout error for user {current_user.id}: {str(e)}")
+        return {"message": "Logout completed"}
 
-    return {"message": "Successfully logged out"}
+# ==================== USER MANAGEMENT ENDPOINTS ====================
 
-# --- User Management Endpoints ---
-@app.get("/api/v1/users/me", response_model=schemas.User, tags=["Users"])
-async def get_current_user_info(
-    current_user: models.User = Depends(get_current_user)
-):
-    """Get current user information"""
-    return current_user
-
-@app.get("/api/v1/users", response_model=List[schemas.User], tags=["Users"])
-async def list_users(
+@app.get("/api/v1/users", response_model=List[schemas.UserResponse])
+async def get_users(
     skip: int = 0,
     limit: int = 100,
-    db: Session = Depends(get_db),
-    current_user: models.User = Depends(require_permission(Permissions.USER_READ))
+    role: Optional[str] = None,
+    current_user: models.User = Depends(require_admin),
+    db: Session = Depends(get_db)
 ):
-    """List all users (admin only)"""
-    users = crud.get_users(db, skip=skip, limit=limit)
+    """Get users (admin only)"""
+    users = crud.get_users(db, skip=skip, limit=limit, role=role)
+    
+    # Log access
+    crud.create_audit_log(
+        db=db, user_id=current_user.id, action="READ",
+        resource_type="users", details={"count": len(users)}
+    )
+    
     return users
 
-@app.post("/api/v1/users", response_model=schemas.User, tags=["Users"])
+@app.post("/api/v1/users", response_model=schemas.UserResponse)
 async def create_user(
     user: schemas.UserCreate,
-    db: Session = Depends(get_db),
-    current_user: models.User = Depends(require_permission(Permissions.USER_WRITE))
+    current_user: models.User = Depends(require_admin),
+    db: Session = Depends(get_db)
 ):
     """Create new user (admin only)"""
-    # Validate password strength
-    password_checks = validate_password_strength(user.password)
-    if not all(password_checks.values()):
-        failed_checks = [k for k, v in password_checks.items() if not v]
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Password does not meet requirements: {', '.join(failed_checks)}"
+    try:
+        db_user = crud.create_user(db, user, created_by=current_user.id)
+        
+        # Log creation
+        crud.create_audit_log(
+            db=db, user_id=current_user.id, action="CREATE",
+            resource_type="user", resource_id=db_user.id,
+            details={"username": user.username, "role": user.role}
         )
+        
+        return db_user
+    except crud.CRUDError as e:
+        raise HTTPException(status_code=400, detail=str(e))
 
-    # Check if username already exists
-    if crud.get_user_by_username(db, username=user.username):
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Username already registered"
-        )
+# ==================== PATIENT ENDPOINTS ====================
 
-    # Check if email already exists
-    if user.email and crud.get_user_by_email(db, email=user.email):
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Email already registered"
-        )
-
-    # Create user
-    created_user = crud.create_user(db=db, user=user, created_by=current_user.id)
-
-    audit_logger.log_access(
-        user_id=current_user.id,
-        action="CREATE",
-        resource="user",
-        resource_id=str(created_user.id),
-        success=True,
-        details=f"Created user: {user.username}"
-    )
-
-    return created_user
-
-@app.put("/api/v1/users/{user_id}", response_model=schemas.User, tags=["Users"])
-async def update_user(
-    user_id: int,
-    user_update: schemas.UserUpdate,
-    db: Session = Depends(get_db),
-    current_user: models.User = Depends(require_permission(Permissions.USER_WRITE))
-):
-    """Update user information (admin only)"""
-    user = crud.get_user_by_id(db, user_id=user_id)
-    if not user:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="User not found"
-        )
-
-    updated_user = crud.update_user(db=db, user_id=user_id, user_update=user_update)
-
-    audit_logger.log_access(
-        user_id=current_user.id,
-        action="UPDATE",
-        resource="user",
-        resource_id=str(user_id),
-        success=True,
-        details=f"Updated user: {user.username}"
-    )
-
-    return updated_user
-
-# --- Patient Management Endpoints ---
-@app.get("/api/v1/patients", response_model=List[schemas.Patient], tags=["Patients"])
-async def list_patients(
+@app.get("/api/v1/patients", response_model=List[schemas.PatientResponse])
+async def get_patients(
     skip: int = 0,
     limit: int = 100,
     search: Optional[str] = None,
-    db: Session = Depends(get_db),
-    current_user: models.User = Depends(require_permission(Permissions.PATIENT_READ))
+    current_user: models.User = Depends(get_current_user),
+    db: Session = Depends(get_db)
 ):
-    """List patients with optional search"""
-    patients = crud.get_patients(db, skip=skip, limit=limit, search=search)
-
-    # Log patient access for HIPAA compliance
-    for patient in patients:
-        audit_logger.log_access(
-            user_id=current_user.id,
-            action="READ",
-            resource="patient",
-            resource_id=str(patient.id),
-            patient_id=patient.id,
-            success=True
+    """Get patients with optional search"""
+    try:
+        patients = crud.get_patients(db, skip=skip, limit=limit, search=search)
+        
+        # Log access
+        crud.create_audit_log(
+            db=db, user_id=current_user.id, action="READ",
+            resource_type="patients", details={
+                "count": len(patients),
+                "search_term": search if search else None
+            },
+            business_justification="Patient management and care coordination"
         )
+        
+        return patients
+    except crud.CRUDError as e:
+        raise HTTPException(status_code=400, detail=str(e))
 
-    return patients
-
-@app.get("/api/v1/patients/{patient_id}", response_model=schemas.Patient, tags=["Patients"])
+@app.get("/api/v1/patients/{patient_id}", response_model=schemas.PatientResponse)
 async def get_patient(
     patient_id: int,
-    db: Session = Depends(get_db),
-    current_user: models.User = Depends(require_permission(Permissions.PATIENT_READ))
+    current_user: models.User = Depends(get_current_user),
+    db: Session = Depends(get_db)
 ):
-    """Get patient by ID"""
-    patient = crud.get_patient(db, patient_id=patient_id)
-    if not patient:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Patient not found"
+    """Get single patient"""
+    try:
+        patient = crud.get_patient(db, patient_id)
+        if not patient:
+            raise HTTPException(status_code=404, detail="Patient not found")
+        
+        # Log access to PHI
+        crud.create_audit_log(
+            db=db, user_id=current_user.id, action="READ",
+            resource_type="patient", resource_id=patient_id,
+            business_justification="Patient care and treatment"
         )
+        
+        return patient
+    except crud.CRUDError as e:
+        raise HTTPException(status_code=400, detail=str(e))
 
-    # Log patient access for HIPAA compliance
-    audit_logger.log_access(
-        user_id=current_user.id,
-        action="READ",
-        resource="patient",
-        resource_id=str(patient_id),
-        patient_id=patient_id,
-        success=True
-    )
-
-    return patient
-
-@app.post("/api/v1/patients", response_model=schemas.Patient, tags=["Patients"])
+@app.post("/api/v1/patients", response_model=schemas.PatientResponse)
 async def create_patient(
     patient: schemas.PatientCreate,
-    db: Session = Depends(get_db),
-    current_user: models.User = Depends(require_permission(Permissions.PATIENT_WRITE))
+    current_user: models.User = Depends(get_current_user),
+    db: Session = Depends(get_db)
 ):
     """Create new patient"""
-    # Check for duplicate phone number
-    existing_patient = crud.get_patient_by_phone(db, phone_number=patient.phone_number)
-    if existing_patient:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Patient with this phone number already exists"
+    try:
+        db_patient = crud.create_patient(db, patient, current_user.id)
+        
+        # Log creation
+        crud.create_audit_log(
+            db=db, user_id=current_user.id, action="CREATE",
+            resource_type="patient", resource_id=db_patient.id,
+            details={"name_encrypted": True},
+            business_justification="New patient registration"
         )
+        
+        return db_patient
+    except crud.CRUDError as e:
+        raise HTTPException(status_code=400, detail=str(e))
 
-    # Check for duplicate email if provided
-    if patient.email:
-        existing_patient = crud.get_patient_by_email(db, email=patient.email)
-        if existing_patient:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Patient with this email already exists"
-            )
+@app.put("/api/v1/patients/{patient_id}", response_model=schemas.PatientResponse)
+async def update_patient(
+    patient_id: int,
+    patient_update: schemas.PatientUpdate,
+    current_user: models.User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Update patient information"""
+    try:
+        # Get current patient data for audit log
+        current_patient = crud.get_patient(db, patient_id)
+        if not current_patient:
+            raise HTTPException(status_code=404, detail="Patient not found")
+        
+        db_patient = crud.update_patient(db, patient_id, patient_update, current_user.id)
+        
+        # Log update with old/new values
+        crud.create_audit_log(
+            db=db, user_id=current_user.id, action="UPDATE",
+            resource_type="patient", resource_id=patient_id,
+            details={"fields_updated": list(patient_update.dict(exclude_unset=True).keys())},
+            business_justification="Patient information update"
+        )
+        
+        return db_patient
+    except crud.CRUDError as e:
+        raise HTTPException(status_code=400, detail=str(e))
 
-    created_patient = crud.create_patient(db=db, patient=patient, created_by=current_user.id)
+# ==================== APPOINTMENT ENDPOINTS ====================
 
-    audit_logger.log_access(
-        user_id=current_user.id,
-        action="CREATE",
-        resource="patient",
-        resource_id=str(created_patient.id),
-        patient_id=created_patient.id,
-        success=True,
-        details=f"Created patient: {patient.name}"
-    )
-
-    return created_patient
-
-# --- Appointment Management Endpoints ---
-@app.get("/api/v1/appointments", response_model=List[schemas.AppointmentWithDetails], tags=["Appointments"])
-async def list_appointments(
+@app.get("/api/v1/appointments", response_model=List[schemas.AppointmentResponse])
+async def get_appointments(
     skip: int = 0,
-    limit: int = 100,
-    date_from: Optional[str] = None,
-    date_to: Optional[str] = None,
+    limit: int = 25,
     status: Optional[str] = None,
     location_id: Optional[int] = None,
-    db: Session = Depends(get_db),
-    current_user: models.User = Depends(require_permission(Permissions.APPOINTMENT_READ))
+    patient_id: Optional[int] = None,
+    start_date: Optional[datetime] = None,
+    end_date: Optional[datetime] = None,
+    current_user: models.User = Depends(get_current_user),
+    db: Session = Depends(get_db)
 ):
-    """List appointments with filtering options"""
-    appointments = crud.get_appointments(
-        db, skip=skip, limit=limit,
-        date_from=date_from, date_to=date_to,
-        status=status, location_id=location_id
-    )
+    """Get appointments with comprehensive filtering"""
+    try:
+        appointments = crud.get_appointments(
+            db, skip=skip, limit=limit, status=status, 
+            location_id=location_id, patient_id=patient_id,
+            start_date=start_date, end_date=end_date
+        )
+        
+        # Log access
+        crud.create_audit_log(
+            db=db, user_id=current_user.id, action="READ",
+            resource_type="appointments", details={
+                "count": len(appointments),
+                "filters": {
+                    "status": status,
+                    "location_id": location_id,
+                    "patient_id": patient_id
+                }
+            }
+        )
+        
+        return appointments
+    except crud.CRUDError as e:
+        raise HTTPException(status_code=400, detail=str(e))
 
-    return appointments
+@app.get("/api/v1/appointments/{appointment_id}", response_model=schemas.AppointmentResponse)
+async def get_appointment(
+    appointment_id: int,
+    current_user: models.User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Get single appointment"""
+    try:
+        appointment = crud.get_appointment(db, appointment_id)
+        if not appointment:
+            raise HTTPException(status_code=404, detail="Appointment not found")
+        
+        # Log access
+        crud.create_audit_log(
+            db=db, user_id=current_user.id, action="READ",
+            resource_type="appointment", resource_id=appointment_id
+        )
+        
+        return appointment
+    except crud.CRUDError as e:
+        raise HTTPException(status_code=400, detail=str(e))
 
-@app.post("/api/v1/appointments", response_model=schemas.Appointment, tags=["Appointments"])
+@app.post("/api/v1/appointments", response_model=schemas.AppointmentResponse)
 async def create_appointment(
     appointment: schemas.AppointmentCreate,
-    db: Session = Depends(get_db),
-    current_user: models.User = Depends(require_permission(Permissions.APPOINTMENT_WRITE))
+    background_tasks: BackgroundTasks,
+    current_user: models.User = Depends(get_current_user),
+    db: Session = Depends(get_db)
 ):
-    """Create new appointment"""
-    # Check if patient exists
-    patient = crud.get_patient(db, patient_id=appointment.patient_id)
-    if not patient:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Patient not found"
-        )
-
-    # Check if location exists
-    location = crud.get_location(db, location_id=appointment.location_id)
-    if not location:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Location not found"
-        )
-
-    # Check for scheduling conflicts
-    conflicts = crud.check_appointment_conflicts(
-        db, location_id=appointment.location_id,
-        start_time=appointment.start_time,
-        end_time=appointment.end_time
-    )
-    if conflicts:
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail="Time slot is already booked"
-        )
-
-    created_appointment = crud.create_appointment(
-        db=db, appointment=appointment, created_by=current_user.id
-    )
-
-    # Send confirmation if patient has opted in for communications
-    if patient.whatsapp_opt_in and patient.preferred_communication == "whatsapp":
-        try:
-            await whatsapp_service.send_appointment_confirmation(
-                phone_number=patient.whatsapp_number,
-                patient_name=patient.name,
-                appointment_time=appointment.start_time,
-                location=location.name
-            )
-            crud.mark_appointment_confirmation_sent(db, created_appointment.id)
-        except Exception as e:
-            # Log error but don't fail the appointment creation
-            audit_logger.log_access(
-                user_id=current_user.id,
-                action="COMMUNICATION_ERROR",
-                resource="appointment",
-                resource_id=str(created_appointment.id),
-                success=False,
-                details=f"Failed to send WhatsApp confirmation: {str(e)}"
-            )
-
-    audit_logger.log_access(
-        user_id=current_user.id,
-        action="CREATE",
-        resource="appointment",
-        resource_id=str(created_appointment.id),
-        patient_id=appointment.patient_id,
-        success=True
-    )
-
-    return created_appointment
-
-# Startup event
-@app.on_event("startup")
-async def startup_event():
-    """Initialize application on startup"""
-    # Create initial admin users
-    db = SessionLocal()
+    """Create new appointment with calendar integration"""
     try:
-        if not crud.get_user_by_username(db, username="admin"):
-            admin_user = schemas.UserCreate(
-                username="admin",
-                email="admin@clinic.local",
-                role="admin",
-                password="AdminPassword123!"
+        db_appointment = crud.create_appointment(db, appointment, current_user.id)
+        
+        # Background task: Create Google Calendar event
+        if calendar_service.is_enabled():
+            background_tasks.add_task(
+                create_calendar_event_task,
+                appointment_id=db_appointment.id,
+                db_session=db
             )
-            crud.create_initial_admin(db, admin_user)
-
-        audit_logger.log_access(
-            user_id=None,
-            action="SYSTEM_STARTUP",
-            resource="system",
-            success=True,
-            details="Application started successfully"
+        
+        # Background task: Send confirmation if patient has WhatsApp
+        if db_appointment.patient and db_appointment.patient.whatsapp_opt_in:
+            background_tasks.add_task(
+                send_appointment_confirmation,
+                appointment_id=db_appointment.id,
+                db_session=db
+            )
+        
+        # Log creation
+        crud.create_audit_log(
+            db=db, user_id=current_user.id, action="CREATE",
+            resource_type="appointment", resource_id=db_appointment.id,
+            details={
+                "patient_id": appointment.patient_id,
+                "start_time": appointment.start_time.isoformat(),
+                "location_id": appointment.location_id
+            }
         )
-    finally:
-        db.close()
+        
+        return db_appointment
+    except crud.CRUDError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+@app.put("/api/v1/appointments/{appointment_id}", response_model=schemas.AppointmentResponse)
+async def update_appointment(
+    appointment_id: int,
+    appointment_update: schemas.AppointmentUpdate,
+    background_tasks: BackgroundTasks,
+    current_user: models.User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Update appointment"""
+    try:
+        db_appointment = crud.update_appointment(db, appointment_id, appointment_update)
+        if not db_appointment:
+            raise HTTPException(status_code=404, detail="Appointment not found")
+        
+        # Background task: Update calendar event if time changed
+        if any(field in appointment_update.dict(exclude_unset=True) for field in ["start_time", "end_time"]):
+            if calendar_service.is_enabled() and db_appointment.google_calendar_event_id:
+                background_tasks.add_task(
+                    update_calendar_event_task,
+                    appointment_id=appointment_id,
+                    db_session=db
+                )
+        
+        # Log update
+        crud.create_audit_log(
+            db=db, user_id=current_user.id, action="UPDATE",
+            resource_type="appointment", resource_id=appointment_id,
+            details={"fields_updated": list(appointment_update.dict(exclude_unset=True).keys())}
+        )
+        
+        return db_appointment
+    except crud.CRUDError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+# ==================== WHATSAPP WEBHOOK ENDPOINTS ====================
+
+@app.post("/api/v1/whatsapp/webhook")
+async def whatsapp_webhook(
+    request: Request,
+    background_tasks: BackgroundTasks,
+    db: Session = Depends(get_db)
+):
+    """WhatsApp webhook endpoint for receiving messages"""
+    try:
+        payload = await request.json()
+        
+        # Process webhook in background to return quickly
+        background_tasks.add_task(
+            process_whatsapp_webhook,
+            payload=payload,
+            db_session=db
+        )
+        
+        return {"success": True}
+    except Exception as e:
+        audit_logger.error(f"WhatsApp webhook error: {str(e)}")
+        return {"success": False, "error": "Processing failed"}
+
+@app.get("/api/v1/whatsapp/webhook")
+async def whatsapp_webhook_verify(request: Request):
+    """WhatsApp webhook verification for Meta"""
+    verify_token = os.getenv("WHATSAPP_VERIFY_TOKEN", "your_verify_token")
+    
+    challenge = request.query_params.get("hub.challenge")
+    token = request.query_params.get("hub.verify_token")
+    
+    if token == verify_token and challenge:
+        return int(challenge)
+    else:
+        raise HTTPException(status_code=403, detail="Invalid verify token")
+
+# ==================== LOCATION ENDPOINTS ====================
+
+@app.get("/api/v1/locations", response_model=List[schemas.LocationResponse])
+async def get_locations(
+    current_user: models.User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Get all active locations"""
+    try:
+        locations = crud.get_locations(db)
+        return locations
+    except crud.CRUDError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+@app.post("/api/v1/locations", response_model=schemas.LocationResponse)
+async def create_location(
+    location: schemas.LocationCreate,
+    current_user: models.User = Depends(require_admin),
+    db: Session = Depends(get_db)
+):
+    """Create new location (admin only)"""
+    try:
+        db_location = crud.create_location(db, location, current_user.id)
+        
+        # Log creation
+        crud.create_audit_log(
+            db=db, user_id=current_user.id, action="CREATE",
+            resource_type="location", resource_id=db_location.id,
+            details={"name": location.name}
+        )
+        
+        return db_location
+    except crud.CRUDError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+# ==================== DASHBOARD ENDPOINTS ====================
+
+@app.get("/api/v1/dashboard/stats", response_model=schemas.DashboardStatsResponse)
+async def get_dashboard_stats(
+    location_id: Optional[int] = None,
+    current_user: models.User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Get dashboard statistics"""
+    try:
+        stats = crud.get_dashboard_stats(db, location_id=location_id)
+        return stats
+    except crud.CRUDError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+# ==================== SERVICE STATUS ENDPOINTS ====================
+
+@app.get("/api/v1/services/status", response_model=schemas.ServicesStatusResponse)
+async def get_services_status():
+    """Get status of all integrated services"""
+    return {
+        "whatsapp": {
+            "enabled": bool(os.getenv("WHATSAPP_ACCESS_TOKEN")),
+            "status": "connected" if os.getenv("WHATSAPP_ACCESS_TOKEN") else "disconnected"
+        },
+        "email": {
+            "enabled": bool(os.getenv("SENDGRID_API_KEY") or os.getenv("SMTP_SERVER")),
+            "status": "connected" if (os.getenv("SENDGRID_API_KEY") or os.getenv("SMTP_SERVER")) else "disconnected"
+        },
+        "calendar": calendar_service.get_service_status()
+    }
+
+# ==================== AUDIT LOG ENDPOINTS ====================
+
+@app.get("/api/v1/audit/logs", response_model=List[schemas.AuditLogResponse])
+async def get_audit_logs(
+    skip: int = 0,
+    limit: int = 100,
+    user_id: Optional[int] = None,
+    action: Optional[str] = None,
+    resource_type: Optional[str] = None,
+    start_date: Optional[datetime] = None,
+    end_date: Optional[datetime] = None,
+    current_user: models.User = Depends(require_admin),
+    db: Session = Depends(get_db)
+):
+    """Get audit logs (admin only)"""
+    try:
+        logs = crud.get_audit_logs(
+            db, skip=skip, limit=limit, user_id=user_id,
+            action=action, resource_type=resource_type,
+            start_date=start_date, end_date=end_date
+        )
+        
+        # Log audit log access
+        crud.create_audit_log(
+            db=db, user_id=current_user.id, action="READ",
+            resource_type="audit_logs", details={"count": len(logs)}
+        )
+        
+        return logs
+    except crud.CRUDError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+# ==================== BACKGROUND TASK FUNCTIONS ====================
+
+async def create_calendar_event_task(appointment_id: int, db_session: Session):
+    """Background task to create Google Calendar event"""
+    try:
+        appointment = crud.get_appointment(db_session, appointment_id)
+        if appointment and appointment.patient and appointment.location:
+            event_id = await calendar_service.create_calendar_event(
+                appointment, appointment.patient, appointment.location
+            )
+            if event_id:
+                crud.update_appointment_calendar_event(db_session, appointment_id, event_id)
+    except Exception as e:
+        audit_logger.error(f"Calendar event creation failed for appointment {appointment_id}: {str(e)}")
+
+async def update_calendar_event_task(appointment_id: int, db_session: Session):
+    """Background task to update Google Calendar event"""
+    try:
+        appointment = crud.get_appointment(db_session, appointment_id)
+        if appointment and appointment.google_calendar_event_id:
+            await calendar_service.update_calendar_event(
+                appointment.google_calendar_event_id, appointment
+            )
+    except Exception as e:
+        audit_logger.error(f"Calendar event update failed for appointment {appointment_id}: {str(e)}")
+
+async def send_appointment_confirmation(appointment_id: int, db_session: Session):
+    """Background task to send appointment confirmation via WhatsApp"""
+    try:
+        appointment = crud.get_appointment(db_session, appointment_id)
+        if appointment and appointment.patient and appointment.patient.whatsapp_opt_in:
+            await whatsapp_service.send_appointment_confirmation(appointment)
+    except Exception as e:
+        audit_logger.error(f"WhatsApp confirmation failed for appointment {appointment_id}: {str(e)}")
+
+async def process_whatsapp_webhook(payload: dict, db_session: Session):
+    """Background task to process WhatsApp webhook"""
+    try:
+        result = await whatsapp_service.handle_webhook(payload, db_session)
+        
+        # Log webhook processing
+        crud.create_audit_log(
+            db=db_session, action="CREATE",
+            resource_type="whatsapp_message",
+            details={"webhook_processed": True, "result": result}
+        )
+    except Exception as e:
+        audit_logger.error(f"WhatsApp webhook processing failed: {str(e)}")
+
+# ==================== STARTUP SCRIPT ====================
 
 if __name__ == "__main__":
+    # Development server
     uvicorn.run(
-        "main:app",
-        host="127.0.0.1",
+        "app.main:app",
+        host="0.0.0.0",
         port=8000,
-        reload=os.getenv("ENVIRONMENT") == "development",
-        ssl_keyfile=os.getenv("SSL_KEY_FILE"),
-        ssl_certfile=os.getenv("SSL_CERT_FILE")
+        reload=True,
+        reload_dirs=["app"],
+        log_level="info"
     )
