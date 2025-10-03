@@ -9,6 +9,8 @@ from datetime import datetime, time
 from sqlalchemy import select, update
 from . import models, schemas, security
 from app.schemas import LocationScheduleCreate
+from app.security import encryption_service
+
 
 # --- User CRUD Functions ---
 
@@ -96,19 +98,21 @@ def create_prescription_share_log(db: Session, user_id: int, patient_id: int, me
     
     return create_activity_log(db, user_id, action, details, "Prescription")
 
-def create_patient(db: Session, patient: schemas.PatientCreate):
+def create_patient(db: Session, patient: schemas.PatientCreate, created_by: int):
+    enc = encryption_service
     db_patient = models.Patient(
-        name=patient.name,
-        phone_number=patient.phone_number,
-        email=patient.email,
-        date_of_birth=patient.date_of_birth,
-        address=patient.address,
-        whatsapp_number=patient.whatsapp_number
+        name_encrypted      = enc.encrypt(patient.name),
+        phone_number_encrypted = enc.encrypt(patient.phone_number),
+        email_encrypted     = enc.encrypt(patient.email) if patient.email else None,
+        phone_hash          = enc.hash_for_lookup(patient.phone_number),
+        email_hash          = enc.hash_for_lookup(patient.email) if patient.email else None,
+        date_of_birth       = patient.date_of_birth,
+        created_by          = created_by,
+        hipaa_authorization = patient.hipaa_authorization,
+        consent_to_treatment= patient.consent_to_treatment,
     )
-    db.add(db_patient)
-    db.commit()
-    db.refresh(db_patient)
-    return db_patient
+    db.add(db_patient); db.commit(); db.refresh(db_patient); return db_patient
+
 
 def get_activity_logs(db: Session, skip: int = 0, limit: int = 100):
     return db.query(models.ActivityLog).options(joinedload(models.ActivityLog.user)).order_by(models.ActivityLog.timestamp.desc()).offset(skip).limit(limit).all()
@@ -158,7 +162,8 @@ def update_appointment_status(db: Session, appointment_id: int, status: str, use
 
 
 def get_patient_by_phone(db: Session, phone_number: str):
-    return db.query(models.Patient).filter(models.Patient.phone_number == phone_number).first()
+    h = encryption_service.hash_for_lookup(phone_number)
+    return db.query(models.Patient).filter(models.Patient.phone_hash == h).first()
 
 def get_patients(db: Session, skip: int = 0, limit: int = 100):
     return db.query(models.Patient).offset(skip).limit(limit).all()
