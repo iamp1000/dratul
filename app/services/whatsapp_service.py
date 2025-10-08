@@ -1,3 +1,4 @@
+# app/services/whatsapp_service.py - Fixed version with proper imports and rate limiting
 
 import os
 import json
@@ -8,6 +9,7 @@ from pywa import WhatsApp
 from pywa.types import Message, CallbackButton, Button
 import logging
 from sqlalchemy.orm import Session
+from fastapi import HTTPException, status
 
 from ..config import settings
 from ..database import get_db
@@ -15,10 +17,19 @@ from .. import models, schemas, crud
 
 logger = logging.getLogger(__name__)
 
+
 class WhatsAppChatbot:
     """WhatsApp chatbot for appointment booking and patient interactions"""
 
     def __init__(self):
+        # Import rate_limiter properly
+        try:
+            from ..security import rate_limiter
+            self.rate_limiter = rate_limiter
+        except ImportError:
+            logger.warning("Rate limiter not available, creating dummy limiter")
+            self.rate_limiter = self._create_dummy_rate_limiter()
+
         self.flows = {
             "greeting": self.handle_greeting,
             "appointment_booking": self.handle_appointment_booking,
@@ -35,9 +46,28 @@ class WhatsAppChatbot:
             "confirm_booking"
         ]
 
+    def _create_dummy_rate_limiter(self):
+        """Create a dummy rate limiter if the real one fails"""
+        class DummyRateLimiter:
+            def check_whatsapp_rate_limit(self, phone_number: str, message_limit: int = 3, window_minutes: int = 1) -> bool:
+                return True
+            def check_appointment_booking_limit(self, phone_number: str, daily_limit: int = 2) -> bool:
+                return True
+        return DummyRateLimiter()
+
     async def process_message(self, phone_number: str, message_text: str, 
                             session_data: Dict[str, Any], db: Session) -> Dict[str, Any]:
-        """Process incoming WhatsApp message"""
+        """Process incoming WhatsApp message with rate limiting"""
+        
+        # Check message rate limit (3 messages per minute)
+        if not self.rate_limiter.check_whatsapp_rate_limit(phone_number, 
+                                                          message_limit=3, 
+                                                          window_minutes=1):
+            return {
+                "message": "⚠️ You're sending messages too quickly. Please wait a moment before sending another message.",
+                "session_data": session_data
+            }
+        
         current_flow = session_data.get("current_flow", "greeting")
 
         if current_flow in self.flows:
@@ -91,7 +121,16 @@ Simply reply with the number or describe what you need."""
 
     async def start_appointment_booking(self, phone_number: str,
                                       session_data: Dict[str, Any], db: Session) -> str:
-        """Start the appointment booking process"""
+        """Start the appointment booking process with rate limiting"""
+        
+        # Check appointment booking rate limit (2 per day)
+        if not self.rate_limiter.check_appointment_booking_limit(phone_number, daily_limit=2):
+            return "⚠️ You have reached the daily limit for appointment bookings. Please try again tomorrow."
+        
+        # Check if user already has an active appointment
+        if crud.has_active_appointment(db, phone_number):
+            return "⚠️ You already have an active appointment. Please wait for it to be completed or cancelled before booking a new one."
+        
         # Check if patient exists
         patient = crud.get_patient_by_phone_hash(db, phone_number)
 
@@ -126,7 +165,7 @@ Simply reply with the number or describe what you need."""
         }
 
     async def collect_name(self, phone_number: str, message_text: str,
-                          session_data: Dict[str, Any], db: Session) -> Dict[str, Any]:
+                        session_data: Dict[str, Any], db: Session) -> Dict[str, Any]:
         """Collect patient name"""
         name = message_text.strip().title()
         if len(name) < 2:
@@ -144,7 +183,7 @@ Simply reply with the number or describe what you need."""
         }
 
     async def collect_dob(self, phone_number: str, message_text: str,
-                         session_data: Dict[str, Any], db: Session) -> Dict[str, Any]:
+                        session_data: Dict[str, Any], db: Session) -> Dict[str, Any]:
         """Collect patient date of birth"""
         try:
             # Parse date
@@ -179,7 +218,7 @@ Simply reply with the number or describe what you need."""
             }
 
     async def collect_reason(self, phone_number: str, message_text: str,
-                           session_data: Dict[str, Any], db: Session) -> Dict[str, Any]:
+                        session_data: Dict[str, Any], db: Session) -> Dict[str, Any]:
         """Collect appointment reason"""
         reason = message_text.strip()
         if len(reason) < 3:
@@ -194,7 +233,7 @@ Simply reply with the number or describe what you need."""
         return await self.show_available_slots(phone_number, "", session_data, db)
 
     async def show_available_slots(self, phone_number: str, message_text: str,
-                                 session_data: Dict[str, Any], db: Session) -> Dict[str, Any]:
+                                session_data: Dict[str, Any], db: Session) -> Dict[str, Any]:
         """Show available appointment slots"""
         # Get available slots for the next 7 days
         available_slots = crud.get_available_appointment_slots(db, days_ahead=7)
@@ -231,7 +270,7 @@ Simply reply with the number or describe what you need."""
 
     async def confirm_booking(self, phone_number: str, message_text: str,
                             session_data: Dict[str, Any], db: Session) -> Dict[str, Any]:
-        """Confirm appointment booking"""
+        """Confirm appointment booking with validation"""
         try:
             slot_number = int(message_text.strip()) - 1
             available_slots = session_data.get("available_slots", [])
@@ -261,7 +300,7 @@ Simply reply with the number or describe what you need."""
                 patient = crud.create_patient_from_whatsapp(db, patient_data)
                 patient_id = patient.id
 
-            # Create appointment
+            # Create appointment with validation
             appointment_start = datetime.combine(
                 datetime.fromisoformat(selected_slot["date"]).date(),
                 datetime.fromisoformat(selected_slot["time"]).time()
@@ -277,7 +316,8 @@ Simply reply with the number or describe what you need."""
                 appointment_type="consultation"
             )
 
-            appointment = crud.create_appointment_from_whatsapp(db, appointment_data)
+            # Use the validation function that includes rate limiting
+            appointment = crud.create_appointment_with_validation(db, appointment_data, phone_number)
 
             # Success message
             date_str = appointment_start.strftime("%A, %B %d, %Y")
@@ -285,23 +325,28 @@ Simply reply with the number or describe what you need."""
 
             response = f"""✅ Appointment confirmed!
 
-📅 Date: {date_str}
-⏰ Time: {time_str}
-📍 Location: Dr. Dhingra's Clinic
-👤 Patient: {session_data['patient_name']}
-📝 Reason: {session_data['appointment_reason']}
+            📅 Date: {date_str}
+            ⏰ Time: {time_str}
+            📍 Location: Dr. Dhingra's Clinic
+            👤 Patient: {session_data['patient_name']}
+            📝 Reason: {session_data['appointment_reason']}
 
-Appointment ID: #{appointment.id}
+            Appointment ID: #{appointment.id}
 
-You'll receive a reminder 1 day before your appointment. If you need to reschedule, please call us or message 'reschedule'.
+            You'll receive a reminder 1 day before your appointment. If you need to reschedule, please call us or message 'reschedule'.
 
-Thank you for choosing Dr. Dhingra's Clinic! 🏥"""
+            Thank you for choosing Dr. Dhingra's Clinic! 🏥"""
 
             return {
                 "message": response,
                 "session_data": {"current_flow": "greeting", "appointment_id": appointment.id}
             }
 
+        except HTTPException as e:
+            return {
+                "message": f"⚠️ {e.detail}",
+                "session_data": {"current_flow": "greeting"}
+            }
         except (ValueError, KeyError, IndexError):
             return {
                 "message": f"Please choose a valid number from the list:",
@@ -309,7 +354,7 @@ Thank you for choosing Dr. Dhingra's Clinic! 🏥"""
             }
 
     async def handle_appointment_inquiry(self, phone_number: str, message_text: str,
-                                       session_data: Dict[str, Any], db: Session) -> Dict[str, Any]:
+                                    session_data: Dict[str, Any], db: Session) -> Dict[str, Any]:
         """Handle appointment status inquiries"""
         # Get patient by phone
         patient = crud.get_patient_by_phone_hash(db, phone_number)
@@ -342,6 +387,44 @@ Thank you for choosing Dr. Dhingra's Clinic! 🏥"""
             "message": response,
             "session_data": {"current_flow": "greeting"}
         }
+
+    async def handle_prescription_request(self, phone_number: str, message_text: str,
+                                        session_data: Dict[str, Any], db: Session) -> Dict[str, Any]:
+        """Handle prescription requests"""
+        patient = crud.get_patient_by_phone_hash(db, phone_number)
+        
+        if not patient:
+            return {
+                "message": "I need to verify your identity first. Please call us at [PHONE_NUMBER] for prescription requests.",
+                "session_data": {"current_flow": "greeting"}
+            }
+        
+        response = f"Hi {patient.name}! For prescription requests, please call us at [PHONE_NUMBER] or visit our clinic.\n\nOur pharmacy hours are: Monday-Friday 9AM-6PM, Saturday 9AM-2PM"
+        
+        return {
+            "message": response,
+            "session_data": {"current_flow": "greeting"}
+        }
+
+    async def handle_general_inquiry(self, phone_number: str, message_text: str,
+                                session_data: Dict[str, Any], db: Session) -> Dict[str, Any]:
+        """Handle general inquiries"""
+        response = """Here's some general information about Dr. Dhingra's Clinic:
+
+        🏥 **Services:** General medicine, consultations, health checkups
+        ⏰ **Hours:** Monday-Friday 9AM-6PM, Saturday 9AM-2PM
+        📞 **Phone:** [PHONE_NUMBER]
+        📍 **Location:** [CLINIC_ADDRESS]
+
+        For specific medical questions, please book an appointment or call us directly.
+
+        How else can I help you today?"""
+
+        return {
+            "message": response,
+            "session_data": {"current_flow": "greeting"}
+        }
+
 
 class WhatsAppService:
     """Enhanced WhatsApp service with chatbot capabilities"""
@@ -384,98 +467,6 @@ class WhatsAppService:
         except Exception as e:
             logger.error(f"Failed to send WhatsApp message: {str(e)}")
             return {"success": False, "error": str(e)}
-
-    async def send_template_message(self, phone_number: str, template_name: str, 
-                                   parameters: List[str] = None) -> Dict[str, Any]:
-        """Send a WhatsApp template message"""
-        if not self.enabled:
-            logger.info(f"📱 [SIMULATED] Would send template '{template_name}' to {phone_number}")
-            return {"success": True, "message": "Template sent (simulated)"}
-
-        try:
-            response = self.client.send_template(
-                to=phone_number,
-                template=template_name,
-                components=parameters or []
-            )
-            return {"success": True, "message": "Template sent successfully", "message_id": response.id}
-        except Exception as e:
-            logger.error(f"Failed to send WhatsApp template: {str(e)}")
-            return {"success": False, "error": str(e)}
-
-    async def send_appointment_confirmation(self, phone_number: str, patient_name: str,
-                                          appointment_time: datetime, location: str) -> Dict[str, Any]:
-        """Send appointment confirmation via WhatsApp"""
-        date_str = appointment_time.strftime("%A, %B %d, %Y")
-        time_str = appointment_time.strftime("%I:%M %p")
-
-        message = f"""✅ Appointment Confirmed!
-
-Hi {patient_name},
-
-Your appointment has been scheduled:
-
-📅 Date: {date_str}
-⏰ Time: {time_str}
-📍 Location: {location}
-
-Please arrive 15 minutes early. If you need to reschedule, please call us or message 'reschedule'.
-
-Dr. Dhingra's Clinic 🏥"""
-
-        return await self.send_message(phone_number, message)
-
-    async def send_appointment_reminder(self, phone_number: str, patient_name: str,
-                                      appointment_time: datetime, location: str) -> Dict[str, Any]:
-        """Send appointment reminder via WhatsApp"""
-        date_str = appointment_time.strftime("%A, %B %d, %Y")
-        time_str = appointment_time.strftime("%I:%M %p")
-
-        message = f"""⏰ Appointment Reminder
-
-Hi {patient_name},
-
-This is a reminder for your upcoming appointment:
-
-📅 Tomorrow: {date_str}
-⏰ Time: {time_str}
-📍 Location: {location}
-
-Please arrive 15 minutes early. Call us if you need to reschedule.
-
-Dr. Dhingra's Clinic 🏥"""
-
-        return await self.send_message(phone_number, message)
-
-    async def send_prescription(self, phone_number: str, patient_name: str,
-                               prescription_details: str, document_url: str = None) -> Dict[str, Any]:
-        """Send prescription via WhatsApp"""
-        message = f"""💊 Prescription Ready
-
-Hi {patient_name},
-
-Your prescription is ready:
-
-{prescription_details}
-
-Please follow the instructions provided. Contact us if you have any questions.
-
-Dr. Dhingra's Clinic 🏥"""
-
-        if document_url and self.enabled:
-            try:
-                response = self.client.send_document(
-                    to=phone_number,
-                    document=document_url,
-                    caption=message
-                )
-                return {"success": True, "message": "Prescription sent with document", "message_id": response.id}
-            except Exception as e:
-                logger.error(f"Failed to send prescription document: {str(e)}")
-                # Fallback to text message
-                return await self.send_message(phone_number, message)
-        else:
-            return await self.send_message(phone_number, message)
 
     async def handle_webhook(self, webhook_data: Dict[str, Any], db: Session) -> Dict[str, Any]:
         """Handle incoming WhatsApp webhook"""

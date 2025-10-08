@@ -2,7 +2,10 @@
 import os
 from typing import Optional
 from functools import lru_cache
-from pydantic import BaseSettings, validator, Field
+
+from pydantic_settings import BaseSettings
+from pydantic import validator, Field
+
 
 class Settings(BaseSettings):
     """Application settings with validation and environment variable support"""
@@ -142,6 +145,8 @@ class Settings(BaseSettings):
     enable_performance_monitoring: bool = Field(default=True, env="ENABLE_PERFORMANCE_MONITORING")
     
     class Config:
+        # Accept unknown env vars to avoid extra_forbidden during Settings load
+        extra = "allow"
         env_file = ".env"
         case_sensitive = False
     
@@ -362,3 +367,5 @@ if __name__ == "__main__":
         print(f"Calendar enabled: {settings.calendar_enabled}")
     except Exception as e:
         print(f"Configuration error: {e}")
+        
+settings = get_settings()

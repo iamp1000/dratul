@@ -44,12 +44,39 @@ class BaseSchema(BaseModel):
     class Config:
         from_attributes = True
 
-# --- User Schemas ---
-class UserBase(BaseSchema):
-    username: str = Field(..., min_length=3, max_length=50)
+
+class User(BaseModel):
+    id: int
+    username: str
     email: EmailStr
-    phone_number: Optional[str] = Field(None, max_length=20)
-    role: UserRole = UserRole.staff
+    role: UserRole
+    permissions: Dict[str, Any] = {}
+    is_active: Optional[bool] = None
+    mfa_enabled: Optional[bool] = None
+    last_login: Optional[datetime] = None
+    created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
+
+class Config:
+    from_attributes = True
+
+
+# --- User Schemas ---
+class UserBase(BaseModel):
+    id: int
+    username: str
+    email: EmailStr
+    role: UserRole
+    permissions: Optional[Dict[str, Any]] = {}
+    is_active: Optional[bool] = True
+    mfa_enabled: Optional[bool] = False  
+    last_login: Optional[datetime] = None
+    created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
+
+    class Config:
+        from_attributes = True
+
 
 class UserCreate(UserBase):
     password: str = Field(..., min_length=8)
@@ -293,3 +320,18 @@ class ServicesStatusResponse(BaseSchema):
     whatsapp: ServiceStatusResponse
     email: ServiceStatusResponse
     calendar: ServiceStatusResponse
+
+class NotificationCreate(BaseSchema):
+    patient_id: Optional[int] = None
+    message: str
+    notification_type: str = "general"
+    channel: str = "whatsapp"
+    
+class NotificationResponse(BaseSchema):
+    id: int
+    patient_id: Optional[int] = None
+    message: str
+    notification_type: str
+    channel: str
+    status: str
+    created_at: datetime

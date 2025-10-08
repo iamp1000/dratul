@@ -1,0 +1,28 @@
+{
+    "mcpServers": {
+        "filesystem": {
+            "command": "npx",
+            "args": [
+                "-y",
+                "@modelcontextprotocol/server-filesystem",
+                "D:\\ALPHA\\dr atul"
+            ]
+        },
+        "brave-search": {
+            "command": "npx",
+            "args": [
+                "-y",
+                "@modelcontextprotocol/server-brave-search"
+            ],
+            "env": {
+                "BRAVE_API_KEY": "your-api-key-here"
+            }
+        },
+        "browsermcp": {
+            "command": "npx",
+            "args": [
+                "@browsermcp/mcp@latest"
+            ]
+        }
+    }
+}

@@ -20,6 +20,9 @@ import redis
 import json
 import logging
 from ipaddress import ip_address, ip_network
+from .database import get_db
+from . import models, crud
+
 
 # Configure logging for security events
 logging.basicConfig(level=logging.INFO)
@@ -85,9 +88,15 @@ class SecurityConfig:
     MFA_REQUIRED_FOR_ADMIN = True
     MFA_BACKUP_CODES_COUNT = 10
 
-    # Rate limiting
     RATE_LIMIT_REQUESTS = 100
     RATE_LIMIT_WINDOW_MINUTES = 15
+    
+    WHATSAPP_MESSAGE_LIMIT = 3  
+    WHATSAPP_MESSAGE_WINDOW = 1  
+    
+    # Appointment booking limits
+    APPOINTMENT_BOOKING_DAILY_LIMIT = 2  
+    APPOINTMENT_BOOKING_COOLDOWN_HOURS = 1  
 
     # IP allowlisting
     ALLOWED_IP_RANGES = [
@@ -141,9 +150,9 @@ class AuditLogger:
         self.logger.setLevel(logging.INFO)
 
     def log_access(self, user_id: int, action: str, resource: str, 
-                   resource_id: str = None, patient_id: int = None,
-                   ip_address: str = None, user_agent: str = None,
-                   success: bool = True, details: str = None):
+                resource_id: str = None, patient_id: int = None,
+                ip_address: str = None, user_agent: str = None,
+                success: bool = True, details: str = None):
         """Log access to PHI or system resources"""
         audit_entry = {
             "timestamp": datetime.now(timezone.utc).isoformat(),
@@ -159,19 +168,44 @@ class AuditLogger:
         }
 
         self.logger.info(json.dumps(audit_entry))
+    def info(self, message: str, **kwargs):
+        self._log("INFO", message, kwargs)
+
+    def warning(self, message: str, **kwargs):
+        """Log warning level message"""
+        self._log("WARNING", message, kwargs)
+    
+    def error(self, message: str, **kwargs):
+        """Log error level message"""
+        self._log("ERROR", message, kwargs)
+    
+    def _log(self, level: str, message: str, extra_data: dict = None):
+        """Internal logging method"""
+        log_entry = {
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "level": level,
+            "message": message,
+            **(extra_data or {})
+        }
+        
+        if level == "INFO":
+            self.logger.info(json.dumps(log_entry))
+        elif level == "WARNING":
+            self.logger.warning(json.dumps(log_entry))
+        elif level == "ERROR":
+            self.logger.error(json.dumps(log_entry))
+
 
 class RateLimiter:
-    """Rate limiting service for API endpoints"""
-
+    """Rate limiting service for API endpoints and WhatsApp messages"""
     def __init__(self):
         self.requests = {}  # Fallback in-memory storage
-
-    def is_allowed(self, key: str, limit: int = SecurityConfig.RATE_LIMIT_REQUESTS,
-                   window_minutes: int = SecurityConfig.RATE_LIMIT_WINDOW_MINUTES) -> bool:
+    
+    def is_allowed(self, key: str, limit: int = SecurityConfig.RATE_LIMIT_REQUESTS,  window_minutes: int = SecurityConfig.RATE_LIMIT_WINDOW_MINUTES) -> bool:
         """Check if request is allowed under rate limit"""
         now = datetime.now()
         window_start = now - timedelta(minutes=window_minutes)
-
+        
         if redis_client:
             pipe = redis_client.pipeline()
             pipe.zremrangebyscore(key, 0, window_start.timestamp())
@@ -179,25 +213,84 @@ class RateLimiter:
             pipe.zcount(key, window_start.timestamp(), now.timestamp())
             pipe.expire(key, window_minutes * 60)
             results = pipe.execute()
-
             request_count = results[2]
             return request_count <= limit
         else:
             # Fallback to in-memory
             if key not in self.requests:
                 self.requests[key] = []
-
+            
             # Clean old requests
             self.requests[key] = [
                 req_time for req_time in self.requests[key]
                 if req_time > window_start
             ]
-
+            
             if len(self.requests[key]) >= limit:
                 return False
-
+            
             self.requests[key].append(now)
             return True
+    
+    def limit(self, rate_string: str):
+        def decorator(func):
+            import functools
+            from fastapi import HTTPException, Request, status
+            
+            @functools.wraps(func)
+            async def wrapper(*args, **kwargs):
+                request = None
+                for arg in args:
+                    if isinstance(arg, Request):
+                        request = arg
+                        break
+                
+                if request:
+                    # Parse rate_string (e.g., "5/minute")
+                    parts = rate_string.split('/')
+                    if len(parts) == 2:
+                        try:
+                            requests_limit = int(parts[0])
+                            time_unit = parts[1].lower()
+                            
+                            # Convert time unit to minutes
+                            if time_unit in ['minute', 'minutes']:
+                                window_minutes = 1
+                            elif time_unit in ['hour', 'hours']:
+                                window_minutes = 60
+                            elif time_unit in ['day', 'days']:
+                                window_minutes = 1440
+                            else:
+                                window_minutes = 1  # Default to 1 minute
+                            
+                            # Create rate limit key based on IP
+                            client_ip = getattr(request.client, 'host', 'unknown')
+                            rate_key = f"rate_limit:{func.__name__}:{client_ip}"
+                            
+                            # Check rate limit
+                            if not self.is_allowed(rate_key, requests_limit, window_minutes):
+                                raise HTTPException(
+                                    status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+                                    detail=f"Rate limit exceeded: {rate_string}"
+                                )
+                        except ValueError:
+                            pass
+                
+                return await func(*args, **kwargs)
+            return wrapper
+        return decorator
+
+    def check_whatsapp_rate_limit(self, phone_number: str, 
+        message_limit: int = 3, 
+        window_minutes: int = 1) -> bool:
+        rate_key = f"whatsapp:{phone_number}"
+        return self.is_allowed(rate_key, message_limit, window_minutes)
+        
+    def check_appointment_booking_limit(self, phone_number: str, daily_limit: int = 2) -> bool:
+        today = datetime.now().strftime('%Y-%m-%d')
+        rate_key = f"appointment_booking:{phone_number}:{today}"
+        return self.is_allowed(rate_key, daily_limit, window_minutes=1440)
+
 
 class SessionManager:
     """Secure session management with Redis backend"""
@@ -490,7 +583,7 @@ async def get_current_user(
         raise credentials_exception
 
     # Get user from database
-    user = crud.get_user_by_id(db, user_id=user_id)
+    user = crud.get_user(db, user_id=user_id)
     if not user:
         raise credentials_exception
 

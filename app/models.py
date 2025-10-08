@@ -17,6 +17,27 @@ class UserRole(str, enum.Enum):
     nurse = "nurse"
     receptionist = "receptionist"
     manager = "manager"
+    
+    @property
+    def mfa_enabled(self):
+        return False
+    
+    @property 
+    def is_active(self):
+        return True
+    
+    @property
+    def failed_login_attempts(self):
+        return 0
+    
+    @property
+    def account_locked_until(self):
+        return None
+    
+    @property
+    def permissions(self):
+        return {}
+
 
 class AppointmentStatus(str, enum.Enum):
     scheduled = "scheduled"
@@ -73,7 +94,13 @@ class User(Base):
     email = Column(String(255), unique=True, index=True, nullable=False)
     phone_number = Column(String(20), nullable=True)
     password_hash = Column(String(255), nullable=False)
-    role = Column(SQLAlchemyEnum(UserRole), default=UserRole.staff, nullable=False)
+    role = Column(SQLAlchemyEnum(UserRole, name='user_role'), default=UserRole.staff, nullable=False)
+    
+    created_patients = relationship("Patient", back_populates="creator", foreign_keys="Patient.created_by")
+    appointments = relationship("Appointment", back_populates="user")
+    audit_logs = relationship("AuditLog", back_populates="user")
+    prescribed_medications = relationship("Prescription", back_populates="prescriber")
+    uploaded_documents = relationship("Document", back_populates="uploader")
     
     # Enhanced security fields
     mfa_secret = Column(String(32), nullable=True)
@@ -99,12 +126,6 @@ class User(Base):
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
     deleted_at = Column(DateTime(timezone=True), nullable=True)  # Soft delete
 
-    # Relationships
-    created_patients = relationship("Patient", back_populates="creator", foreign_keys="Patient.created_by")
-    appointments = relationship("Appointment", back_populates="user")
-    audit_logs = relationship("AuditLog", back_populates="user")
-    prescribed_medications = relationship("Prescription", back_populates="prescriber")
-    uploaded_documents = relationship("Document", back_populates="uploader")
 
 class Location(Base):
     """Enhanced Location model for multi-clinic support"""
@@ -183,7 +204,7 @@ class Patient(Base):
     insurance_number_hash = Column(String(64), nullable=True)
     
     # Communication preferences
-    preferred_communication = Column(SQLAlchemyEnum(CommunicationType), default=CommunicationType.phone)
+    preferred_communication = Column(SQLAlchemyEnum(CommunicationType, name='communication_type'), default=CommunicationType.phone)
     communication_preferences = Column(JSON, nullable=True)  # Detailed preferences
     
     # WhatsApp integration
@@ -246,7 +267,7 @@ class Appointment(Base):
     internal_notes = Column(Text, nullable=True)  # Staff-only notes
     
     # Status and workflow
-    status = Column(SQLAlchemyEnum(AppointmentStatus), default=AppointmentStatus.scheduled, index=True)
+    status = Column(SQLAlchemyEnum(AppointmentStatus, name='appointment_status'), default=AppointmentStatus.scheduled, index=True)
     priority = Column(String(20), default="normal")  # low, normal, high, urgent
     
     # Check-in and workflow timestamps
@@ -297,7 +318,7 @@ class Document(Base):
     # Document metadata
     name = Column(String(255), nullable=False)
     description = Column(Text, nullable=True)
-    document_type = Column(SQLAlchemyEnum(DocumentType), default=DocumentType.other)
+    document_type = Column(SQLAlchemyEnum(DocumentType, name='document_type'), default=DocumentType.other)
     mime_type = Column(String(100), nullable=True)
     file_size = Column(Integer, nullable=True)
     
@@ -393,7 +414,7 @@ class CommunicationLog(Base):
     patient_id = Column(Integer, ForeignKey("patients.id"), nullable=True)
     
     # Communication details
-    communication_type = Column(SQLAlchemyEnum(CommunicationType), nullable=False)
+    communication_type = Column(SQLAlchemyEnum(CommunicationType, name='communication_type'), nullable=False)
     direction = Column(String(20), nullable=False)  # inbound/outbound
     
     # Message content (encrypted for sensitive data)
@@ -551,7 +572,7 @@ class AuditLog(Base):
     user_role = Column(String(20), nullable=True)
     
     # What action was performed
-    action = Column(SQLAlchemyEnum(AuditAction), nullable=False)
+    action = Column(SQLAlchemyEnum(AuditAction, name='audit_action'), nullable=False)
     resource_type = Column(String(50), nullable=False)  # patient, appointment, user, etc.
     resource_id = Column(Integer, nullable=True)
     
