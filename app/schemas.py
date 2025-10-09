@@ -63,20 +63,10 @@ class Config:
 
 # --- User Schemas ---
 class UserBase(BaseModel):
-    id: int
-    username: str
+    username: str = Field(..., min_length=3, max_length=50)
     email: EmailStr
     role: UserRole
-    permissions: Optional[Dict[str, Any]] = {}
-    is_active: Optional[bool] = True
-    mfa_enabled: Optional[bool] = False  
-    last_login: Optional[datetime] = None
-    created_at: Optional[datetime] = None
-    updated_at: Optional[datetime] = None
-
-    class Config:
-        from_attributes = True
-
+    phone_number: Optional[str] = Field(None, max_length=20)
 
 class UserCreate(UserBase):
     password: str = Field(..., min_length=8)

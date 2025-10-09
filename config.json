@@ -1,4 +1,7 @@
 {
+    "outputTransport": "sse",
+    "port": 3006,
+    "enableHealthEndpoints": true,
     "mcpServers": {
         "filesystem": {
             "command": "npx",

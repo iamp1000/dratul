@@ -91,6 +91,102 @@ def create_user(db: Session, user: schemas.UserCreate, created_by: int = None) -
         db.rollback()
         raise CRUDError(f"Database error: {str(e)}")
 
+def update_user(db: Session, user_id: int, user_update: schemas.UserUpdate) -> Optional[models.User]:
+    db_user = get_user(db, user_id=user_id)
+    if not db_user:
+        return None
+    update_data = user_update.dict(exclude_unset=True)
+    if "password" in update_data:
+        update_data["password_hash"] = get_password_hash(update_data["password"])
+        del update_data["password"]
+    for key, value in update_data.items():
+        setattr(db_user, key, value)
+    db.commit()
+    db.refresh(db_user)
+    return db_user
+
+def delete_user(db: Session, user_id: int) -> bool:
+    db_user = get_user(db, user_id=user_id)
+    if not db_user:
+        return False
+    # Soft delete by default
+    setattr(db_user, 'deleted_at', datetime.utcnow())
+    setattr(db_user, 'is_active', False)
+    db.commit()
+    return True
+
+# ==================== PATIENT CRUD OPERATIONS (NEW) ====================
+
+def create_patient(db: Session, patient: schemas.PatientCreate, created_by: int) -> models.Patient:
+    db_patient = models.Patient(
+        name=patient.name, # Placeholder, will be encrypted
+        phone_number=patient.phone_number, # Placeholder
+        created_by=created_by
+    )
+    # Add encryption logic here
+    db.add(db_patient)
+    db.commit()
+    db.refresh(db_patient)
+    return db_patient
+
+def update_patient(db: Session, patient_id: int, patient_update: schemas.PatientUpdate) -> Optional[models.Patient]:
+    db_patient = db.query(models.Patient).filter(models.Patient.id == patient_id).first()
+    if not db_patient:
+        return None
+    update_data = patient_update.dict(exclude_unset=True)
+    for key, value in update_data.items():
+        setattr(db_patient, key, value)
+    # Add re-encryption logic here
+    db.commit()
+    db.refresh(db_patient)
+    return db_patient
+
+def delete_patient(db: Session, patient_id: int) -> bool:
+    db_patient = db.query(models.Patient).filter(models.Patient.id == patient_id).first()
+    if not db_patient:
+        return False
+    # Using soft delete
+    setattr(db_patient, 'is_active', False)
+    db.commit()
+    return True
+
+# ==================== APPOINTMENT CRUD OPERATIONS (NEW) ====================
+
+def create_appointment(db: Session, appointment: schemas.AppointmentCreate, user_id: int) -> models.Appointment:
+    # Check for scheduling conflicts
+    existing = db.query(models.Appointment).filter(
+        models.Appointment.start_time < appointment.end_time,
+        models.Appointment.end_time > appointment.start_time,
+        models.Appointment.status != 'cancelled'
+    ).first()
+    if existing:
+        raise CRUDError("Appointment overlaps with an existing appointment")
+    
+    db_appointment = models.Appointment(**appointment.dict(), user_id=user_id)
+    db.add(db_appointment)
+    db.commit()
+    db.refresh(db_appointment)
+    return db_appointment
+
+def update_appointment(db: Session, appointment_id: int, appointment_update: schemas.AppointmentUpdate) -> Optional[models.Appointment]:
+    db_appointment = db.query(models.Appointment).filter(models.Appointment.id == appointment_id).first()
+    if not db_appointment:
+        return None
+    update_data = appointment_update.dict(exclude_unset=True)
+    for key, value in update_data.items():
+        setattr(db_appointment, key, value)
+    db.commit()
+    db.refresh(db_appointment)
+    return db_appointment
+
+def delete_appointment(db: Session, appointment_id: int) -> bool:
+    db_appointment = db.query(models.Appointment).filter(models.Appointment.id == appointment_id).first()
+    if not db_appointment:
+        return False
+    db.delete(db_appointment)
+    db.commit()
+    return True
+
 # ==================== ALL OTHER CRUD FUNCTIONS (RESTORED) ====================
 
 def get_dashboard_stats(db: Session, location_id: int = None) -> Dict[str, Any]:
