@@ -153,20 +153,62 @@ def delete_patient(db: Session, patient_id: int) -> bool:
 # ==================== APPOINTMENT CRUD OPERATIONS (NEW) ====================
 
 def create_appointment(db: Session, appointment: schemas.AppointmentCreate, user_id: int) -> models.Appointment:
-    # Check for scheduling conflicts
-    existing = db.query(models.Appointment).filter(
-        models.Appointment.start_time < appointment.end_time,
-        models.Appointment.end_time > appointment.start_time,
+    """
+    Create a new appointment. If new_patient data is provided, a new patient
+    is created first.
+    """
+    appointment_data = appointment.dict()
+
+    # If new patient data is present, create the patient first
+    if appointment.new_patient:
+        new_patient_data = appointment.new_patient
+        # Combine first and last name
+        full_name = f"{new_patient_data.first_name} {new_patient_data.last_name or ''}".strip()
+
+        patient_schema = schemas.PatientCreate(
+            name=full_name,
+            date_of_birth=new_patient_data.date_of_birth,
+            city=new_patient_data.city,
+            phone_number=new_patient_data.phone_number,
+            email=new_patient_data.email
+        )
+        
+        # Create the patient and get their ID
+        created_patient = create_patient(db=db, patient=patient_schema, created_by=user_id)
+        appointment_data['patient_id'] = created_patient.id
+        
+        # Remove the nested new_patient object as it's not part of the Appointment model
+        del appointment_data['new_patient']
+
+
+    # Check for scheduling conflicts for the location/doctor
+    existing_appointment = db.query(models.Appointment).filter(
+        models.Appointment.location_id == appointment_data['location_id'], # Assuming one doctor per location for now
+        models.Appointment.start_time < appointment_data['end_time'],
+        models.Appointment.end_time > appointment_data['start_time'],
         models.Appointment.status != 'cancelled'
     ).first()
-    if existing:
-        raise CRUDError("Appointment overlaps with an existing appointment")
+
+    if existing_.appointment:
+        raise CRUDError("An appointment already exists at this time.")
+
+    # Create the appointment model instance
+    db_appointment = models.Appointment(**appointment_data, user_id=user_id)
     
-    db_appointment = models.Appointment(**appointment.dict(), user_id=user_id)
-    db.add(db_appointment)
-    db.commit()
-    db.refresh(db_appointment)
-    return db_appointment
+    try:
+        db.add(db_appointment)
+        db.commit()
+        db.refresh(db_appointment)
+        logger.info(f"Successfully created appointment {db_appointment.id} for patient {db_appointment.patient_id}")
+        return db_appointment
+    except IntegrityError as e:
+        db.rollback()
+        logger.error(f"Database integrity error on appointment creation: {e}")
+        raise CRUDError("Could not create appointment due to a database integrity issue.")
+    except SQLAlchemyError as e:
+        db.rollback()
+        logger.error(f"Database error during appointment creation: {e}")
+        raise CRUDError("A database error occurred while creating the appointment.")
 
 def update_appointment(db: Session, appointment_id: int, appointment_update: schemas.AppointmentUpdate) -> Optional[models.Appointment]:
     db_appointment = db.query(models.Appointment).filter(models.Appointment.id == appointment_id).first()
@@ -186,6 +228,37 @@ def delete_appointment(db: Session, appointment_id: int) -> bool:
     db.delete(db_appointment)
     db.commit()
     return True
+
+# ==================== SCHEDULE CRUD OPERATIONS (NEW) ====================
+
+def get_schedules_for_location(db: Session, location_id: int) -> List[models.LocationSchedule]:
+    """Retrieve all schedule entries for a given location."""
+    return db.query(models.LocationSchedule).filter(models.LocationSchedule.location_id == location_id).all()
+
+def update_schedules_for_location(db: Session, location_id: int, schedules: List[schemas.LocationScheduleCreate]) -> List[models.LocationSchedule]:
+    """Update or create schedule entries for a location for a full week."""
+    try:
+        # Delete existing schedules for the week for simplicity.
+        db.query(models.LocationSchedule).filter(models.LocationSchedule.location_id == location_id).delete()
+        
+        new_schedules = []
+        for schedule_data in schedules:
+            new_schedule = models.LocationSchedule(
+                **schedule_data.dict(),
+                location_id=location_id
+            )
+            new_schedules.append(new_schedule)
+        
+        db.add_all(new_schedules)
+        db.commit()
+        
+        # Return the newly created schedules
+        return new_schedules
+    except SQLAlchemyError as e:
+        db.rollback()
+        logger.error(f"Error updating schedules for location {location_id}: {e}")
+        raise CRUDError("A database error occurred while updating schedules.")
+
 
 # ==================== ALL OTHER CRUD FUNCTIONS (RESTORED) ====================
 

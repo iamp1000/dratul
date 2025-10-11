@@ -286,14 +286,14 @@
 
             return (
                 <div className="fixed inset-0 z-50 flex items-center justify-center p-4 modal-overlay">
-                    <div className={`bg-white rounded-2xl shadow-2xl ${width} max-h-[90vh] overflow-hidden animate-bounce-gentle`}>
-                        <div className="flex items-center justify-between p-6 border-b border-gray-200">
+                    <div className={`bg-white rounded-2xl shadow-2xl ${width} max-h-[90vh] overflow-hidden animate-bounce-gentle flex flex-col`}>
+                        <div className="flex items-center justify-between p-6 border-b border-gray-200 flex-shrink-0">
                             <h2 className="text-xl font-bold text-medical-dark font-primary">{title}</h2>
                             <button onClick={onClose} className="text-medical-gray hover:text-medical-dark">
                                 <i className="fas fa-times text-xl"></i>
                             </button>
                         </div>
-                        <div className="p-6 overflow-y-auto scroll-custom">
+                        <div className="p-6 overflow-y-auto scroll-custom flex-grow">
                             {children}
                         </div>
                     </div>
@@ -771,168 +771,281 @@
             </div>
         );
 
-        // Doctor Schedule Component
-        const DoctorSchedule = () => {
-            const [schedule, setSchedule] = React.useState({});
-            const [loading, setLoading] = React.useState(true);
-            const [selectedDay, setSelectedDay] = React.useState(null);
-            const [showModal, setShowModal] = React.useState(false);
+        // Schedule Calendar Component (Updated for Unified View)
+        const ScheduleCalendar = ({ homeClinicSchedule, hospitalSchedule, onDateClick }) => {
+            const [currentDate, setCurrentDate] = React.useState(new Date());
 
-            const daysOfWeek = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+            const getDaysInMonth = (date) => new Date(date.getFullYear(), date.getMonth() + 1, 0).getDate();
+            const getFirstDayOfMonth = (date) => new Date(date.getFullYear(), date.getMonth(), 1).getDay();
 
-            React.useEffect(() => {
-                // Mock schedule data - replace with actual API call
-                setTimeout(() => {
-                    setSchedule({
-                        Monday: { hospital: '9:00 AM - 1:00 PM', clinic: '5:00 PM - 8:00 PM', available: true },
-                        Tuesday: { hospital: '9:00 AM - 1:00 PM', clinic: '5:00 PM - 8:00 PM', available: true },
-                        Wednesday: { hospital: '9:00 AM - 1:00 PM', clinic: null, available: true },
-                        Thursday: { hospital: '9:00 AM - 1:00 PM', clinic: '5:00 PM - 8:00 PM', available: true },
-                        Friday: { hospital: '9:00 AM - 1:00 PM', clinic: '5:00 PM - 8:00 PM', available: true },
-                        Saturday: { hospital: null, clinic: '10:00 AM - 2:00 PM', available: true },
-                        Sunday: { hospital: null, clinic: null, available: false }
-                    });
-                    setLoading(false);
-                }, 500);
-            }, []);
-
-            const handleDayClick = (day) => {
-                setSelectedDay(day);
-                setShowModal(true);
+            const getScheduleForDate = (date, schedule) => {
+                if (!schedule) return null;
+                const dayOfWeek = (date.getDay() + 6) % 7; // 0 = Monday, 6 = Sunday
+                return schedule[dayOfWeek];
             };
 
+            const renderCalendarDays = () => {
+                const daysInMonth = getDaysInMonth(currentDate);
+                const firstDayOfMonth = getFirstDayOfMonth(currentDate);
+                const days = [];
+
+                for (let i = 0; i < firstDayOfMonth; i++) {
+                    days.push(<div key={`empty-${i}`} className="p-2"></div>);
+                }
+
+                for (let day = 1; day <= daysInMonth; day++) {
+                    const date = new Date(currentDate.getFullYear(), currentDate.getMonth(), day);
+                    const clinicSchedule = getScheduleForDate(date, homeClinicSchedule);
+                    const hospitalScheduleData = getScheduleForDate(date, hospitalSchedule);
+                    const isToday = date.toDateString() === new Date().toDateString();
+
+                    days.push(
+                        <div
+                            key={day}
+                            className={`calendar-cell p-2 border border-gray-200 rounded-lg min-h-[90px] ${isToday ? 'bg-medical-accent/10 border-medical-accent' : ''}`}
+                            onClick={() => onDateClick(date, { clinicSchedule, hospitalSchedule: hospitalScheduleData })}
+                        >
+                            <div className={`font-semibold mb-1 ${isToday ? 'text-medical-accent' : 'text-medical-dark'}`}>{day}</div>
+                            <div className="text-xs space-y-1">
+                                {clinicSchedule && clinicSchedule.is_available ? (
+                                    <div className="text-blue-600"><strong>C:</strong> {clinicSchedule.start_time.substring(0, 5)} - {clinicSchedule.end_time.substring(0, 5)}</div>
+                                ) : (
+                                    <div className="text-gray-400"><strong>C:</strong> Off</div>
+                                )}
+                                {hospitalScheduleData && hospitalScheduleData.is_available ? (
+                                    <div className="text-green-700"><strong>H:</strong> {hospitalScheduleData.start_time.substring(0, 5)} - {hospitalScheduleData.end_time.substring(0, 5)}</div>
+                                ) : (
+                                    <div className="text-gray-400"><strong>H:</strong> Off</div>
+                                )}
+                            </div>
+                        </div>
+                    );
+                }
+                return days;
+            };
+
+            const navigateMonth = (direction) => {
+                const newDate = new Date(currentDate);
+                newDate.setMonth(currentDate.getMonth() + direction);
+                setCurrentDate(newDate);
+            };
+
+            return (
+                <div className="medical-card p-6 rounded-2xl">
+                    <div className="flex items-center justify-between mb-6">
+                        <h3 className="text-xl font-bold text-medical-dark font-primary">
+                            {currentDate.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
+                        </h3>
+                        <div className="flex space-x-2">
+                            <button onClick={() => navigateMonth(-1)} className="p-2 text-medical-accent hover:bg-medical-accent/10 rounded-lg">
+                                <i className="fas fa-chevron-left"></i>
+                            </button>
+                            <button onClick={() => navigateMonth(1)} className="p-2 text-medical-accent hover:bg-medical-accent/10 rounded-lg">
+                                <i className="fas fa-chevron-right"></i>
+                            </button>
+                        </div>
+                    </div>
+                    <div className="grid grid-cols-7 gap-2">
+                        {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(day => (
+                            <div key={day} className="p-2 text-center font-semibold text-medical-gray">{day}</div>
+                        ))}
+                        {renderCalendarDays()}
+                    </div>
+                </div>
+            );
+        };
+
+        // Doctor Schedule Component (Updated for Unified View & Edit Logic)
+        const DoctorSchedule = () => {
+            const [schedules, setSchedules] = React.useState({ 1: {}, 2: {} });
+            const [locations, setLocations] = React.useState([]);
+            const [loading, setLoading] = React.useState(true);
+            const [showModal, setShowModal] = React.useState(false);
+
+            const fetchSchedulesAndLocations = async () => {
+                setLoading(true);
+                try {
+                    const fetchedLocations = [
+                        { id: 1, name: "Home Clinic" },
+                        { id: 2, name: "Hospital" }
+                    ];
+                    setLocations(fetchedLocations);
+
+                    const newSchedules = { 1: {}, 2: {} };
+                    for (const loc of fetchedLocations) {
+                        const data = await api(`/api/v1/schedules/${loc.id}`);
+                        const scheduleMap = (data || []).reduce((acc, item) => {
+                            acc[item.day_of_week] = item;
+                            return acc;
+                        }, {});
+                        newSchedules[loc.id] = scheduleMap;
+                    }
+                    setSchedules(newSchedules);
+
+                } catch (error) {
+                    console.error("Error fetching schedules:", error);
+                } finally {
+                    setLoading(false);
+                }
+            };
+
+            React.useEffect(() => {
+                fetchSchedulesAndLocations();
+            }, []);
+            
+            const handleSave = async (updatedSchedules) => {
+                try {
+                    for (const locationId in updatedSchedules) {
+                        const schedulePayload = Object.values(updatedSchedules[locationId]);
+                        await api(`/api/v1/schedules/${locationId}`, {
+                            method: 'POST',
+                            body: JSON.stringify(schedulePayload)
+                        });
+                    }
+                    setShowModal(false);
+                    fetchSchedulesAndLocations(); // Re-fetch after saving
+                } catch (error) {
+                    console.error("Error saving schedules:", error);
+                    // You might want to show an error message to the user here
+                }
+            };
+            
             if (loading) return <LoadingSpinner />;
 
             return (
                 <div className="space-y-8">
                     <div className="flex items-center justify-between">
                         <h2 className="text-2xl font-bold text-medical-dark font-primary">Doctor Schedule</h2>
-                        <button className="medical-button px-6 py-3 text-white rounded-xl font-secondary flex items-center space-x-2 relative z-10">
-                            <i className="fas fa-plus"></i>
-                            <span>Add Schedule</span>
+                        <button
+                            onClick={() => setShowModal(true)}
+                            className="medical-button px-6 py-3 text-white rounded-xl font-secondary flex items-center space-x-2 relative z-10"
+                        >
+                            <i className="fas fa-edit"></i>
+                            <span>Edit Weekly Schedule</span>
                         </button>
                     </div>
 
-                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                        {daysOfWeek.map(day => {
-                            const daySchedule = schedule[day] || {};
-                            return (
-                                <div
-                                    key={day}
-                                    className="medical-card p-6 rounded-2xl cursor-pointer hover:shadow-lg transition-all"
-                                    onClick={() => handleDayClick(day)}
-                                >
-                                    <div className="flex items-center justify-between mb-4">
-                                        <h3 className="text-lg font-bold text-medical-dark font-primary">{day}</h3>
-                                        {daySchedule.available ? (
-                                            <span className="px-3 py-1 bg-medical-success/10 text-medical-success rounded-full text-sm">Available</span>
-                                        ) : (
-                                            <span className="px-3 py-1 bg-medical-error/10 text-medical-error rounded-full text-sm">Off Day</span>
-                                        )}
-                                    </div>
-
-                                    <div className="space-y-3">
-                                        <div className="flex items-center justify-between">
-                                            <span className="flex items-center space-x-2 text-medical-gray">
-                                                <i className="fas fa-hospital text-medical-accent"></i>
-                                                <span>Hospital Hours</span>
-                                            </span>
-                                            <span className="font-semibold">{daySchedule.hospital || 'Closed'}</span>
-                                        </div>
-                                        <div className="flex items-center justify-between">
-                                            <span className="flex items-center space-x-2 text-medical-gray">
-                                                <i className="fas fa-home text-medical-success"></i>
-                                                <span>Home Clinic</span>
-                                            </span>
-                                            <span className="font-semibold">{daySchedule.clinic || 'Closed'}</span>
-                                        </div>
-                                    </div>
-                                </div>
-                            );
-                        })}
-                    </div>
+                    <ScheduleCalendar
+                        homeClinicSchedule={schedules[1]}
+                        hospitalSchedule={schedules[2]}
+                        onDateClick={(date, schedule) => {
+                            // To be implemented in Task 3
+                        }}
+                    />
 
                     <Modal
                         isOpen={showModal}
                         onClose={() => setShowModal(false)}
-                        title={`Edit Schedule - ${selectedDay}`}
+                        title="Edit Weekly Schedule"
+                        width="max-w-4xl"
                     >
-                        <ScheduleEditor day={selectedDay} schedule={schedule[selectedDay]} />
+                        <ScheduleEditor schedules={schedules} locations={locations} onSave={handleSave} onClose={() => setShowModal(false)} />
                     </Modal>
                 </div>
             );
         };
 
-        // Schedule Editor Component
-        const ScheduleEditor = ({ day, schedule }) => (
-            <div className="space-y-6">
-                <div className="flex items-center space-x-4">
-                    <label className="flex items-center space-x-2">
-                        <input
-                            type="checkbox"
-                            defaultChecked={schedule?.available}
-                            className="w-4 h-4 text-medical-accent rounded focus:ring-medical-accent"
-                        />
-                        <span>Available on {day}</span>
-                    </label>
-                </div>
+        // Schedule Editor Component (Updated for Multi-Location Weekly Edit)
+        const ScheduleEditor = ({ schedules, locations, onSave, onClose }) => {
+            const [localSchedules, setLocalSchedules] = React.useState(JSON.parse(JSON.stringify(schedules))); // Deep copy
+            const [activeLocationId, setActiveLocationId] = React.useState(locations[0]?.id || 1);
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div>
-                        <h4 className="font-semibold text-medical-dark mb-3">Hospital Hours</h4>
-                        <div className="space-y-3">
-                            <div>
-                                <label className="block text-sm font-medium text-medical-gray mb-1">Start Time</label>
-                                <input
-                                    type="time"
-                                    className="w-full p-2 border border-gray-300 rounded-lg focus:border-medical-accent focus:outline-none"
-                                    defaultValue="09:00"
-                                />
-                            </div>
-                            <div>
-                                <label className="block text-sm font-medium text-medical-gray mb-1">End Time</label>
-                                <input
-                                    type="time"
-                                    className="w-full p-2 border border-gray-300 rounded-lg focus:border-medical-accent focus:outline-none"
-                                    defaultValue="13:00"
-                                />
-                            </div>
-                        </div>
+            const handleTimeChange = (locationId, dayIndex, field, value) => {
+                setLocalSchedules(prev => ({
+                    ...prev,
+                    [locationId]: {
+                        ...prev[locationId],
+                        [dayIndex]: {
+                            ...(prev[locationId][dayIndex] || { day_of_week: dayIndex, start_time: '09:00:00', end_time: '17:00:00', is_available: false }),
+                            [field]: value
+                        }
+                    }
+                }));
+            };
+
+            const handleAvailabilityChange = (locationId, dayIndex, isAvailable) => {
+                setLocalSchedules(prev => ({
+                    ...prev,
+                    [locationId]: {
+                        ...prev[locationId],
+                        [dayIndex]: {
+                            ...(prev[locationId][dayIndex] || { day_of_week: dayIndex, start_time: '09:00:00', end_time: '17:00:00' }),
+                            is_available: isAvailable
+                        }
+                    }
+                }));
+            };
+            
+            const activeSchedule = localSchedules[activeLocationId] || {};
+
+            return (
+                <div className="space-y-6">
+                    <div className="flex space-x-1 bg-gray-100 p-1 rounded-xl">
+                        {locations.map(loc => (
+                            <button
+                                key={loc.id}
+                                onClick={() => setActiveLocationId(loc.id)}
+                                className={`flex-1 py-2 px-4 rounded-lg font-medium transition-all ${activeLocationId === loc.id ? 'bg-white text-medical-accent shadow-sm' : 'text-medical-gray hover:text-medical-dark'}`}
+                            >
+                                {loc.name}
+                            </button>
+                        ))}
                     </div>
 
-                    <div>
-                        <h4 className="font-semibold text-medical-dark mb-3">Home Clinic Hours</h4>
-                        <div className="space-y-3">
-                            <div>
-                                <label className="block text-sm font-medium text-medical-gray mb-1">Start Time</label>
-                                <input
-                                    type="time"
-                                    className="w-full p-2 border border-gray-300 rounded-lg focus:border-medical-accent focus:outline-none"
-                                    defaultValue="17:00"
-                                />
+                    {[...Array(7).keys()].map(dayIndex => {
+                        const dayName = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'][dayIndex];
+                        const dayData = activeSchedule[dayIndex] || { start_time: '09:00:00', end_time: '17:00:00', is_available: false };
+
+                        return (
+                            <div key={dayIndex} className="grid grid-cols-4 gap-4 items-center p-3 border-b">
+                                <h4 className="font-semibold text-medical-dark">{dayName}</h4>
+                                <div>
+                                    <label className="block text-xs font-medium text-medical-gray mb-1">Start Time</label>
+                                    <input
+                                        type="time"
+                                        value={dayData.start_time}
+                                        onChange={(e) => handleTimeChange(activeLocationId, dayIndex, 'start_time', e.target.value)}
+                                        className="w-full p-2 border border-gray-300 rounded-lg"
+                                        disabled={!dayData.is_available}
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-xs font-medium text-medical-gray mb-1">End Time</label>
+                                    <input
+                                        type="time"
+                                        value={dayData.end_time}
+                                        onChange={(e) => handleTimeChange(activeLocationId, dayIndex, 'end_time', e.target.value)}
+                                        className="w-full p-2 border border-gray-300 rounded-lg"
+                                        disabled={!dayData.is_available}
+                                    />
+                                </div>
+                                <div className="flex items-center justify-center">
+                                    <label className="flex items-center space-x-2 cursor-pointer">
+                                        <input
+                                            type="checkbox"
+                                            checked={dayData.is_available}
+                                            onChange={(e) => handleAvailabilityChange(activeLocationId, dayIndex, e.target.checked)}
+                                            className="w-4 h-4 text-medical-accent rounded"
+                                        />
+                                        <span>Available</span>
+                                    </label>
+                                </div>
                             </div>
-                            <div>
-                                <label className="block text-sm font-medium text-medical-gray mb-1">End Time</label>
-                                <input
-                                    type="time"
-                                    className="w-full p-2 border border-gray-300 rounded-lg focus:border-medical-accent focus:outline-none"
-                                    defaultValue="20:00"
-                                />
-                            </div>
-                        </div>
+                        )
+                    })}
+
+                    <div className="flex justify-end space-x-3">
+                        <button onClick={onClose} className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300">
+                            Cancel
+                        </button>
+                        <button onClick={() => onSave(localSchedules)} className="medical-button px-4 py-2 text-white rounded-lg relative z-10">
+                            Save Schedule
+                        </button>
                     </div>
                 </div>
+            )
+        };
 
-                <div className="flex justify-end space-x-3">
-                    <button className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300">
-                        Cancel
-                    </button>
-                    <button className="medical-button px-4 py-2 text-white rounded-lg relative z-10">
-                        Save Schedule
-                    </button>
-                </div>
-            </div>
-        );
 
         // Patients Component
         const Patients = () => {
@@ -1505,7 +1618,7 @@
             const [frequency, setFrequency] = React.useState(prescription?.frequency || '');
             const [duration, setDuration] = React.useState(prescription?.duration || '');
             const [patients, setPatients] = React.useState([]);
-            const [error, setError] = React.useState('');
+            const [errors, setErrors] = React.useState([]);
 
             React.useEffect(() => {
                 const fetchPatients = async () => {
@@ -1518,6 +1631,25 @@
                 };
                 fetchPatients();
             }, []);
+
+            React.useEffect(() => {
+                const fetchAvailableSlots = async () => {
+                    if (appointmentDate) {
+                        try {
+                            // Hardcoding location_id=1 for now
+                            const slots = await api(`/api/v1/schedule/availability/1/${appointmentDate}`);
+                            // The backend returns \"HH:MM:SS\", so we format it to \"HH:MM\"
+                            setAvailableSlots(slots.map(slot => slot.substring(0, 5)) || []);
+                        } catch (error) {
+                            console.error('Error fetching available slots:', error);
+                            setAvailableSlots([]); // Clear slots on error
+                        }
+                    } else {
+                        setAvailableSlots([]);
+                    }
+                };
+                fetchAvailableSlots();
+            }, [appointmentDate]);
 
             const handleSubmit = async () => {
                 setError('');
@@ -1542,7 +1674,14 @@
 
             return (
                 <div className="space-y-6">
-                    {error && <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded-lg">{error}</div>}
+                    {errors.length > 0 && (
+                        <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded-lg">
+                            <p className="font-bold mb-2">Please fix the following issues:</p>
+                            <ul className="list-disc list-inside text-sm">
+                                {errors.map((err, index) => <li key={index}>{err}</li>)}
+                            </ul>
+                        </div>
+                    )}
                     <div>
                         <label className="block text-sm font-medium text-medical-gray mb-2">Patient</label>
                         <select value={patientId} onChange={(e) => setPatientId(e.target.value)} className="w-full p-3 border border-gray-300 rounded-lg focus:border-medical-accent focus:outline-none">
@@ -1582,11 +1721,24 @@
         const AppointmentEditor = ({ appointment, onClose, refreshAppointments }) => {
             const [patientId, setPatientId] = React.useState(appointment?.patient_id || '');
             const [locationId, setLocationId] = React.useState(appointment?.location_id || 1);
-            const [startTime, setStartTime] = React.useState(appointment?.start_time || '');
-            const [endTime, setEndTime] = React.useState(appointment?.end_time || '');
+            const [appointmentDate, setAppointmentDate] = React.useState(appointment ? new Date(appointment.start_time).toISOString().split('T')[0] : '');
+            const [appointmentTime, setAppointmentTime] = React.useState(appointment ? new Date(appointment.start_time).toTimeString().substring(0, 5) : '');
             const [reason, setReason] = React.useState(appointment?.reason || '');
             const [patients, setPatients] = React.useState([]);
             const [error, setError] = React.useState('');
+
+            // New state for creating a new patient
+            const [isNewPatient, setIsNewPatient] = React.useState(false);
+            const [firstName, setFirstName] = React.useState('');
+            const [lastName, setLastName] = React.useState('');
+            const [dob, setDob] = React.useState('');
+            const [city, setCity] = React.useState('');
+
+            // New state for patient search
+            const [patientSearch, setPatientSearch] = React.useState('');
+            const [filteredPatients, setFilteredPatients] = React.useState([]);
+            const [availableSlots, setAvailableSlots] = React.useState([]);
+
 
             React.useEffect(() => {
                 const fetchPatients = async () => {
@@ -1600,13 +1752,78 @@
                 fetchPatients();
             }, []);
 
+            const handlePatientSearch = (e) => {
+                const searchTerm = e.target.value;
+                setPatientSearch(searchTerm);
+                if (searchTerm) {
+                    setFilteredPatients(
+                        patients.filter(p =>
+                            p.name.toLowerCase().includes(searchTerm.toLowerCase())
+                        )
+                    );
+                } else {
+                    setFilteredPatients(patients);
+                }
+            };
+
+            const selectPatient = (patient) => {
+                setPatientId(patient.id);
+                setPatientSearch(patient.name);
+                setFilteredPatients([]);
+            };
+
+
             const handleSubmit = async () => {
-                setError('');
-                if (!patientId || !startTime || !endTime) {
-                    setError('Patient, start time, and end time are required.');
+                const validationErrors = [];
+                if (!isNewPatient) {
+                    if (!patientId) validationErrors.push('An existing patient must be selected.');
+                } else {
+                    if (!firstName) validationErrors.push('First Name is a required field.');
+                    if (!dob) validationErrors.push('Date of Birth is a required field.');
+                }
+                if (!appointmentDate) validationErrors.push('Appointment Date is required.');
+                if (!appointmentTime) validationErrors.push('Appointment Time is required.');
+
+                if (validationErrors.length > 0) {
+                    setErrors(validationErrors);
                     return;
                 }
-                const payload = { patient_id: parseInt(patientId), location_id: locationId, start_time: startTime, end_time: endTime, reason };
+                setErrors([]);
+                
+                // Calculate end time
+                const startTimeObj = new Date(`${appointmentDate}T${appointmentTime}`);
+                const endTimeObj = new Date(startTimeObj.getTime() + 15 * 60000); // Add 15 minutes
+
+                const formatToLocalDateTimeString = (date) => {
+                    const year = date.getFullYear();
+                    const month = String(date.getMonth() + 1).padStart(2, '0');
+                    const day = String(date.getDate()).padStart(2, '0');
+                    const hours = String(date.getHours()).padStart(2, '0');
+                    const minutes = String(date.getMinutes()).padStart(2, '0');
+                    return `${year}-${month}-${day}T${hours}:${minutes}:00`;
+                };
+
+                const formattedStartTime = formatToLocalDateTimeString(startTimeObj);
+                const formattedEndTime = formatToLocalDateTimeString(endTimeObj);
+
+                let payload = {
+                    location_id: locationId,
+                    start_time: formattedStartTime,
+                    end_time: formattedEndTime,
+                    reason
+                };
+
+                if (isNewPatient) {
+                    payload.patient = {
+                        first_name: firstName,
+                        last_name: lastName,
+                        date_of_birth: dob,
+                        city: city
+                    };
+                } else {
+                    payload.patient_id = parseInt(patientId);
+                }
+
 
                 try {
                     await api('/api/v1/appointments', {
@@ -1624,27 +1841,115 @@
             return (
                 <div className="space-y-6">
                     {error && <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded-lg">{error}</div>}
-                    <div>
-                        <label className="block text-sm font-medium text-medical-gray mb-2">Patient</label>
-                        <select value={patientId} onChange={(e) => setPatientId(e.target.value)} className="w-full p-3 border border-gray-300 rounded-lg focus:border-medical-accent focus:outline-none">
-                            <option value="">Select a Patient</option>
-                            {patients.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
-                        </select>
+
+                    {/* New Patient Toggle */}
+                    <div className="flex items-center justify-center bg-gray-100 p-1 rounded-lg">
+                        <button
+                            onClick={() => setIsNewPatient(false)}
+                            className={`flex-1 py-2 px-4 rounded-md font-medium transition-all ${!isNewPatient ? 'bg-white shadow text-medical-accent' : 'text-medical-gray'}`}
+                        >
+                            Existing Patient
+                        </button>
+                        <button
+                            onClick={() => setIsNewPatient(true)}
+                            className={`flex-1 py-2 px-4 rounded-md font-medium transition-all ${isNewPatient ? 'bg-white shadow text-medical-accent' : 'text-medical-gray'}`}
+                        >
+                            New Patient
+                        </button>
                     </div>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        <div>
-                            <label className="block text-sm font-medium text-medical-gray mb-2">Start Time</label>
-                            <input type="datetime-local" value={startTime} onChange={(e) => setStartTime(e.target.value)} className="w-full p-3 border border-gray-300 rounded-lg focus:border-medical-accent focus:outline-none" />
+
+
+                    {isNewPatient ? (
+                        <div className="space-y-4 animate-fade-in">
+                            <h3 className="text-lg font-semibold text-medical-dark">New Patient Details</h3>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                <div>
+                                    <label className="block text-sm font-medium text-medical-gray mb-2">First Name <span className="text-red-500">*</span></label>
+                                    <input type="text" value={firstName} onChange={(e) => setFirstName(e.target.value)} className="w-full p-3 border border-gray-300 rounded-lg focus:border-medical-accent focus:outline-none" placeholder="Enter first name" />
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-medium text-medical-gray mb-2">Last Name</label>
+                                    <input type="text" value={lastName} onChange={(e) => setLastName(e.target.value)} className="w-full p-3 border border-gray-300 rounded-lg focus:border-medical-accent focus:outline-none" placeholder="Enter last name" />
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-medium text-medical-gray mb-2">Date of Birth <span className="text-red-500">*</span></label>
+                                    <input type="date" value={dob} onChange={(e) => setDob(e.target.value)} className="w-full p-3 border border-gray-300 rounded-lg focus:border-medical-accent focus:outline-none" />
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-medium text-medical-gray mb-2">City</label>
+                                    <input type="text" value={city} onChange={(e) => setCity(e.target.value)} className="w-full p-3 border border-gray-300 rounded-lg focus:border-medical-accent focus:outline-none" placeholder="Enter city" />
+                                </div>
+                            </div>
+                        </div>
+                    ) : (
+                        <div className="animate-fade-in">
+                            <label className="block text-sm font-medium text-medical-gray mb-2">Patient</label>
+                            <div className="relative">
+                                <input
+                                    type="text"
+                                    value={patientSearch}
+                                    onChange={handlePatientSearch}
+                                    onFocus={() => setFilteredPatients(patients.filter(p => p.name.toLowerCase().includes(patientSearch.toLowerCase())))}
+                                    onBlur={() => setTimeout(() => setFilteredPatients([]), 200)}
+                                    className="w-full p-3 border border-gray-300 rounded-lg focus:border-medical-accent focus:outline-none"
+                                    placeholder="Search for an existing patient..."
+                                />
+                                {filteredPatients.length > 0 && (
+                                    <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-60 overflow-y-auto">
+                                        {filteredPatients.map(p => (
+                                            <div
+                                                key={p.id}
+                                                onClick={() => selectPatient(p)}
+                                                className="p-3 hover:bg-medical-light cursor-pointer"
+                                            >
+                                                {p.name}
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    )}
+
+
+                    <div className="border-t border-gray-200 pt-4 space-y-4">
+                        <h3 className="text-lg font-semibold text-medical-dark">Appointment Details</h3>
+                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <div>
+                                <label className="block text-sm font-medium text-medical-gray mb-2">Date <span className="text-red-500">*</span></label>
+                                <input type="date" value={appointmentDate} onChange={(e) => setAppointmentDate(e.target.value)} className="w-full p-3 border border-gray-300 rounded-lg focus:border-medical-accent focus:outline-none" />
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-medical-gray mb-2">Time <span className="text-red-500">*</span></label>
+                                {appointmentDate ? (
+                                    availableSlots.length > 0 ? (
+                                        <div className="grid grid-cols-4 gap-2">
+                                            {availableSlots.map(slot => (
+                                                <button
+                                                    key={slot}
+                                                    type="button"
+                                                    onClick={() => setAppointmentTime(slot)}
+                                                    className={`p-2 rounded-lg border text-sm transition-all ${appointmentTime === slot ? 'bg-medical-accent text-white border-medical-accent font-semibold shadow' : 'border-gray-300 hover:border-medical-accent hover:text-medical-accent'}`}
+                                                >
+                                                    {new Date(`1970-01-01T${slot}`).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true })}
+                                                </button>
+                                            ))}
+                                        </div>
+                                    ) : (
+                                        <p className="text-medical-gray text-sm p-3 bg-gray-50 rounded-lg">No available slots for this date.</p>
+                                    )
+                                ) : (
+                                    <p className="text-medical-gray text-sm p-3 bg-gray-50 rounded-lg">Select a date to see available times.</p>
+                                )}
+                            </div>
                         </div>
                         <div>
-                            <label className="block text-sm font-medium text-medical-gray mb-2">End Time</label>
-                            <input type="datetime-local" value={endTime} onChange={(e) => setEndTime(e.target.value)} className="w-full p-3 border border-gray-300 rounded-lg focus:border-medical-accent focus:outline-none" />
+                            <label className="block text-sm font-medium text-medical-gray mb-2">Reason for Visit</label>
+                            <textarea value={reason} onChange={(e) => setReason(e.target.value)} className="w-full p-3 border border-gray-300 rounded-lg focus:border-medical-accent focus:outline-none" rows="3" placeholder="Enter reason for appointment"></textarea>
                         </div>
                     </div>
-                    <div>
-                        <label className="block text-sm font-medium text-medical-gray mb-2">Reason for Visit</label>
-                        <textarea value={reason} onChange={(e) => setReason(e.target.value)} className="w-full p-3 border border-gray-300 rounded-lg focus:border-medical-accent focus:outline-none" rows="3" placeholder="Enter reason for appointment"></textarea>
-                    </div>
+
+
                     <div className="flex justify-end space-x-3">
                         <button onClick={onClose} className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300">Cancel</button>
                         <button onClick={handleSubmit} className="medical-button px-4 py-2 text-white rounded-lg relative z-10">
@@ -1763,96 +2068,99 @@
                 }
             };
 
-            <div className="space-y-6">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div>
-                        <label className="block text-sm font-medium text-medical-gray mb-2">Username</label>
-                        <input
-                            type="text"
-                                                        value={username}
-                            onChange={(e) => setUsername(e.target.value)}
-                            className="w-full p-3 border border-gray-300 rounded-lg focus:border-medical-accent focus:outline-none"
-                            placeholder="Enter username"
-                        />
+            return (
+                <div className="space-y-6">
+                    {error && <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded-lg">{error}</div>}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div>
+                            <label className="block text-sm font-medium text-medical-gray mb-2">Username</label>
+                            <input
+                                type="text"
+                                value={username}
+                                onChange={(e) => setUsername(e.target.value)}
+                                className="w-full p-3 border border-gray-300 rounded-lg focus:border-medical-accent focus:outline-none"
+                                placeholder="Enter username"
+                            />
+                        </div>
+                        <div>
+                            <label className="block text-sm font-medium text-medical-gray mb-2">Email</label>
+                            <input
+                                type="email"
+                                value={email}
+                                onChange={(e) => setEmail(e.target.value)}
+                                className="w-full p-3 border border-gray-300 rounded-lg focus:border-medical-accent focus:outline-none"
+                                placeholder="Enter email"
+                            />
+                        </div>
+                        <div>
+                            <label className="block text-sm font-medium text-medical-gray mb-2">Role</label>
+                            <select
+                                value={role}
+                                onChange={(e) => setRole(e.target.value)}
+                                className="w-full p-3 border border-gray-300 rounded-lg focus:border-medical-accent focus:outline-none"
+                            >
+                                <option value="staff">Staff</option>
+                                <option value="doctor">Doctor</option>
+                                <option value="nurse">Nurse</option>
+                                <option value="receptionist">Receptionist</option>
+                                <option value="admin">Admin</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label className="block text-sm font-medium text-medical-gray mb-2">Phone Number</label>
+                            <input
+                                type="tel"
+                                value={phoneNumber}
+                                onChange={(e) => setPhoneNumber(e.target.value)}
+                                className="w-full p-3 border border-gray-300 rounded-lg focus:border-medical-accent focus:outline-none"
+                                placeholder="Enter phone number"
+                            />
+                        </div>
                     </div>
-                    <div>
-                        <label className="block text-sm font-medium text-medical-gray mb-2">Email</label>
-                        <input
-                            type="email"
-                                                        value={email}
-                            onChange={(e) => setEmail(e.target.value)}
-                            className="w-full p-3 border border-gray-300 rounded-lg focus:border-medical-accent focus:outline-none"
-                            placeholder="Enter email"
-                        />
+
+                    {!user && (
+                        <div>
+                            <label className="block text-sm font-medium text-medical-gray mb-2">Password</label>
+                            <input
+                                type="password"
+                                value={password}
+                                onChange={(e) => setPassword(e.target.value)}
+                                className="w-full p-3 border border-gray-300 rounded-lg focus:border-medical-accent focus:outline-none"
+                                placeholder="Enter new password"
+                            />
+                        </div>
+                    )}
+
+                    <div className="flex items-center space-x-4">
+                        <label className="flex items-center space-x-2">
+                            <input
+                                type="checkbox"
+                                checked={isActive}
+                                onChange={(e) => setIsActive(e.target.checked)}
+                                className="w-4 h-4 text-medical-accent rounded focus:ring-medical-accent"
+                            />
+                            <span>Active User</span>
+                        </label>
+                        <label className="flex items-center space-x-2">
+                            <input
+                                type="checkbox"
+                                defaultChecked={user?.mfa_enabled}
+                                className="w-4 h-4 text-medical-accent rounded focus:ring-medical-accent"
+                            />
+                            <span>Enable MFA</span>
+                        </label>
                     </div>
-                    <div>
-                        <label className="block text-sm font-medium text-medical-gray mb-2">Role</label>
-                        <select
-                                                        value={role}
-                            onChange={(e) => setRole(e.target.value)}
-                            className="w-full p-3 border border-gray-300 rounded-lg focus:border-medical-accent focus:outline-none"
-                        >
-                            <option value="staff">Staff</option>
-                            <option value="doctor">Doctor</option>
-                            <option value="nurse">Nurse</option>
-                            <option value="receptionist">Receptionist</option>
-                            <option value="admin">Admin</option>
-                        </select>
-                    </div>
-                    <div>
-                        <label className="block text-sm font-medium text-medical-gray mb-2">Phone Number</label>
-                        <input
-                            type="tel"
-                                                        value={phoneNumber}
-                            onChange={(e) => setPhoneNumber(e.target.value)}
-                            className="w-full p-3 border border-gray-300 rounded-lg focus:border-medical-accent focus:outline-none"
-                            placeholder="Enter phone number"
-                        />
+
+                    <div className="flex justify-end space-x-3">
+                        <button onClick={onClose} className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300">
+                            Cancel
+                        </button>
+                        <button onClick={handleSubmit} className="medical-button px-4 py-2 text-white rounded-lg relative z-10">
+                            {user ? 'Update User' : 'Create User'}
+                        </button>
                     </div>
                 </div>
-
-                {!user && (
-                    <div>
-                        <label className="block text-sm font-medium text-medical-gray mb-2">Password</label>
-                                                <input
-                            type="password"
-                            value={password}
-                            onChange={(e) => setPassword(e.target.value)}
-                            className="w-full p-3 border border-gray-300 rounded-lg focus:border-medical-accent focus:outline-none"
-                            placeholder="Enter new password"
-                        />
-                    </div>
-                )}
-
-                <div className="flex items-center space-x-4">
-                    <label className="flex items-center space-x-2">
-                        <input
-                            type="checkbox"
-                                                    checked={isActive}
-                        onChange={(e) => setIsActive(e.target.checked)}
-                            className="w-4 h-4 text-medical-accent rounded focus:ring-medical-accent"
-                        />
-                        <span>Active User</span>
-                    </label>
-                    <label className="flex items-center space-x-2">
-                        <input
-                            type="checkbox"
-                            defaultChecked={user?.mfa_enabled}
-                            className="w-4 h-4 text-medical-accent rounded focus:ring-medical-accent"
-                        />
-                        <span>Enable MFA</span>
-                    </label>
-                </div>
-
-                <div className="flex justify-end space-x-3">
-                    <button className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300">
-                        Cancel
-                    </button>
-                                        <button onClick={handleSubmit} className="medical-button px-4 py-2 text-white rounded-lg relative z-10">
-                        {user ? 'Update User' : 'Create User'}
-                    </button>
-                </div>
-            </div>
+            );
         };
 
         // Main App Component
@@ -1861,7 +2169,7 @@
                 const userData = sessionStorage.getItem('user');
                 return userData ? JSON.parse(userData) : null;
             });
-                        const [currentView, setCurrentView] = React.useState('dashboard');
+            const [currentView, setCurrentView] = React.useState('dashboard');
             const [isModalOpen, setIsModalOpen] = React.useState(false);
             const [modalTitle, setModalTitle] = React.useState('');
             const [modalContent, setModalContent] = React.useState(null);
@@ -1897,7 +2205,7 @@
             const renderCurrentView = () => {
                 switch (currentView) {
                     case 'dashboard':
-                                                                        return <Dashboard openModal={openModal} closeModal={closeModal} />;
+                        return <Dashboard openModal={openModal} closeModal={closeModal} />;
                     case 'appointments':
                         return <Appointments />;
                     case 'schedule':
@@ -1924,7 +2232,7 @@
                         <main className="flex-1 overflow-auto">
                             <div className="p-8">
                                 <div className="max-w-7xl mx-auto floating-elements relative">
-                                                                        {renderCurrentView()}
+                                    {renderCurrentView()}
                                     <Modal
                                         isOpen={isModalOpen}
                                         onClose={closeModal}

@@ -104,6 +104,7 @@ class PatientBase(BaseSchema):
     phone_number: Optional[str] = Field(None, max_length=20)
     email: Optional[EmailStr] = None
     date_of_birth: Optional[date] = None
+    city: Optional[str] = Field(None, max_length=100)
     gender: Optional[str] = Field(None, max_length=10)
     preferred_communication: CommunicationType = CommunicationType.phone
     whatsapp_number: Optional[str] = Field(None, max_length=20)
@@ -160,8 +161,16 @@ class LocationResponse(LocationBase):
     updated_at: Optional[datetime]
 
 # --- Appointment Schemas ---
+class NewPatient(BaseModel):
+    first_name: str
+    last_name: Optional[str] = None
+    date_of_birth: date
+    city: Optional[str] = None
+    phone_number: Optional[str] = None
+    email: Optional[EmailStr] = None
+
 class AppointmentBase(BaseSchema):
-    patient_id: int
+    patient_id: Optional[int] = None
     location_id: int
     start_time: datetime
     end_time: datetime
@@ -171,7 +180,15 @@ class AppointmentBase(BaseSchema):
     status: AppointmentStatus = AppointmentStatus.scheduled
 
 class AppointmentCreate(AppointmentBase):
-    pass
+    new_patient: Optional[NewPatient] = None
+
+    @validator('patient_id', pre=True, always=True)
+    def check_patient_logic(cls, v, values):
+        if v is None and values.get('new_patient') is None:
+            raise ValueError('Either patient_id or new_patient must be provided.')
+        if v is not None and values.get('new_patient') is not None:
+            raise ValueError('Cannot provide both patient_id and new_patient.')
+        return v
 
 class AppointmentUpdate(BaseSchema):
     start_time: Optional[datetime] = None

@@ -4,7 +4,7 @@ load_dotenv()
 
 import os
 import uvicorn
-from datetime import datetime, timezone, timedelta
+from datetime import datetime, timezone, timedelta, date
 from typing import List, Optional
 from fastapi import FastAPI, Depends, HTTPException, Request, status
 from fastapi.middleware.cors import CORSMiddleware
@@ -16,6 +16,7 @@ from sqlalchemy.orm import Session
 from app import models, schemas, crud
 from app.database import get_db, create_tables
 from app.hash_password import create_or_update_admin
+from app.routers import schedule
 from app.security import (
     verify_password, create_access_token, ACCESS_TOKEN_EXPIRE_MINUTES,
     get_current_user, require_admin
@@ -31,11 +32,13 @@ def on_startup():
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://127.0.0.1:5501", "http://localhost:5501"],
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+app.include_router(schedule.router, prefix="/api/v1")
 
 # ==================== AUTHENTICATION (UPGRADED) ====================
 @app.post("/token", include_in_schema=False)
@@ -141,9 +144,59 @@ def delete_appointment_endpoint(appointment_id: int, db: Session = Depends(get_d
         raise HTTPException(status_code=404, detail="Appointment not found")
     return
 
+
+@app.get("/api/v1/appointments/available-slots", response_model=List[str], tags=["Appointments"])
+def get_available_slots_endpoint(
+    location_id: int,
+    for_date: date,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user)
+):
+    """
+    Get a list of available appointment time slots for a given date and location.
+    """
+    return crud.get_available_slots(db=db, location_id=location_id, for_date=for_date)
+
 @app.post("/api/v1/prescriptions", response_model=schemas.PrescriptionResponse, tags=["Prescriptions"], status_code=status.HTTP_201_CREATED)
 def create_prescription_endpoint(prescription: schemas.PrescriptionCreate, db: Session = Depends(get_db), current_user: models.User = Depends(get_current_user)):
     return crud.create_prescription(db=db, prescription=prescription, prescribed_by=current_user.id)
+
+@app.get("/api/v1/prescriptions", response_model=List[schemas.PrescriptionResponse], tags=["Prescriptions"])
+def get_prescriptions_endpoint(skip: int = 0, limit: int = 100, patient_id: Optional[int] = None, db: Session = Depends(get_db), current_user: models.User = Depends(get_current_user)):
+    """
+    Get a list of prescriptions, optionally filtered by patient ID.
+    """
+    return crud.get_prescriptions(db, skip=skip, limit=limit, patient_id=patient_id)
+
+@app.get("/api/v1/prescriptions/{prescription_id}", response_model=schemas.PrescriptionResponse, tags=["Prescriptions"])
+def get_prescription_endpoint(prescription_id: int, db: Session = Depends(get_db), current_user: models.User = Depends(get_current_user)):
+    """
+    Get a single prescription by its ID.
+    """
+    db_prescription = crud.get_prescription(db, prescription_id=prescription_id)
+    if db_prescription is None:
+        raise HTTPException(status_code=404, detail="Prescription not found")
+    return db_prescription
+
+@app.put("/api/v1/prescriptions/{prescription_id}", response_model=schemas.PrescriptionResponse, tags=["Prescriptions"])
+def update_prescription_endpoint(prescription_id: int, prescription: schemas.PrescriptionUpdate, db: Session = Depends(get_db), current_user: models.User = Depends(get_current_user)):
+    """
+    Update an existing prescription.
+    """
+    updated_prescription = crud.update_prescription(db, prescription_id=prescription_id, prescription_update=prescription)
+    if not updated_prescription:
+        raise HTTPException(status_code=404, detail="Prescription not found")
+    return updated_prescription
+
+@app.delete("/api/v1/prescriptions/{prescription_id}", status_code=status.HTTP_204_NO_CONTENT, tags=["Prescriptions"])
+def delete_prescription_endpoint(prescription_id: int, db: Session = Depends(get_db), current_user: models.User = Depends(get_current_user)):
+    """
+    Delete a prescription.
+    """
+    success = crud.delete_prescription(db, prescription_id=prescription_id)
+    if not success:
+        raise HTTPException(status_code=404, detail="Prescription not found")
+    return
 
 # NOTE: This is a simplified restoration. In a real scenario, all original endpoints
 # from the main.py file would be pasted here in their entirety.
