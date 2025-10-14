@@ -101,6 +101,7 @@ class User(Base):
     audit_logs = relationship("AuditLog", back_populates="user")
     prescribed_medications = relationship("Prescription", back_populates="prescriber")
     uploaded_documents = relationship("Document", back_populates="uploader")
+    remarks_authored = relationship("Remark", back_populates="author")
     
     # Enhanced security fields
     mfa_secret = Column(String(32), nullable=True)
@@ -189,6 +190,9 @@ class Patient(Base):
     name_hash = Column(String(64), index=True, nullable=False)
     
     # Non-encrypted demographic data
+    city = Column(String(100), nullable=True)
+    
+    # Non-encrypted demographic data
     date_of_birth = Column(Date, nullable=True)
     gender = Column(String(20), nullable=True)
     
@@ -237,6 +241,7 @@ class Patient(Base):
     prescriptions = relationship("Prescription", back_populates="patient", cascade="all, delete-orphan")
     communications = relationship("CommunicationLog", back_populates="patient", cascade="all, delete-orphan")
     whatsapp_sessions = relationship("WhatsAppSession", back_populates="patient")
+    remarks = relationship("Remark", back_populates="patient", cascade="all, delete-orphan")
 
 class Appointment(Base):
     """Comprehensive Appointment model with calendar integration"""
@@ -399,6 +404,18 @@ class Prescription(Base):
     # Relationships
     patient = relationship("Patient", back_populates="prescriptions")
     prescriber = relationship("User", back_populates="prescribed_medications")
+
+class Remark(Base):
+    __tablename__ = "remarks"
+    id = Column(Integer, primary_key=True, index=True)
+    text = Column(Text, nullable=False)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    patient_id = Column(Integer, ForeignKey("patients.id"), nullable=False)
+    author_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    
+    patient = relationship("Patient", back_populates="remarks")
+    author = relationship("User", back_populates="remarks_authored")
+
 
 class CommunicationLog(Base):
     """Comprehensive Communication tracking for all channels"""
@@ -565,42 +582,20 @@ class AuditLog(Base):
     )
 
     id = Column(Integer, primary_key=True, index=True)
-    
-    # Who performed the action
     user_id = Column(Integer, ForeignKey("users.id"), nullable=True)
     username = Column(String(50), nullable=True)  # Denormalized for audit integrity
-    user_role = Column(String(20), nullable=True)
-    
-    # What action was performed
     action = Column(SQLAlchemyEnum(AuditAction, name='audit_action'), nullable=False)
-    resource_type = Column(String(50), nullable=False)  # patient, appointment, user, etc.
+    category = Column(String(50), nullable=False, default="GENERAL", index=True)
+    severity = Column(String(20), default="INFO", index=True) # INFO, WARN, ERROR, CRITICAL
+    resource_type = Column(String(50), nullable=True)
     resource_id = Column(Integer, nullable=True)
-    
-    # Detailed information
-    details = Column(JSON, nullable=True)  # Structured details about the action
-    old_values = Column(JSON, nullable=True)  # Previous values for updates
-    new_values = Column(JSON, nullable=True)  # New values for updates
-    
-    # Request context
+    details = Column(Text, nullable=True)
+    old_values = Column(JSON, nullable=True)
+    new_values = Column(JSON, nullable=True)
     ip_address = Column(String(45), nullable=True)
     user_agent = Column(Text, nullable=True)
-    request_id = Column(String(100), nullable=True)  # Trace requests across services
-    session_id = Column(String(255), nullable=True)
-    
-    # Business context
-    business_justification = Column(Text, nullable=True)  # HIPAA requirement
-    access_category = Column(String(50), nullable=True)  # treatment, payment, operations
-    
-    # Security and integrity
-    severity = Column(String(20), default="info")  # debug, info, warn, error, critical
-    risk_score = Column(Integer, default=1)  # 1-10 risk assessment
-    checksum = Column(String(64), nullable=True)  # Tamper detection
-    
-    # Timing and retention
     timestamp = Column(DateTime(timezone=True), server_default=func.now(), index=True)
-    retention_until = Column(DateTime(timezone=True), nullable=True)  # When safe to delete
-
-    # Relationships
+    
     user = relationship("User", back_populates="audit_logs")
 
 # System Configuration and Settings

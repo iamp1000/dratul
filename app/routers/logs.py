@@ -1,39 +1,39 @@
-from fastapi import APIRouter, Depends, Query
+# app/routers/logs.py
+from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from typing import List, Optional
-from .. import crud, schemas, security, models
+from datetime import date
+
+from .. import crud, schemas, models
 from ..database import get_db
+from ..security import require_admin
 
 router = APIRouter(
-    prefix="/logs",
-    tags=["Activity Logs"],
-    dependencies=[Depends(security.get_current_user)],
+    tags=["Logs"],
+    dependencies=[Depends(require_admin)],
+    responses={404: {"description": "Not found"}},
 )
 
-@router.get("/", response_model=List[schemas.ActivityLog])
-def get_activity_logs(
-    category: Optional[str] = Query(None, description="Filter by category: Patient, Admin, Appointments, Prescription, General"),
-    skip: int = 0,
-    limit: int = 100,
+@router.get("/logs", response_model=List[schemas.AuditLogResponse])
+def read_audit_logs(
+    skip: int = 0, 
+    limit: int = 100, 
+    user_id: Optional[int] = None,
+    category: Optional[str] = None,
+    severity: Optional[str] = None,
+    start_date: Optional[date] = None,
+    end_date: Optional[date] = None,
     db: Session = Depends(get_db)
 ):
-    """Get activity logs with optional category filtering"""
-    if category:
-        return crud.get_activity_logs_by_category(db, category=category, skip=skip, limit=limit)
-    else:
-        return crud.get_activity_logs(db, skip=skip, limit=limit)
-
-@router.get("/categories")
-def get_log_categories():
-    """Get available log categories"""
-    return {
-        "categories": [
-            "General",
-            "Patient", 
-            "Admin",
-            "Appointments",
-            "Prescription",
-            "System"
-        ]
-    }
-    
+    """
+    Retrieve audit logs with optional filtering. 
+    Only accessible by administrators.
+    """
+    try:
+        logs = crud.get_audit_logs(
+            db, skip=skip, limit=limit, user_id=user_id, category=category, 
+            severity=severity, start_date=start_date, end_date=end_date
+        )
+        return logs
+    except crud.CRUDError as e:
+        raise HTTPException(status_code=400, detail=str(e))

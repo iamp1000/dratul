@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks
 from sqlalchemy.orm import Session
-from typing import Optional
+from typing import Optional, List
 from .. import crud, schemas, security, models
 from ..database import get_db
 from ..services.whatsapp_service import whatsapp_service
@@ -13,6 +13,21 @@ router = APIRouter(
     dependencies=[Depends(security.get_current_user)],
     responses={404: {"description": "Not found"}},
 )
+
+@router.post("/", response_model=schemas.PrescriptionResponse, status_code=201)
+def create_new_prescription(
+    prescription: schemas.PrescriptionCreate,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(security.get_current_user)
+):
+    """
+    Create a new prescription.
+    """
+    try:
+        return crud.create_prescription(db=db, prescription=prescription, prescribed_by=current_user.id)
+    except crud.CRUDError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
 
 @router.post("/share")
 async def share_prescription(
@@ -73,3 +88,17 @@ async def send_email_prescription(email: str, patient_name: str, document_path: 
     
     # Log the activity
     crud.create_prescription_share_log(db, user_id, patient_id, "email", result["success"])
+
+@router.get("/by-patient/{patient_id}", response_model=List[schemas.PrescriptionResponse])
+def get_patient_prescriptions(
+    patient_id: int,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(security.get_current_user)
+):
+    """
+    Get all prescriptions for a specific patient.
+    """
+    try:
+        return crud.get_prescriptions_for_patient(db=db, patient_id=patient_id)
+    except crud.CRUDError as e:
+        raise HTTPException(status_code=400, detail=str(e))

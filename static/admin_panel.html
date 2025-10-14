@@ -308,7 +308,8 @@
                 { id: 'schedule', label: 'Doctor Schedule', icon: 'fas fa-clock' },
                 { id: 'patients', label: 'Patients', icon: 'fas fa-users' },
                 { id: 'prescriptions', label: 'Prescriptions', icon: 'fas fa-prescription' },
-                { id: 'users', label: 'Users', icon: 'fas fa-user-cog', adminOnly: true }
+                { id: 'users', label: 'Users', icon: 'fas fa-user-cog', adminOnly: true },
+                { id: 'logs', label: 'Audit Logs', icon: 'fas fa-clipboard-list', adminOnly: true }
             ];
 
             const handleLogout = () => {
@@ -860,6 +861,8 @@
             const [locations, setLocations] = React.useState([]);
             const [loading, setLoading] = React.useState(true);
             const [showModal, setShowModal] = React.useState(false);
+            const [modalContent, setModalContent] = React.useState(null);
+            const [modalTitle, setModalTitle] = React.useState('');
 
             const fetchSchedulesAndLocations = async () => {
                 setLoading(true);
@@ -908,7 +911,13 @@
                     // You might want to show an error message to the user here
                 }
             };
-            
+
+            const handleDateClick = (date) => {
+                setModalTitle('Block Off Dates');
+                setModalContent(<DailyUnavailabilityEditor date={date} onClose={() => setShowModal(false)} />);
+                setShowModal(true);
+            };
+
             if (loading) return <LoadingSpinner />;
 
             return (
@@ -916,7 +925,11 @@
                     <div className="flex items-center justify-between">
                         <h2 className="text-2xl font-bold text-medical-dark font-primary">Doctor Schedule</h2>
                         <button
-                            onClick={() => setShowModal(true)}
+                            onClick={() => {
+                                setModalTitle('Edit Weekly Schedule');
+                                setModalContent(<ScheduleEditor schedules={schedules} locations={locations} onSave={handleSave} onClose={() => setShowModal(false)} />);
+                                setShowModal(true);
+                            }}
                             className="medical-button px-6 py-3 text-white rounded-xl font-secondary flex items-center space-x-2 relative z-10"
                         >
                             <i className="fas fa-edit"></i>
@@ -927,18 +940,16 @@
                     <ScheduleCalendar
                         homeClinicSchedule={schedules[1]}
                         hospitalSchedule={schedules[2]}
-                        onDateClick={(date, schedule) => {
-                            // To be implemented in Task 3
-                        }}
+                        onDateClick={handleDateClick}
                     />
 
                     <Modal
                         isOpen={showModal}
                         onClose={() => setShowModal(false)}
-                        title="Edit Weekly Schedule"
+                        title={modalTitle}
                         width="max-w-4xl"
                     >
-                        <ScheduleEditor schedules={schedules} locations={locations} onSave={handleSave} onClose={() => setShowModal(false)} />
+                        {modalContent}
                     </Modal>
                 </div>
             );
@@ -1116,11 +1127,11 @@
                                                 <div className="flex items-center space-x-3">
                                                     <div className="w-10 h-10 bg-medical-accent/10 rounded-full flex items-center justify-center">
                                                         <span className="text-medical-accent font-semibold">
-                                                            {patient.first_name?.charAt(0) || 'P'}
+                                                            {patient.name?.charAt(0) || 'P'}
                                                         </span>
                                                     </div>
                                                     <div>
-                                                        <div className="font-semibold text-medical-dark">{`${patient.first_name} ${patient.last_name || ''}`}</div>
+                                                        <div className="font-semibold text-medical-dark">{patient.name}</div>
                                                         <div className="text-sm text-medical-gray">ID: {patient.id}</div>
                                                     </div>
                                                 </div>
@@ -1180,42 +1191,70 @@
             const [activeTab, setActiveTab] = React.useState('overview');
             const [patientAppointments, setPatientAppointments] = React.useState([]);
             const [patientPrescriptions, setPatientPrescriptions] = React.useState([]);
+            const [patientRemarks, setPatientRemarks] = React.useState([]);
+            const [newRemark, setNewRemark] = React.useState('');
 
             React.useEffect(() => {
-                // Mock data - replace with actual API calls
-                setPatientAppointments([
-                    {
-                        id: 1,
-                        start_time: '2024-01-15T10:00:00',
-                        appointment_type: 'Consultation',
-                        status: 'completed',
-                        notes: 'Regular checkup, patient doing well'
-                    },
-                    {
-                        id: 2,
-                        start_time: '2024-01-20T14:30:00',
-                        appointment_type: 'Follow-up',
-                        status: 'scheduled',
-                        notes: 'Follow-up for blood pressure monitoring'
-                    }
-                ]);
+                const fetchPatientData = async () => {
+                    if (!patient) return;
 
-                setPatientPrescriptions([
-                    {
-                        id: 1,
-                        medication_name: 'Lisinopril',
-                        dosage: '10mg',
-                        frequency: 'Once daily',
-                        prescribed_date: '2024-01-15',
-                        is_active: true
+                    // Fetch Prescriptions
+                    try {
+                        const prescriptionData = await api(`/api/v1/prescriptions/by-patient/${patient.id}`);
+                        setPatientPrescriptions(prescriptionData || []);
+                    } catch (error) {
+                        console.error('Error fetching patient prescriptions:', error);
                     }
-                ]);
-            }, [patient.id]);
+                    
+                    // Fetch Remarks
+                    try {
+                        const remarksData = await api(`/api/v1/patients/${patient.id}/remarks/`);
+                        setPatientRemarks(remarksData || []);
+                    } catch (error) {
+                        console.error('Error fetching patient remarks:', error);
+                    }
+
+                    // TODO: Fetch Appointments when endpoint is ready
+                    setPatientAppointments([
+                        {
+                            id: 1,
+                            start_time: '2024-01-15T10:00:00',
+                            appointment_type: 'Consultation',
+                            status: 'completed',
+                            notes: 'Regular checkup, patient doing well'
+                        },
+                        {
+                            id: 2,
+                            start_time: '2024-01-20T14:30:00',
+                            appointment_type: 'Follow-up',
+                            status: 'scheduled',
+                            notes: 'Follow-up for blood pressure monitoring'
+                        }
+                    ]);
+                };
+
+                fetchPatientData();
+            }, [patient]);
+
+            const handleAddRemark = async () => {
+                if (!newRemark.trim()) return;
+                try {
+                    const addedRemark = await api(`/api/v1/patients/${patient.id}/remarks/`, {
+                        method: 'POST',
+                        body: JSON.stringify({ text: newRemark }),
+                    });
+                    setPatientRemarks([addedRemark, ...patientRemarks]);
+                    setNewRemark('');
+                } catch (error) {
+                    console.error('Error adding remark:', error);
+                }
+            };
 
             const tabs = [
                 { id: 'overview', label: 'Overview', icon: 'fas fa-user' },
                 { id: 'appointments', label: 'Appointments', icon: 'fas fa-calendar' },
-                { id: 'prescriptions', label: 'Prescriptions', icon: 'fas fa-prescription' }
+                { id: 'prescriptions', label: 'Prescriptions', icon: 'fas fa-prescription' },
+                { id: 'remarks', label: 'Remarks', icon: 'fas fa-comment-medical' }
             ];
 
             return (
@@ -1358,6 +1397,47 @@
                                             </div>
                                         </div>
                                     ))}
+                                </div>
+                            </div>
+                        )}
+
+                        {activeTab === 'remarks' && (
+                            <div className="space-y-4 animate-fade-in">
+                                <h4 className="font-semibold text-medical-dark">Patient Remarks</h4>
+                                <div className="space-y-4">
+                                    <div className="bg-gray-50 p-4 rounded-lg">
+                                        <textarea
+                                            value={newRemark}
+                                            onChange={(e) => setNewRemark(e.target.value)}
+                                            className="w-full p-2 border border-gray-300 rounded-lg focus:border-medical-accent focus:outline-none"
+                                            rows="3"
+                                            placeholder="Add a new remark..."
+                                        ></textarea>
+                                        <div className="flex justify-end mt-2">
+                                            <button
+                                                onClick={handleAddRemark}
+                                                className="medical-button px-4 py-2 text-white rounded-lg text-sm relative z-10"
+                                            >
+                                                Add Remark
+                                            </button>
+                                        </div>
+                                    </div>
+
+                                    <div className="space-y-3">
+                                        {patientRemarks.length > 0 ? (
+                                            patientRemarks.map(remark => (
+                                                <div key={remark.id} className="table-row p-4 border border-gray-200 rounded-lg">
+                                                    <p className="text-sm text-medical-dark">{remark.text}</p>
+                                                    <div className="text-xs text-medical-gray mt-2">
+                                                        <span>By {remark.author?.username || 'Unknown'} on </span>
+                                                        <span>{new Date(remark.created_at).toLocaleString()}</span>
+                                                    </div>
+                                                </div>
+                                            ))
+                                        ) : (
+                                            <p className="text-sm text-medical-gray text-center py-4">No remarks for this patient yet.</p>
+                                        )}
+                                    </div>
                                 </div>
                             </div>
                         )}
@@ -1636,7 +1716,7 @@
                     if (appointmentDate) {
                         try {
                             // Hardcoding location_id=1 for now
-                            const slots = await api(`/api/v1/schedule/availability/1/${appointmentDate}`);
+                            const slots = await api(`/api/v1/schedules/availability/1/${appointmentDate}`);
                             // The backend returns \"HH:MM:SS\", so we format it to \"HH:MM\"
                             setAvailableSlots(slots.map(slot => slot.substring(0, 5)) || []);
                         } catch (error) {
@@ -1720,7 +1800,7 @@
         const AppointmentEditor = ({ appointment, onClose, refreshAppointments }) => {
             const [patientId, setPatientId] = React.useState(appointment?.patient_id || '');
             const [locationId, setLocationId] = React.useState(appointment?.location_id || 1);
-            const [appointmentDate, setAppointmentDate] = React.useState(appointment ? new Date(appointment.start_time).toISOString().split('T')[0] : '');
+            const [appointmentDate, setAppointmentDate] = React.useState(appointment ? new Date(appointment.start_time).toISOString().split('T')[0] : new Date().toISOString().split('T')[0]);
             const [appointmentTime, setAppointmentTime] = React.useState(appointment ? new Date(appointment.start_time).toTimeString().substring(0, 5) : '');
             const [reason, setReason] = React.useState(appointment?.reason || '');
             const [patients, setPatients] = React.useState([]);
@@ -2162,6 +2242,215 @@
             );
         };
 
+        // Daily Unavailability Editor Component
+        const DailyUnavailabilityEditor = ({ date, onClose }) => {
+            const [startDate, setStartDate] = React.useState(date ? date.toISOString().split('T')[0] : '');
+            const [endDate, setEndDate] = React.useState(date ? date.toISOString().split('T')[0] : '');
+            const [reason, setReason] = React.useState('');
+            const [error, setError] = React.useState('');
+
+            const handleSubmit = async () => {
+                setError('');
+                if (!startDate || !endDate) {
+                    setError('Start date and end date are required.');
+                    return;
+                }
+
+                const startDateTime = new Date(startDate);
+                const endDateTime = new Date(endDate);
+                endDateTime.setHours(23, 59, 59); // Set to end of day
+
+                const payload = {
+                    location_id: 1, // Hardcoding location_id=1 for now
+                    start_datetime: startDateTime.toISOString(),
+                    end_datetime: endDateTime.toISOString(),
+                    reason: reason,
+                };
+
+                try {
+                    await api('/api/v1/unavailable-periods/', {
+                        method: 'POST',
+                        body: JSON.stringify(payload),
+                    });
+                    onClose(); // Close modal on success
+                } catch (err) {
+                    setError('An error occurred. Please try again.');
+                    console.error('Save unavailable period error:', err);
+                }
+            };
+
+            return (
+                <div className="space-y-6">
+                    {error && <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded-lg">{error}</div>}
+                    <div>
+                        <label className="block text-sm font-medium text-medical-gray mb-2">Block Off Dates</label>
+                        <p className="text-sm text-medical-gray">Select a date range to mark as unavailable for online bookings.</p>
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div>
+                            <label className="block text-sm font-medium text-medical-gray mb-2">Start Date</label>
+                            <input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} className="w-full p-3 border border-gray-300 rounded-lg focus:border-medical-accent focus:outline-none" />
+                        </div>
+                        <div>
+                            <label className="block text-sm font-medium text-medical-gray mb-2">End Date</label>
+                            <input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} className="w-full p-3 border border-gray-300 rounded-lg focus:border-medical-accent focus:outline-none" />
+                        </div>
+                    </div>
+                    <div>
+                        <label className="block text-sm font-medium text-medical-gray mb-2">Reason (Optional)</label>
+                        <input type="text" value={reason} onChange={(e) => setReason(e.target.value)} className="w-full p-3 border border-gray-300 rounded-lg focus:border-medical-accent focus:outline-none" placeholder="e.g., Holiday, Personal Leave" />
+                    </div>
+                    <div className="flex justify-end space-x-3">
+                        <button onClick={onClose} className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300">Cancel</button>
+                        <button onClick={handleSubmit} className="medical-button px-4 py-2 text-white rounded-lg relative z-10">
+                            Save Block
+                        </button>
+                    </div>
+                </div>
+            );
+        };
+
+        // Log Viewer Component (Advanced)
+        const LogViewer = () => {
+            const [logs, setLogs] = React.useState([]);
+            const [loading, setLoading] = React.useState(true);
+            const [filters, setFilters] = React.useState({
+                userId: '',
+                category: '',
+                startDate: '',
+                endDate: '',
+            });
+            const [users, setUsers] = React.useState([]); // For the user filter dropdown
+
+            // Fetch users for the filter dropdown
+            React.useEffect(() => {
+                const fetchUsers = async () => {
+                    try {
+                        const data = await api('/api/v1/users');
+                        setUsers(Array.isArray(data) ? data : []);
+                    } catch (error) {
+                        console.error('Error fetching users:', error);
+                    }
+                };
+                fetchUsers();
+            }, []);
+
+            // Fetch logs based on filters
+            React.useEffect(() => {
+                const fetchLogs = async () => {
+                    setLoading(true);
+                    const params = new URLSearchParams();
+                    if (filters.userId) params.append('user_id', filters.userId);
+                    if (filters.category) params.append('category', filters.category);
+                    if (filters.startDate) params.append('start_date', filters.startDate);
+                    if (filters.endDate) params.append('end_date', filters.endDate);
+
+                    try {
+                        const data = await api(`/api/v1/logs?${params.toString()}`);
+                        setLogs(Array.isArray(data) ? data : []);
+                    } catch (error) {
+                        console.error('Error fetching logs:', error);
+                        setLogs([]);
+                    } finally {
+                        setLoading(false);
+                    }
+                };
+                // Debounce the fetch
+                const handler = setTimeout(() => fetchLogs(), 500);
+                return () => clearTimeout(handler);
+            }, [filters]);
+
+            const handleFilterChange = (e) => {
+                const { name, value } = e.target;
+                setFilters(prev => ({ ...prev, [name]: value }));
+            };
+
+            const logCategories = ['GENERAL', 'AUTHENTICATION', 'PATIENT', 'APPOINTMENT', 'USER'];
+
+            const getSeverityClass = (severity) => {
+                switch(severity) {
+                    case 'CRITICAL': return 'bg-red-600 text-white';
+                    case 'ERROR': return 'bg-red-200 text-red-800';
+                    case 'WARN': return 'bg-yellow-200 text-yellow-800';
+                    default: return 'bg-blue-200 text-blue-800';
+                }
+            };
+            
+            return (
+                <div className="space-y-6">
+                    <h2 className="text-2xl font-bold text-medical-dark font-primary">Audit Logs</h2>
+
+                    <div className="p-4 bg-gray-50 rounded-xl border border-gray-200 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                        <div>
+                            <label className="text-sm font-medium text-medical-gray">User</label>
+                            <select name="userId" value={filters.userId} onChange={handleFilterChange} className="mt-1 w-full p-2 border border-gray-300 rounded-lg">
+                                <option value="">All Users</option>
+                                {users.map(user => <option key={user.id} value={user.id}>{user.username}</option>)}                            </select>
+                        </div>
+                        <div>
+                            <label className="text-sm font-medium text-medical-gray">Category</label>
+                            <select name="category" value={filters.category} onChange={handleFilterChange} className="mt-1 w-full p-2 border border-gray-300 rounded-lg">
+                                <option value="">All Categories</option>
+                                {logCategories.map(cat => <option key={cat} value={cat}>{cat}</option>)}                            </select>
+                        </div>
+                        <div>
+                            <label className="text-sm font-medium text-medical-gray">Start Date</label>
+                            <input type="date" name="startDate" value={filters.startDate} onChange={handleFilterChange} className="mt-1 w-full p-2 border border-gray-300 rounded-lg" />
+                        </div>
+                        <div>
+                            <label className="text-sm font-medium text-medical-gray">End Date</label>
+                            <input type="date" name="endDate" value={filters.endDate} onChange={handleFilterChange} className="mt-1 w-full p-2 border border-gray-300 rounded-lg" />
+                        </div>
+                    </div>
+
+                    <div className="medical-card rounded-2xl overflow-hidden">
+                        <div className="overflow-x-auto">
+                            {loading ? <LoadingSpinner /> : (
+                                <table className="w-full">
+                                    <thead className="bg-medical-light">
+                                        <tr>
+                                            <th className="text-left p-4 font-semibold text-medical-dark">Timestamp</th>
+                                            <th className="text-left p-4 font-semibold text-medical-dark">User</th>
+                                            <th className="text-left p-4 font-semibold text-medical-dark">Category</th>
+                                            <th className="text-left p-4 font-semibold text-medical-dark">Severity</th>
+                                            <th className="text-left p-4 font-semibold text-medical-dark">Action</th>
+                                            <th className="text-left p-4 font-semibold text-medical-dark">Details</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {logs.map(log => (
+                                            <tr key={log.id} className="table-row border-b border-gray-100">
+                                                <td className="p-4 text-medical-gray text-sm whitespace-nowrap">{new Date(log.timestamp).toLocaleString()}</td>
+                                                <td className="p-4 text-medical-gray">{log.username || 'System'}</td>
+                                                <td className="p-4">
+                                                    <span className="px-2 py-1 bg-gray-200 text-gray-800 rounded-full text-xs font-medium">
+                                                        {log.category}
+                                                    </span>
+                                                </td>
+                                                <td className="p-4">
+                                                    <span className={`px-2 py-1 rounded-full text-xs font-medium ${getSeverityClass(log.severity)}`}>
+                                                        {log.severity}
+                                                    </span>
+                                                </td>
+                                                <td className="p-4 text-medical-gray">{log.action}</td>
+                                                <td className="p-4 text-medical-gray text-sm">{log.details || 'N/A'}</td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            )}
+                        </div>
+                        {!loading && logs.length === 0 && (
+                            <div className="text-center py-12">
+                                <i className="fas fa-clipboard-list text-4xl text-medical-gray mb-4"></i>
+                                <p className="text-medical-gray">No logs found for the selected filters.</p>
+                            </div>
+                        )}
+                    </div>
+                </div>
+            );
+        };
+
         // Main App Component
         const App = () => {
             const [user, setUser] = React.useState(() => {
@@ -2215,6 +2504,8 @@
                         return <Prescriptions />;
                     case 'users':
                         return user.role === 'admin' ? <Users /> : <Dashboard />;
+                    case 'logs':
+                        return user.role === 'admin' ? <LogViewer /> : <Dashboard />;
                     default:
                         return <Dashboard />;
                 }

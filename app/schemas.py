@@ -330,10 +330,15 @@ class ActivityLog(ActivityLogBase):
 class AuditLogResponse(BaseSchema):
     id: int
     user_id: Optional[int] = None
+    username: Optional[str] = None
     action: AuditAction
-    resource_type: str
+    category: str
+    severity: str
+    resource_type: Optional[str] = None
     resource_id: Optional[int] = None
-    details: Optional[Dict[str, Any]] = None
+    details: Optional[str] = None
+    old_values: Optional[Dict[str, Any]] = None
+    new_values: Optional[Dict[str, Any]] = None
     ip_address: Optional[str] = None
     user_agent: Optional[str] = None
     timestamp: datetime

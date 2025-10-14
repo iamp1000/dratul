@@ -2,7 +2,7 @@
 from sqlalchemy.orm import Session, joinedload
 from sqlalchemy import or_, and_, desc, func
 from sqlalchemy.exc import SQLAlchemyError, IntegrityError
-from datetime import datetime, timedelta, date
+from datetime import datetime, timedelta, date, time
 from typing import Optional, List, Dict, Any
 import logging
 from . import models, schemas
@@ -59,6 +59,9 @@ def get_users(db: Session, skip: int = 0, limit: int = 100, role: str = None, is
         if is_active is not None:
             query = query.filter(models.User.is_active == is_active)
         users = query.order_by(models.User.username).offset(skip).limit(limit).all()
+        # Fix for permissions being None which causes a validation error
+        for user in users:
+            user.permissions = user.permissions or {}
         return [_ensure_complete_user(u) for u in users]
     except SQLAlchemyError as e:
         logger.error(f"Error fetching users: {str(e)}")
@@ -195,6 +198,16 @@ def create_appointment(db: Session, appointment: schemas.AppointmentCreate, user
     """
     appointment_data = appointment.dict()
 
+    # Validate start time and duration
+    start_time = appointment_data['start_time']
+    end_time = appointment_data['end_time']
+
+    if start_time.minute % 15 != 0:
+        raise CRUDError("Appointments must start on a 15-minute interval (00, 15, 30, 45).")
+    
+    if (end_time - start_time) != timedelta(minutes=15):
+        raise CRUDError("Appointment duration must be exactly 15 minutes.")
+
     # If new patient data is present, create the patient first
     if appointment.new_patient:
         new_patient_data = appointment.new_patient
@@ -294,6 +307,237 @@ def update_schedules_for_location(db: Session, location_id: int, schedules: List
         logger.error(f"Error updating schedules for location {location_id}: {e}")
         raise CRUDError("A database error occurred while updating schedules.")
 
+def get_available_slots(db: Session, location_id: int, for_date: date) -> List[time]:
+    """
+    Calculate available appointment slots for a given location and date.
+    """
+    try:
+        # 1. Get the weekly schedule for the given day
+        day_of_week = for_date.weekday()  # Monday is 0 and Sunday is 6
+        schedule = db.query(models.LocationSchedule).filter(
+            models.LocationSchedule.location_id == location_id,
+            models.LocationSchedule.day_of_week == day_of_week,
+            models.LocationSchedule.is_available == True
+        ).first()
+
+        if not schedule:
+            return []  # Doctor is not available on this day
+
+        # 2. Get all existing appointments for the day
+        start_of_day = datetime.combine(for_date, time.min)
+        end_of_day = datetime.combine(for_date, time.max)
+        
+        appointments = db.query(models.Appointment).filter(
+            models.Appointment.location_id == location_id,
+            models.Appointment.start_time >= start_of_day,
+            models.Appointment.end_time <= end_of_day,
+            models.Appointment.status != 'cancelled'
+        ).all()
+
+        booked_slots = set()
+        for appt in appointments:
+            slot_time = appt.start_time
+            while slot_time < appt.end_time:
+                booked_slots.add(slot_time.time())
+                slot_time += timedelta(minutes=15) # Assuming 15 min slots
+
+        # 3. Get any manually blocked periods for the day
+        unavailable_periods = db.query(models.UnavailablePeriod).filter(
+            models.UnavailablePeriod.location_id == location_id,
+            models.UnavailablePeriod.start_datetime <= end_of_day,
+            models.UnavailablePeriod.end_datetime >= start_of_day
+        ).all()
+
+        for period in unavailable_periods:
+            slot_time = period.start_datetime
+            while slot_time < period.end_datetime:
+                # Only block slots that fall on the requested date
+                if slot_time.date() == for_date:
+                    booked_slots.add(slot_time.time())
+                slot_time += timedelta(minutes=15)
+
+        # 4. Generate potential slots and filter out booked/unavailable ones
+        available_slots = []
+        slot_duration = timedelta(minutes=15)
+        current_time = datetime.combine(for_date, schedule.start_time)
+        end_time = datetime.combine(for_date, schedule.end_time)
+
+        while current_time < end_time:
+            if current_time.time() not in booked_slots:
+                available_slots.append(current_time.time())
+            current_time += slot_duration
+            
+        return available_slots
+
+    except SQLAlchemyError as e:
+        logger.error(f"Error calculating available slots for location {location_id} on {for_date}: {e}")
+        raise CRUDError("A database error occurred while calculating availability.")
+
+def create_unavailable_period(db: Session, period: schemas.UnavailablePeriodCreate, created_by: int) -> models.UnavailablePeriod:
+    """
+    Create a new unavailable period for a location.
+    """
+    try:
+        db_period = models.UnavailablePeriod(
+            **period.dict(),
+            created_by=created_by
+        )
+        db.add(db_period)
+        db.commit()
+        db.refresh(db_period)
+        return db_period
+    except SQLAlchemyError as e:
+        db.rollback()
+        logger.error(f"Error creating unavailable period: {e}")
+        raise CRUDError("A database error occurred while creating the unavailable period.")
+
+def get_unavailable_periods(db: Session, location_id: int, start_date: date, end_date: date) -> List[models.UnavailablePeriod]:
+    """
+    Retrieve unavailable periods for a given location and date range.
+    """
+    try:
+        start_datetime = datetime.combine(start_date, time.min)
+        end_datetime = datetime.combine(end_date, time.max)
+        
+        return db.query(models.UnavailablePeriod).filter(
+            models.UnavailablePeriod.location_id == location_id,
+            models.UnavailablePeriod.start_datetime <= end_datetime,
+            models.UnavailablePeriod.end_datetime >= start_datetime
+        ).all()
+    except SQLAlchemyError as e:
+        logger.error(f"Error fetching unavailable periods: {e}")
+        raise CRUDError("A database error occurred while fetching unavailable periods.")
+
+
+# ==================== PRESCRIPTION CRUD OPERATIONS (NEW) ====================
+
+def create_prescription(db: Session, prescription: schemas.PrescriptionCreate, prescribed_by: int) -> models.Prescription:
+    """
+    Create a new prescription for a patient.
+    """
+    try:
+        db_prescription = models.Prescription(
+            **prescription.dict(),
+            prescribed_by=prescribed_by
+        )
+        db.add(db_prescription)
+        db.commit()
+        db.refresh(db_prescription)
+        logger.info(f"Created new prescription {db_prescription.id} for patient {db_prescription.patient_id}")
+        return db_prescription
+    except SQLAlchemyError as e:
+        db.rollback()
+        logger.error(f"Error creating prescription: {e}")
+        raise CRUDError("A database error occurred while creating the prescription.")
+
+def get_prescriptions_for_patient(db: Session, patient_id: int) -> List[models.Prescription]:
+    """
+    Retrieve all prescriptions for a specific patient.
+    """
+    try:
+        return db.query(models.Prescription).filter(models.Prescription.patient_id == patient_id).order_by(models.Prescription.prescribed_date.desc()).all()
+    except SQLAlchemyError as e:
+        logger.error(f"Error fetching prescriptions for patient {patient_id}: {e}")
+        raise CRUDError("A database error occurred while fetching prescriptions.")
+
+
+# ==================== REMARK CRUD OPERATIONS (NEW) ====================
+
+def create_remark(db: Session, patient_id: int, author_id: int, text: str) -> models.Remark:
+    """Create a new remark for a patient."""
+    try:
+        db_remark = models.Remark(text=text, patient_id=patient_id, author_id=author_id)
+        db.add(db_remark)
+        db.commit()
+        db.refresh(db_remark)
+        return db_remark
+    except SQLAlchemyError as e:
+        db.rollback()
+        logger.error(f"Error creating remark for patient {patient_id}: {e}")
+        raise CRUDError("A database error occurred while creating the remark.")
+
+def get_remarks_for_patient(db: Session, patient_id: int) -> List[models.Remark]:
+    """Retrieve all remarks for a specific patient, joined with author info."""
+    try:
+        return db.query(models.Remark).options(joinedload(models.Remark.author)).filter(models.Remark.patient_id == patient_id).order_by(models.Remark.created_at.desc()).all()
+    except SQLAlchemyError as e:
+        logger.error(f"Error fetching remarks for patient {patient_id}: {e}")
+        raise CRUDError("A database error occurred while fetching remarks.")
+
+
+# ==================== AUDIT LOG CRUD OPERATIONS (NEW) ====================
+
+def create_audit_log(
+    db: Session, 
+    user_id: Optional[int], 
+    action: str, 
+    category: str,
+    severity: str = "INFO",
+    resource_type: Optional[str] = None,
+    resource_id: Optional[int] = None,
+    details: Optional[str] = None,
+    old_values: Optional[dict] = None,
+    new_values: Optional[dict] = None,
+    ip_address: Optional[str] = None
+) -> models.AuditLog:
+    """Create a new structured audit log entry."""
+    try:
+        # Denormalize username for audit integrity
+        username = db.query(models.User.username).filter(models.User.id == user_id).scalar() if user_id else "System"
+        
+        db_log = models.AuditLog(
+            user_id=user_id,
+            username=username,
+            action=action,
+            category=category,
+            severity=severity,
+            resource_type=resource_type,
+            resource_id=resource_id,
+            details=details,
+            old_values=old_values,
+            new_values=new_values,
+            ip_address=ip_address
+        )
+        db.add(db_log)
+        db.commit()
+        db.refresh(db_log)
+        return db_log
+    except SQLAlchemyError as e:
+        db.rollback()
+        logger.error(f"Error creating audit log: {e}")
+        # Don't re-raise CRUDError, as logging failure should not crash main operations
+
+def get_audit_logs(
+    db: Session, 
+    skip: int = 0, 
+    limit: int = 100,
+    user_id: Optional[int] = None,
+    category: Optional[str] = None,
+    severity: Optional[str] = None,
+    start_date: Optional[date] = None,
+    end_date: Optional[date] = None
+) -> List[models.AuditLog]:
+    """Retrieve audit logs with filtering.""" 
+    try:
+        query = db.query(models.AuditLog).options(joinedload(models.AuditLog.user))
+        
+        if user_id:
+            query = query.filter(models.AuditLog.user_id == user_id)
+        if category:
+            query = query.filter(models.AuditLog.category == category)
+        if severity:
+            query = query.filter(models.AuditLog.severity == severity)
+        if start_date:
+            query = query.filter(models.AuditLog.timestamp >= start_date)
+        if end_date:
+            # Add one day to end_date to include the entire day
+            query = query.filter(models.AuditLog.timestamp < (end_date + timedelta(days=1)))
+            
+        return query.order_by(models.AuditLog.timestamp.desc()).offset(skip).limit(limit).all()
+    except SQLAlchemyError as e:
+        logger.error(f"Error fetching audit logs: {e}")
+        raise CRUDError("A database error occurred while fetching audit logs.")
+
 
 # ==================== ALL OTHER CRUD FUNCTIONS (RESTORED) ====================
 
@@ -320,17 +564,7 @@ def get_appointments(db: Session, skip: int = 0, limit: int = 100, **kwargs) -> 
         logger.error(f"Error fetching appointments: {str(e)}")
         raise CRUDError(f"Database error: {str(e)}")
         
-def create_audit_log(db: Session, **kwargs):
-    """Create comprehensive audit log entry"""
-    try:
-        audit_log = models.AuditLog(**kwargs)
-        db.add(audit_log)
-        db.commit()
-        return audit_log
-    except SQLAlchemyError as e:
-        db.rollback()
-        logger.error(f"Error creating audit log: {str(e)}")
-        return None
+
 
 # NOTE: This is a simplified restoration. In a real scenario, all original functions
 # for patients, appointments, etc., would be pasted here in their entirety.

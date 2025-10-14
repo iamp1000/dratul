@@ -2,6 +2,7 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from typing import List
+from datetime import date, time
 from .. import crud, models, schemas
 from ..database import get_db
 from ..security import get_current_user
@@ -44,5 +45,19 @@ def update_schedules_for_location(
     try:
         updated_schedules = crud.update_schedules_for_location(db=db, location_id=location_id, schedules=schedules)
         return updated_schedules
+    except crud.CRUDError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+@router.get("/availability/{location_id}/{for_date}", response_model=List[time])
+def get_availability_for_date(
+    location_id: int,
+    for_date: date,
+    db: Session = Depends(get_db)
+):
+    """
+    Retrieve available appointment slots for a given location and date.
+    """
+    try:
+        return crud.get_available_slots(db=db, location_id=location_id, for_date=for_date)
     except crud.CRUDError as e:
         raise HTTPException(status_code=400, detail=str(e))
