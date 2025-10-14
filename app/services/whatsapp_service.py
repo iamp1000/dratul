@@ -84,9 +84,9 @@ class WhatsAppChatbot:
         patient = crud.get_patient_by_phone_hash(db, phone_number)
 
         if patient:
-            response = f"Hello {patient.name}! 👋\n\nHow can I help you today?"
+            response = f"Hello {patient.name}! 👋\\n\\nHow can I help you today?"
         else:
-            response = "Hello! Welcome to Dr. Dhingra's Clinic 👋\n\nI'm your virtual assistant. How can I help you today?"
+            response = "Hello! Welcome to Dr. Dhingra's Clinic 👋\\n\\nI'm your virtual assistant. How can I help you today?"
 
         response += """
 
@@ -111,7 +111,7 @@ Simply reply with the number or describe what you need."""
         elif any(word in message_lower for word in ["inquiry", "question", "4"]):
             session_data["current_flow"] = "general_inquiry"
         elif any(word in message_lower for word in ["staff", "human", "5"]):
-            response = "I'll connect you with our staff. Please hold on...\n\n⏰ Our office hours are: Monday-Friday 9AM-6PM, Saturday 9AM-2PM"
+            response = "I'll connect you with our staff. Please hold on...\\n\\n⏰ Our office hours are: Monday-Friday 9AM-6PM, Saturday 9AM-2PM"
             session_data["current_flow"] = "staff_transfer"
 
         return {
@@ -138,10 +138,10 @@ Simply reply with the number or describe what you need."""
             session_data["patient_id"] = patient.id
             session_data["patient_name"] = patient.name
             session_data["current_step"] = "collect_reason"
-            return f"Hi {patient.name}! I'll help you book an appointment.\n\nWhat's the reason for your visit?"
+            return f"Hi {patient.name}! I'll help you book an appointment.\\n\\nWhat's the reason for your visit?"
         else:
             session_data["current_step"] = "collect_name"
-            return "I'll help you book an appointment! First, I need some information.\n\nWhat's your full name?"
+            return "I'll help you book an appointment! First, I need some information.\\n\\nWhat's your full name?"
 
     async def handle_appointment_booking(self, phone_number: str, message_text: str,
                                        session_data: Dict[str, Any], db: Session) -> Dict[str, Any]:
@@ -160,7 +160,7 @@ Simply reply with the number or describe what you need."""
             return await self.confirm_booking(phone_number, message_text, session_data, db)
 
         return {
-            "message": "I'm sorry, I didn't understand. Let's start over.\n\nType 'menu' to see your options.",
+            "message": "I'm sorry, I didn't understand. Let's start over.\\n\\nType 'menu' to see your options.",
             "session_data": {"current_flow": "greeting"}
         }
 
@@ -178,7 +178,7 @@ Simply reply with the number or describe what you need."""
         session_data["current_step"] = "collect_dob"
 
         return {
-            "message": f"Thank you, {name}! Now I need your date of birth.\n\nPlease enter in DD/MM/YYYY format (e.g., 15/03/1990):",
+            "message": f"Thank you, {name}! Now I need your date of birth.\\n\\nPlease enter in DD/MM/YYYY format (e.g., 15/03/1990):",
             "session_data": session_data
         }
 
@@ -207,7 +207,7 @@ Simply reply with the number or describe what you need."""
             session_data["current_step"] = "collect_reason"
 
             return {
-                "message": "Perfect! Now, what's the reason for your visit?\n\nFor example:\n• General checkup\n• Specific symptoms\n• Follow-up consultation\n• Other medical concern",
+                "message": "Perfect! Now, what's the reason for your visit?\\n\\nFor example:\\n• General checkup\\n• Specific symptoms\\n• Follow-up consultation\\n• Other medical concern",
                 "session_data": session_data
             }
 
@@ -244,14 +244,14 @@ Simply reply with the number or describe what you need."""
                 "session_data": {"current_flow": "greeting"}
             }
 
-        slots_message = "Here are the available appointment slots:\n\n"
+        slots_message = "Here are the available appointment slots:\\n\\n"
 
         for i, slot in enumerate(available_slots[:10]):  # Show max 10 slots
             date_str = slot["date"].strftime("%A, %B %d")
             time_str = slot["time"].strftime("%I:%M %p")
-            slots_message += f"{i+1}. {date_str} at {time_str}\n"
+            slots_message += f"{i+1}. {date_str} at {time_str}\\n"
 
-        slots_message += "\nPlease reply with the number of your preferred slot (e.g., '3'):"
+        slots_message += "\\nPlease reply with the number of your preferred slot (e.g., '3'):"
 
         session_data["available_slots"] = [
             {
@@ -369,17 +369,17 @@ Simply reply with the number or describe what you need."""
         upcoming_appointments = crud.get_patient_upcoming_appointments(db, patient.id)
 
         if not upcoming_appointments:
-            response = f"Hi {patient.name}! You don't have any upcoming appointments.\n\nWould you like to book a new appointment? Reply 'book' to get started."
+            response = f"Hi {patient.name}! You don't have any upcoming appointments.\\n\\nWould you like to book a new appointment? Reply 'book' to get started."
         else:
-            response = f"Hi {patient.name}! Here are your upcoming appointments:\n\n"
+            response = f"Hi {patient.name}! Here are your upcoming appointments:\\n\\n"
 
             for apt in upcoming_appointments:
                 date_str = apt.start_time.strftime("%A, %B %d, %Y")
                 time_str = apt.start_time.strftime("%I:%M %p")
-                response += f"📅 {date_str} at {time_str}\n"
-                response += f"📝 Reason: {apt.reason}\n"
-                response += f"📍 Location: {apt.location.name}\n"
-                response += f"ID: #{apt.id}\n\n"
+                response += f"📅 {date_str} at {time_str}\\n"
+                response += f"📝 Reason: {apt.reason}\\n"
+                response += f"📍 Location: {apt.location.name}\\n"
+                response += f"ID: #{apt.id}\\n\\n"
 
             response += "Need to reschedule? Reply 'reschedule [appointment ID]' or call us."
 
@@ -399,7 +399,7 @@ Simply reply with the number or describe what you need."""
                 "session_data": {"current_flow": "greeting"}
             }
         
-        response = f"Hi {patient.name}! For prescription requests, please call us at [PHONE_NUMBER] or visit our clinic.\n\nOur pharmacy hours are: Monday-Friday 9AM-6PM, Saturday 9AM-2PM"
+        response = f"Hi {patient.name}! For prescription requests, please call us at [PHONE_NUMBER] or visit our clinic.\\n\\nOur pharmacy hours are: Monday-Friday 9AM-6PM, Saturday 9AM-2PM"
         
         return {
             "message": response,
@@ -430,7 +430,7 @@ class WhatsAppService:
     """Enhanced WhatsApp service with chatbot capabilities"""
 
     def __init__(self):
-        self.phone_id = settings.whatsapp_phone_id
+        self.phone_id = settings.whatsapp_phone_number_id
         self.access_token = settings.whatsapp_access_token
 
         self.enabled = bool(
@@ -548,3 +548,5 @@ class WhatsAppService:
 
         except Exception as e:
             logger.error(f"Message processing error: {str(e)}")
+
+whatsapp_service = WhatsAppService()

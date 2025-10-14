@@ -119,24 +119,60 @@ def delete_user(db: Session, user_id: int) -> bool:
 
 def create_patient(db: Session, patient: schemas.PatientCreate, created_by: int) -> models.Patient:
     db_patient = models.Patient(
-        name=patient.name, # Placeholder, will be encrypted
-        phone_number=patient.phone_number, # Placeholder
+        first_name_encrypted=encryption_service.encrypt(patient.first_name),
+        last_name_encrypted=encryption_service.encrypt(patient.last_name) if patient.last_name else None,
+        phone_number_encrypted=encryption_service.encrypt(patient.phone_number) if patient.phone_number else None,
+        email_encrypted=encryption_service.encrypt(patient.email) if patient.email else None,
+        first_name_hash=encryption_service.hash_for_lookup(patient.first_name),
+        last_name_hash=encryption_service.hash_for_lookup(patient.last_name) if patient.last_name else None,
+        phone_hash=encryption_service.hash_for_lookup(patient.phone_number) if patient.phone_number else None,
+        email_hash=encryption_service.hash_for_lookup(patient.email) if patient.email else None,
+        date_of_birth=patient.date_of_birth,
+        gender=patient.gender,
+        city=patient.city,
         created_by=created_by
     )
-    # Add encryption logic here
     db.add(db_patient)
     db.commit()
     db.refresh(db_patient)
     return db_patient
 
+def get_patients(db: Session, skip: int = 0, limit: int = 100, search: str = None) -> List[models.Patient]:
+    """Get patients with optional search"""
+    query = db.query(models.Patient)
+    if search:
+        search_hash = encryption_service.hash_for_lookup(search)
+        query = query.filter(
+            or_(
+                models.Patient.first_name_hash.ilike(f"%{search_hash}%"),
+                models.Patient.last_name_hash.ilike(f"%{search_hash}%"),
+            )
+        )
+    return query.offset(skip).limit(limit).all()
+
 def update_patient(db: Session, patient_id: int, patient_update: schemas.PatientUpdate) -> Optional[models.Patient]:
     db_patient = db.query(models.Patient).filter(models.Patient.id == patient_id).first()
     if not db_patient:
         return None
+
     update_data = patient_update.dict(exclude_unset=True)
+
     for key, value in update_data.items():
-        setattr(db_patient, key, value)
-    # Add re-encryption logic here
+        if key == 'first_name' and value:
+            db_patient.first_name_encrypted = encryption_service.encrypt(value)
+            db_patient.first_name_hash = encryption_service.hash_for_lookup(value)
+        elif key == 'last_name' and value:
+            db_patient.last_name_encrypted = encryption_service.encrypt(value)
+            db_patient.last_name_hash = encryption_service.hash_for_lookup(value)
+        elif key == 'phone_number' and value:
+            db_patient.phone_number_encrypted = encryption_service.encrypt(value)
+            db_patient.phone_hash = encryption_service.hash_for_lookup(value)
+        elif key == 'email' and value:
+            db_patient.email_encrypted = encryption_service.encrypt(value)
+            db_patient.email_hash = encryption_service.hash_for_lookup(value)
+        else:
+            setattr(db_patient, key, value)
+
     db.commit()
     db.refresh(db_patient)
     return db_patient
@@ -162,11 +198,10 @@ def create_appointment(db: Session, appointment: schemas.AppointmentCreate, user
     # If new patient data is present, create the patient first
     if appointment.new_patient:
         new_patient_data = appointment.new_patient
-        # Combine first and last name
-        full_name = f"{new_patient_data.first_name} {new_patient_data.last_name or ''}".strip()
-
+        
         patient_schema = schemas.PatientCreate(
-            name=full_name,
+            first_name=new_patient_data.first_name,
+            last_name=new_patient_data.last_name,
             date_of_birth=new_patient_data.date_of_birth,
             city=new_patient_data.city,
             phone_number=new_patient_data.phone_number,
@@ -189,7 +224,7 @@ def create_appointment(db: Session, appointment: schemas.AppointmentCreate, user
         models.Appointment.status != 'cancelled'
     ).first()
 
-    if existing_.appointment:
+    if existing_appointment:
         raise CRUDError("An appointment already exists at this time.")
 
     # Create the appointment model instance
@@ -285,19 +320,6 @@ def get_appointments(db: Session, skip: int = 0, limit: int = 100, **kwargs) -> 
         logger.error(f"Error fetching appointments: {str(e)}")
         raise CRUDError(f"Database error: {str(e)}")
         
-def get_patients(db: Session, skip: int = 0, limit: int = 100, search: str = None) -> List[models.Patient]:
-    """Get patients with optional search"""
-    try:
-        # ... (implementation from original file)
-        query = db.query(models.Patient)
-        if search:
-            # Add search logic here
-            pass
-        return query.offset(skip).limit(limit).all()
-    except SQLAlchemyError as e:
-        logger.error(f"Error fetching patients: {str(e)}")
-        raise CRUDError(f"Database error: {str(e)}")
-
 def create_audit_log(db: Session, **kwargs):
     """Create comprehensive audit log entry"""
     try:

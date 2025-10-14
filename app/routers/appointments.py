@@ -16,7 +16,7 @@ router = APIRouter(
     responses={404: {"description": "Not found"}},
 )
 
-@router.post("/", response_model=schemas.Appointment)
+@router.post("/", response_model=schemas.AppointmentResponse)
 @limiter.limit("5/minute") # This decorator now works correctly
 def create_new_appointment(
     appointment: schemas.AppointmentCreate,
@@ -28,7 +28,7 @@ def create_new_appointment(
 
 # ... (the rest of the file remains the same) ...
 
-@router.get("/", response_model=List[schemas.Appointment])
+@router.get("/", response_model=List[schemas.AppointmentResponse])
 def read_appointments(
     start_date: date,
     end_date: date,
@@ -39,7 +39,7 @@ def read_appointments(
     end_datetime = datetime.combine(end_date, datetime.max.time())
     return crud.get_appointments_by_date_range(db, start_date=start_datetime, end_date=end_datetime)
 
-@router.patch("/{appointment_id}/status", response_model=schemas.Appointment)
+@router.patch("/{appointment_id}/status", response_model=schemas.AppointmentResponse)
 def update_appointment_status_endpoint(
     appointment_id: int,
     status_update: schemas.AppointmentUpdate,

@@ -1,113 +1,120 @@
 ## General Notes
--   Make all changes without deleting existing code.
--   Only edit files to make necessary modifications to avoid accidental code removal.
--   Ensure all changes are fully backward-compatible with existing appointment and patient functionality.
--   Based on all the changes we are making always look for contrasting code in the backend or front end which can cause possible errors and prevernt the app from running 
--   Read the project files for context starting with all the files in app folder for backend and root folder has front end html code 
+- Make all changes without deleting existing code.
+- Only edit files to make necessary modifications to avoid accidental code removal.
+- Ensure all changes are fully backward-compatible with existing appointment and patient functionality.
+- Based on all the changes we are making always look for contrasting code in the backend or front end which   can cause possible errors and prevent the app from running
+- Read the project files for context starting with all the files in app folder for backend and root folder has front end html code
 
 ## Appointment Form Modifications
-- [x] Modify appointment form to allow creating patients with required fields: first name, last name, DOB, date and time for appointment, city.
-- [x] Add manual name entry with an algorithm suggesting patients from past database entries based on letters entered.
-- [ ] For existing patients in the database, the suggestion algorithm will take place. The appointment form will have two sections:
-  - [x] Default: choosing an existing patient with date and time.
-  - [x] Creating a new patient with all the same fields, who will also be inserted into the patient database.
-- [x] Include first name and last name fields.
-- [x] Add a location/address feature that takes the city they belong to (optional).
-- [x] Add a date of birth (DOB) field.
-- [x] Add a reason for visit field (optional).
-- [x] Make first name, DOB, date, and time necessary fields.
-- [x] Make last name, city, and reason for visit optional fields.
-- [x] Convert start time and end time into time only for appointment, with each appointment having a 10-minute gap by default.
-- [x] Add a field for the date of appointment, defaulting to the current day or next day if active schedule time for the day is over.
-- [x] Show available hours for the day.
-- [ ] Add a constraint to prevent booking if an appointment already exists for the same time or if booking exceeds a time slot reserved for walk-in patients. Limit the number of online appointments accordingly.
-- [x] Ensure a default 15-minute gap between each appointment.
-- [ ] Add a field to manually block the appointment booking system for a day (e.g., if walk-in patients are flooded) for hospital/home/clinic.
-- [ ] Schedule section when built like the calendar it should also have an option for default available schedule slots where the hospital hours and clinic hours can be modified with a off option to display either on certain days 
+- [ ] Modify appointment form to allow creating patients with required fields: first name, last name, DOB, date and time for appointment, city.
+- [ ] Add manual name entry with algorithm suggesting patients from past database entries based on letters entered.
+- [ ] For existing patients, build suggestion algorithm in the appointment form.
+- [ ] Create form section for choosing existing patient (select date/time).
+- [ ] Create form section for entering new patient and insert into database.
+- [ ] Add fields for first name and last name.
+- [ ] Add optional location field for city.
+- [ ] Add field for date of birth (DOB).
+- [ ] Add optional reason for visit field.
+- [ ] Make first name, DOB, date, and time required.
+- [ ] Make last name, city, and reason for visit optional.
+- [ ] Change start/end time into only time, each appointment with 10-minute default gap.
+- [ ] Add field for appointment date, defaulting to today or next available day.
+- [ ] Show available hours for selected date.
+- [ ] Add constraint to prevent double-booking or walk-in overbooking (limit online appointments).
+- [ ] Ensure default 15-minute gap between appointments.
+- [ ] Add ability to manually block online bookings for a day (hospital/home/clinic).
+- [ ] Build schedule section with default/modifiable hour slots and "off" days.
 
 ## Backend and Data Handling
-- [ ] Check the backend for the type of data it expects for appointments, including time, date, patient info, and optional fields.
-- [ ] Check what kind of patient appointment data the database expects.
-- [ ] Make necessary changes for backend and database compatibility.
-- [ ] Add logic to:
-  - [ ] Check doctor’s available hours before booking an appointment.
-  - [ ] Respect limits for walk-in patients and maximum online bookings.
-  - [ ] Prevent double-booking and maintain minimum 10–15 minute gaps.
-  - [ ] Link doctor schedule and availability with Google Calendar.
-  - [ ] Allow manual blocking of appointment slots in the backend.
-- [ ] Ensure all backend validations match frontend constraints for consistent data integrity.
+- [ ] Check expected backend appointment data: time, date, patient info, all optional fields.
+- [ ] Review database for patient appointment fields required.
+- [ ] Update backend and DB logic for compatibility.
+- [ ] Implement logic to:
+- [ ] Check doctor's available hours before booking.
+- [ ] Enforce limits for walk-in and online bookings.
+- [ ] Disallow appointment overlaps; maintain 10–15 min minimum gap.
+- [ ] Link doctor schedule/availability to Google Calendar.
+- [ ] Add function for manual slot blocking in backend.
+- [ ] Match backend validations to frontend constraints for data integrity.
 
 ## Frontend Schedule and Calendar
-- [ ] Convert the current frontend schedule into a calendar view similar to the appointment tab which will be linked to Google Calendar with a button to show Google Calendar as well.
-- [ ] Display schedule for each date.
-- [ ] Show available hours dynamically based on backend availability and Google Calendar.
-- [ ] Ensure no code is deleted while editing; make only incremental changes.
+- [ ] Convert frontend schedule to calendar view styled like Appointment tab.
+- [ ] Link calendar to Google Calendar with dedicated button.
+- [ ] Show daily schedules per date.
+- [ ] Display available hours based on backend and Google Calendar.
+- [ ] Edit only by adding/incremental change; don't delete code.
 
 ## Appointment Booking Algorithm
-- [ ] Add time and date to appointments with a 15-minute gap by default.
-- [ ] Create a robust appointment booking algorithm that:
-  - [ ] Checks doctor availability.
-  - [ ] Enforces booking limits and gaps.
-  - [ ] Respects walk-in reservations and manual blocks.
-- [ ] Setup schedule to ensure appointments are always available according to rules.
+- [ ] Add time and date fields to appointments with 15-minute default gap.
+- [ ] Build appointment booking algorithm to:
+- [ ] Check doctor availability for chosen slot.
+- [ ] Enforce gaps and booking limits.
+- [ ] Honor walk-in reservations and manual appointment blocks.
+- [ ] Adjust schedule logic so appointments always obey rules.
 
 ## Gmail Calendar Integration
-- [ ] Integrate Gmail calendar link with frontend and backend schedules.
-- [ ] Block days/times based on unavailability on Gmail calendar.
-- [ ] Ensure backend does not book appointments during Google Calendar busy slots.
-- [ ] Use Google Calendar as the final source of truth for availability.
+- [ ] Integrate Gmail calendar into frontend and backend schedules.
+- [ ] Block appointments based on Gmail calendar "Busy" slots.
+- [ ] Ensure backend can't book during Google Calendar busy times.
+- [ ] Treat Google Calendar as final source for availability.
 
 ## Prescription Section
-- [ ] Add a word-editor like UI for prescriptions.
-- [ ] Enable prescriptions to be created by doctors.
-- [ ] Insert prescriptions into patient records.
-- [ ] Add functionality to send prescriptions via email or WhatsApp.
-- [ ] Add option to print prescriptions directly.
+- [ ] Add word-editor-like UI for prescription writing.
+- [ ] Allow doctors to create new prescriptions.
+- [ ] Enable inserting prescriptions into patient records.
+- [ ] Add options for prescription email or WhatsApp sending.
+- [ ] Add print button for prescriptions.
 
 ## Patient Database and SPA Instructions
-- [ ] Create a patient tab in the frontend where all patients are displayed in a list.
-- [ ] Enable opening any patient from either the appointments tab or the patients tab.
+- [ ] Build patient tab in frontend listing all patients.
+- [ ] Implement opening any patient from appointment or patient tab.
 - [ ] When a patient is opened:
-  - [ ] Display patient details including first name, last name, DOB, city, contact info, and other relevant fields.
-  - [ ] Allow adding remarks to the patient record.
-  - [ ] Allow creating and adding new prescriptions directly from the patient view.
-  - [ ] Display the patient’s last prescriptions with details.
-  - [ ] Enable editing and saving patient details with proper validation.
-  - [ ] Ensure any changes made in the SPA are synced with the backend and database without overwriting unrelated data.
+- [ ] Show all patient details (name, DOB, city, contact info, etc.)
+- [ ] Add option to write remarks for patient record.
+- [ ] Enable direct creation of prescriptions from patient view.
+- [ ] Show last prescriptions with details.
+- [ ] Allow editing/saving patient details with validation.
+- [ ] Sync all SPA changes with backend/database (preserve unrelated data).
 
 ## New Tasks & Improvements
-- [ ] Fix appointment modal overflow issue.
-- [ ] Improve form validation error messages to be more specific.
-- [ ] Implement backend logic for doctor scheduling (e.g., working hours, days off).
-- [ ] Create frontend UI to manage doctor schedules.
-- [ ] Connect appointment form to live schedule data instead of mock data.
-- [ ] Add constraints to prevent double-booking or booking outside of available hours.
+- [ ] Fix appointment modal overflow UI bug.
+- [ ] Improve validation error messages to specify exact fields.
+- [ ] Implement backend for doctor schedule (working hours, days off).
+- [ ] Create frontend UI to edit/manage doctor schedules.
+- [ ] Link appointment form to live schedule data (replace mock).
+- [ ] Block bookings outside available schedule/gaps.
 
-
-## addtional tasks based on testing 
-- [ ] as you can see in create new appointment form because of all the fields in the container the content is flowing out on the bottom and ending up as hidden and secondly well have to build the schdule section as well so the appointment can be booked for available time which is taken from the schedule if you get me 
-
-
-- [ ] and secondly in the existing patient tab when i click on submit the logic is correct since the fileld is empty the form should not submit but it should mention the specific field which i need to fill and not mention everything so improve on error handling as well thourghout the system 
-
-- [ ] additonlay you can also add stuff in todo.md remember to only edit and add new stuff you want on the bottom and not delete mine so you can also keep track of additional things you want to do or i made you do 
+## Additional Tasks from Testing
+- [ ] Fix appointment form field overflow; prevent content being hidden.
+- [ ] Build schedule section so appointments use schedule-picked times.
+- [ ] In existing patient tab, improve error handling to mention only missing field, not all fields.
+- [ ] Add new tasks at bottom of todo.md; keep previous tasks.
+- [ ] Track tasks you add or are requested, never remove original items.
 
 ## Next Steps: Unified Schedule View
+- [ ] Unify calendar display for hospital/home clinic
+- [ ] Modify DoctorSchedule to fetch both schedules.
+- [ ] Merge schedules into single data structure.
+- [ ] Update ScheduleCalendar to show both locations' hours together.
+- [ ] Remove hospital/clinic location tabs.
+- [ ] Overhaul Edit Weekly Schedule modal.
+- [ ] Redesign modal UI for schedule editing.
+- [ ] Add tabs for Home Clinic and Hospital in modal.
+- [ ] Make each tab editable for weekly schedule.
+- [ ] Update save logic to send POST to /api/v1/schedules/1 and /api/v1/schedules/2
+- [ ] Implement day-unavailable feature.
+- [ ] Add backend POST /api/v1/unavailable-periods for UnavailablePeriod entries.
+- [ ] On calendar date click, open simple modal (DailyUnavailabilityEditor).
+- [ ] Modal lets user mark day unavailable for either/both Hospital and Home Clinic.
+- [ ] Fetch/display UnavailablePeriod data and override weekly schedule on calendar.
 
-- [ ] **Task 1: Unify Calendar Display**
-  - [ ] Modify `DoctorSchedule` to fetch schedules for both "Home Clinic" and "Hospital".
-  - [ ] Combine the two schedules into a single data structure to pass to the calendar component.
-  - [ ] Update the `ScheduleCalendar` cell rendering logic to display hours for both locations simultaneously (e.g., "Clinic: 9-5, Hospital: 10-6").
-  - [ ] Remove the location tabs.
-
-- [ ] **Task 2: Overhaul "Edit Weekly Schedule" Modal**
-  - [ ] Redesign the `ScheduleEditor` modal.
-  - [ ] Add tabs within the modal: "Home Clinic" and "Hospital".
-  - [ ] Each tab will contain the 7-day weekly schedule editor for that specific location.
-  - [ ] Update the `onSave` function to send two separate `POST` requests to update the schedules for each location (`/api/v1/schedules/1` and `/api/v1/schedules/2`).
-
-- [ ] **Task 3: Implement "Mark Day as Unavailable" Feature**
-  - [ ] Create a new backend endpoint `POST /api/v1/unavailable-periods` to create `UnavailablePeriod` entries. This will block off specific dates.
-  - [ ] When a user clicks on a date in the `ScheduleCalendar`, open a new, simple modal (`DailyUnavailabilityEditor`).
-  - [ ] This modal will allow the user to mark the selected date as unavailable for "Home Clinic", "Hospital", or both.
-  - [ ] Update the `DoctorSchedule` component to also fetch `UnavailablePeriod` data from the backend and display these days as "Unavailable" on the calendar, overriding the regular weekly schedule.
+## Immediate Debugging/Rate Limiting Tasks
+- [ ] Review app/limiter.py and identify where DummyLimiter is used.
+- [ ] Note DummyLimiter is only a placeholder and doesn't enforce rate limits.
+- [ ] Decide to defer actual rate limiting to get app running now.
+- [ ] Add a todo.md task for implementing rate limiting logic later.
+- [ ] Read app/main.py code to debug startup errors.
+- [ ] Investigate what startup errors occur.
+- [ ] Identify/document causes of startup errors.
+- [ ] Fix each startup error one by one.
+- [ ] Test changes to verify that the application starts up correctly.

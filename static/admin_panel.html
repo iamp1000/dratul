@@ -1,6 +1,5 @@
 <!DOCTYPE html>
 <html lang="en">
-
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -617,7 +616,7 @@
                 const fetchAppointments = async () => {
                     try {
                         const data = await api('/api/v1/appointments');
-                        setAppointments(data || []);
+                        setAppointments(Array.isArray(data) ? data : data.appointments || []);
                     } catch (error) {
                         console.error('Error fetching appointments:', error);
                     } finally {
@@ -1059,7 +1058,7 @@
                 const fetchPatients = async () => {
                     try {
                         const data = await api(`/api/v1/patients?search=${searchTerm}`);
-                        setPatients(data || []);
+                        setPatients(Array.isArray(data) ? data : data.patients || []);
                     } catch (error) {
                         console.error('Error fetching patients:', error);
                     } finally {
@@ -1117,11 +1116,11 @@
                                                 <div className="flex items-center space-x-3">
                                                     <div className="w-10 h-10 bg-medical-accent/10 rounded-full flex items-center justify-center">
                                                         <span className="text-medical-accent font-semibold">
-                                                            {patient.name?.charAt(0) || 'P'}
+                                                            {patient.first_name?.charAt(0) || 'P'}
                                                         </span>
                                                     </div>
                                                     <div>
-                                                        <div className="font-semibold text-medical-dark">{patient.name || 'Unknown'}</div>
+                                                        <div className="font-semibold text-medical-dark">{`${patient.first_name} ${patient.last_name || ''}`}</div>
                                                         <div className="text-sm text-medical-gray">ID: {patient.id}</div>
                                                     </div>
                                                 </div>
@@ -1482,7 +1481,7 @@
         setLoading(true);
         try {
         const data = await api('/api/v1/users');
-        setUsers(data || []);
+        setUsers(Array.isArray(data) ? data : data.users || []);
         } catch (error) {
         console.error('Error fetching users:', error);
         } finally {

@@ -13,6 +13,6 @@ router = APIRouter(
     responses={404: {"description": "Not found"}},
 )
 
-@router.get("/", response_model=List[schemas.Location])
-def read_all_locations(skip: int = 0, limit: int = 100, db: Session = Depends(get_db)):
-    return crud.get_locations(db, skip=skip, limit=limit)
+@router.get("/", response_model=List[schemas.LocationResponse])
+def read_all_locations(db: Session = Depends(get_db)):
+    return crud.get_locations(db)

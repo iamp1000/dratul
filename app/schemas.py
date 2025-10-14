@@ -239,6 +239,44 @@ class PrescriptionResponse(PrescriptionBase):
     patient: Optional[PatientResponse] = None
     prescriber: Optional[UserResponse] = None
 
+class PrescriptionShare(BaseSchema):
+    patient_id: int
+    document_id: int
+    method: str  # "whatsapp" or "email"
+    whatsapp_number: Optional[str] = None
+    email: Optional[EmailStr] = None
+    message: Optional[str] = None
+
+# --- Document Schemas ---
+class DocumentBase(BaseSchema):
+    description: str
+    file_path: str
+
+class DocumentCreate(DocumentBase):
+    pass
+
+class Document(DocumentBase):
+    id: int
+    patient_id: int
+    created_at: datetime
+    
+    class Config:
+        from_attributes = True
+
+# --- Remark Schemas ---
+class RemarkBase(BaseSchema):
+    text: str
+
+class RemarkCreate(RemarkBase):
+    pass
+
+class RemarkResponse(RemarkBase):
+    id: int
+    patient_id: int
+    author_id: int
+    created_at: datetime
+    author: Optional[UserResponse] = None
+
 # --- Communication Schemas ---
 class CommunicationLogBase(BaseSchema):
     patient_id: Optional[int] = None
@@ -273,6 +311,22 @@ class MFASetupResponse(BaseSchema):
     backup_codes: List[str]
 
 # --- Audit Log Schemas ---
+class ActivityLogBase(BaseSchema):
+    action: str
+    details: Optional[str] = None
+
+class ActivityLogCreate(ActivityLogBase):
+    pass
+
+class ActivityLog(ActivityLogBase):
+    id: int
+    user_id: int
+    created_at: datetime
+    user: Optional[UserResponse] = None
+
+    class Config:
+        from_attributes = True
+        
 class AuditLogResponse(BaseSchema):
     id: int
     user_id: Optional[int] = None
@@ -316,6 +370,21 @@ class LocationScheduleCreate(LocationScheduleBase):
 class LocationScheduleResponse(LocationScheduleBase):
     id: int
 
+# --- Unavailable Period Schemas ---
+class UnavailablePeriodBase(BaseSchema):
+    location_id: int
+    start_datetime: datetime
+    end_datetime: datetime
+    reason: Optional[str] = Field(None, max_length=255)
+
+class UnavailablePeriodCreate(UnavailablePeriodBase):
+    pass
+
+class UnavailablePeriodResponse(UnavailablePeriodBase):
+    id: int
+    created_by: int
+    created_at: datetime
+    
 # --- Service Status Schemas ---
 class ServiceStatusResponse(BaseSchema):
     enabled: bool
