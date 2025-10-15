@@ -49,7 +49,8 @@ def read_all_patients(skip: int = 0, limit: int = 200, search: Optional[str] = N
         try:
             patient_data = {
                 "id": patient.id,
-                "name": security.encryption_service.decrypt(patient.name_encrypted) if patient.name_encrypted else "",
+                "first_name": security.encryption_service.decrypt(patient.first_name_encrypted) if patient.first_name_encrypted else "",
+                "last_name": security.encryption_service.decrypt(patient.last_name_encrypted) if patient.last_name_encrypted else None,
                 "phone_number": security.encryption_service.decrypt(patient.phone_number_encrypted) if patient.phone_number_encrypted else None,
                 "email": security.encryption_service.decrypt(patient.email_encrypted) if patient.email_encrypted else None,
                 "date_of_birth": patient.date_of_birth,

@@ -100,7 +100,8 @@ class UserResponse(UserBase):
 
 # --- Patient Schemas ---
 class PatientBase(BaseSchema):
-    name: str = Field(..., min_length=1, max_length=255)
+    first_name: str = Field(..., min_length=1, max_length=255)
+    last_name: Optional[str] = Field(None, max_length=255)
     phone_number: Optional[str] = Field(None, max_length=20)
     email: Optional[EmailStr] = None
     date_of_birth: Optional[date] = None
@@ -116,7 +117,8 @@ class PatientCreate(PatientBase):
     pass
 
 class PatientUpdate(BaseSchema):
-    name: Optional[str] = Field(None, min_length=1, max_length=255)
+    first_name: Optional[str] = Field(None, min_length=1, max_length=255)
+    last_name: Optional[str] = Field(None, max_length=255)
     phone_number: Optional[str] = Field(None, max_length=20)
     email: Optional[EmailStr] = None
     date_of_birth: Optional[date] = None

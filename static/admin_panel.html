@@ -700,7 +700,7 @@
                     <div>
                         <h4 className="font-semibold text-medical-dark mb-3">Patient Information</h4>
                         <div className="space-y-2 text-sm">
-                            <div><span className="font-medium">Name:</span> {appointment.patient?.name || 'N/A'}</div>
+                            <div><span className="font-medium">Name:</span> {`${appointment.patient?.first_name || ''} ${appointment.patient?.last_name || ''}`.trim() || 'N/A'}</div>
                             <div><span className="font-medium">Phone:</span> {appointment.patient?.phone_number || 'N/A'}</div>
                             <div><span className="font-medium">Email:</span> {appointment.patient?.email || 'N/A'}</div>
                         </div>
@@ -750,7 +750,7 @@
                             <div key={apt.id} className="table-row p-4 border border-gray-200 rounded-lg">
                                 <div className="flex items-center justify-between">
                                     <div>
-                                        <div className="font-semibold">{apt.patient?.name || 'Unknown Patient'}</div>
+                                        <div className="font-semibold">{`${apt.patient?.first_name || ''} ${apt.patient?.last_name || ''}`.trim() || 'Unknown Patient'}</div>
                                         <div className="text-sm text-medical-gray">
                                             {new Date(apt.start_time).toLocaleTimeString()} - {apt.appointment_type}
                                         </div>
@@ -1127,11 +1127,11 @@
                                                 <div className="flex items-center space-x-3">
                                                     <div className="w-10 h-10 bg-medical-accent/10 rounded-full flex items-center justify-center">
                                                         <span className="text-medical-accent font-semibold">
-                                                            {patient.name?.charAt(0) || 'P'}
+                                                            {patient.first_name?.charAt(0) || 'P'}
                                                         </span>
                                                     </div>
                                                     <div>
-                                                        <div className="font-semibold text-medical-dark">{patient.name}</div>
+                                                        <div className="font-semibold text-medical-dark">{`${patient.first_name} ${patient.last_name || ''}`}</div>
                                                         <div className="text-sm text-medical-gray">ID: {patient.id}</div>
                                                     </div>
                                                 </div>
@@ -1266,7 +1266,7 @@
                             </span>
                         </div>
                         <div>
-                            <h3 className="text-2xl font-bold text-medical-dark">{patient.name || 'Unknown Patient'}</h3>
+                            <h3 className="text-2xl font-bold text-medical-dark">{`${patient.first_name || ''} ${patient.last_name || ''}`.trim() || 'Unknown Patient'}</h3>
                             <p className="text-medical-gray">Patient ID: {patient.id}</p>
                         </div>
                     </div>
@@ -2041,7 +2041,8 @@
 
         // Patient Editor Component
         const PatientEditor = ({ patient, onClose, refreshPatients }) => {
-            const [name, setName] = React.useState(patient?.name || '');
+            const [firstName, setFirstName] = React.useState(patient?.first_name || '');
+            const [lastName, setLastName] = React.useState(patient?.last_name || '');
             const [phoneNumber, setPhoneNumber] = React.useState(patient?.phone_number || '');
             const [email, setEmail] = React.useState(patient?.email || '');
             const [dob, setDob] = React.useState(patient?.date_of_birth || '');
@@ -2049,11 +2050,17 @@
 
             const handleSubmit = async () => {
                 setError('');
-                if (!name) {
-                    setError('Patient name is required.');
+                if (!firstName) {
+                    setError('Patient first name is required.');
                     return;
                 }
-                const payload = { name, phone_number: phoneNumber, email, date_of_birth: dob };
+                const payload = { 
+                    first_name: firstName, 
+                    last_name: lastName, 
+                    phone_number: phoneNumber, 
+                    email, 
+                    date_of_birth: dob 
+                };
 
                 try {
                     if (patient) {
@@ -2077,8 +2084,12 @@
                     {error && <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded-lg">{error}</div>}
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                         <div>
-                            <label className="block text-sm font-medium text-medical-gray mb-2">Full Name</label>
-                            <input type="text" value={name} onChange={(e) => setName(e.target.value)} className="w-full p-3 border border-gray-300 rounded-lg focus:border-medical-accent focus:outline-none" placeholder="Enter full name" />
+                            <label className="block text-sm font-medium text-medical-gray mb-2">First Name</label>
+                            <input type="text" value={firstName} onChange={(e) => setFirstName(e.target.value)} className="w-full p-3 border border-gray-300 rounded-lg focus:border-medical-accent focus:outline-none" placeholder="Enter first name" />
+                        </div>
+                        <div>
+                            <label className="block text-sm font-medium text-medical-gray mb-2">Last Name</label>
+                            <input type="text" value={lastName} onChange={(e) => setLastName(e.target.value)} className="w-full p-3 border border-gray-300 rounded-lg focus:border-medical-accent focus:outline-none" placeholder="Enter last name" />
                         </div>
                         <div>
                             <label className="block text-sm font-medium text-medical-gray mb-2">Date of Birth</label>
@@ -2088,7 +2099,7 @@
                             <label className="block text-sm font-medium text-medical-gray mb-2">Phone Number</label>
                             <input type="tel" value={phoneNumber} onChange={(e) => setPhoneNumber(e.target.value)} className="w-full p-3 border border-gray-300 rounded-lg focus:border-medical-accent focus:outline-none" placeholder="Enter phone number" />
                         </div>
-                        <div>
+                        <div className="md:col-span-2">
                             <label className="block text-sm font-medium text-medical-gray mb-2">Email</label>
                             <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} className="w-full p-3 border border-gray-300 rounded-lg focus:border-medical-accent focus:outline-none" placeholder="Enter email" />
                         </div>
