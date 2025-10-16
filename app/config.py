@@ -1,6 +1,6 @@
 # app/config.py - Production-ready configuration management
 import os
-from typing import Optional
+from typing import Optional, Union, Any
 from functools import lru_cache
 
 from pydantic_settings import BaseSettings
@@ -30,7 +30,7 @@ class Settings(BaseSettings):
     encryption_key: str = Field(..., env="ENCRYPTION_KEY")
     
     # CORS
-    cors_origins: list = Field(default=["http://localhost:3000", "http://localhost:8000"], env="CORS_ORIGINS")
+    cors_origins: Union[str, list] = Field(default=["http://localhost:3000", "http://localhost:8000"], env="CORS_ORIGINS")
     
     # Rate Limiting
     rate_limit_per_minute: int = Field(default=60, env="RATE_LIMIT_PER_MINUTE")
@@ -70,7 +70,7 @@ class Settings(BaseSettings):
     # File Storage
     upload_dir: str = Field(default="uploads", env="UPLOAD_DIR")
     max_file_size: int = Field(default=10 * 1024 * 1024, env="MAX_FILE_SIZE")  # 10MB
-    allowed_file_types: list = Field(
+    allowed_file_types: Union[str, list] = Field(
         default=["pdf", "jpg", "jpeg", "png", "doc", "docx", "txt"],
         env="ALLOWED_FILE_TYPES"
     )
@@ -87,7 +87,7 @@ class Settings(BaseSettings):
     # Appointment Settings
     default_appointment_duration: int = Field(default=30, env="DEFAULT_APPOINTMENT_DURATION")  # minutes
     max_appointments_per_day: int = Field(default=50, env="MAX_APPOINTMENTS_PER_DAY")
-    appointment_reminder_hours: list = Field(default=[24, 2], env="APPOINTMENT_REMINDER_HOURS")
+    appointment_reminder_hours: Union[str, list] = Field(default=[24, 2], env="APPOINTMENT_REMINDER_HOURS")
     
     # WhatsApp Chatbot Settings
     chatbot_enabled: bool = Field(default=True, env="CHATBOT_ENABLED")
@@ -153,19 +153,25 @@ class Settings(BaseSettings):
     @validator("cors_origins", pre=True)
     def parse_cors_origins(cls, v):
         if isinstance(v, str):
-            return [origin.strip() for origin in v.split(",")]
+            if not v.strip():  # Handle empty string
+                return ["http://localhost:3000", "http://localhost:8000"]  # Return default
+            return [origin.strip() for origin in v.split(",") if origin.strip()]
         return v
     
     @validator("allowed_file_types", pre=True) 
     def parse_allowed_file_types(cls, v):
         if isinstance(v, str):
-            return [file_type.strip().lower() for file_type in v.split(",")]
+            if not v.strip():  # Handle empty string
+                return ["pdf", "jpg", "jpeg", "png", "doc", "docx", "txt"]  # Return default
+            return [file_type.strip().lower() for file_type in v.split(",") if file_type.strip()]
         return v
     
     @validator("appointment_reminder_hours", pre=True)
     def parse_reminder_hours(cls, v):
         if isinstance(v, str):
-            return [int(hour.strip()) for hour in v.split(",")]
+            if not v.strip():  # Handle empty string
+                return [24, 2]  # Return default
+            return [int(hour.strip()) for hour in v.split(",") if hour.strip()]
         return v
     
     @validator("database_url")
@@ -368,4 +374,4 @@ if __name__ == "__main__":
     except Exception as e:
         print(f"Configuration error: {e}")
         
-settings = get_settings()
+# settings = get_settings()  # Commented out - don't instantiate at import time
