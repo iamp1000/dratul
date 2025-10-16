@@ -20,6 +20,10 @@ from app.security import (
     verify_password, create_access_token, ACCESS_TOKEN_EXPIRE_MINUTES,
     get_current_user, require_admin
 )
+from app.config import get_settings
+
+# Get settings
+settings = get_settings()
 
 app = FastAPI(title="Dr. Dhingra's Clinic Management System")
 
@@ -31,7 +35,7 @@ def on_startup():
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://127.0.0.1:5501", "http://localhost:5501"],
+    allow_origins=settings.cors_origins_list,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

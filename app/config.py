@@ -4,7 +4,8 @@ from typing import Optional
 from functools import lru_cache
 
 from pydantic_settings import BaseSettings
-from pydantic import validator, Field
+from pydantic import validator, Field, field_validator
+from typing import Union
 
 
 class Settings(BaseSettings):
@@ -30,7 +31,7 @@ class Settings(BaseSettings):
     encryption_key: str = Field(..., env="ENCRYPTION_KEY")
     
     # CORS
-    cors_origins: list = Field(default=["http://localhost:3000", "http://localhost:8000"], env="CORS_ORIGINS")
+    cors_origins: str = Field(default="http://localhost:3000,http://localhost:8000", env="CORS_ORIGINS")
     
     # Rate Limiting
     rate_limit_per_minute: int = Field(default=60, env="RATE_LIMIT_PER_MINUTE")
@@ -70,8 +71,8 @@ class Settings(BaseSettings):
     # File Storage
     upload_dir: str = Field(default="uploads", env="UPLOAD_DIR")
     max_file_size: int = Field(default=10 * 1024 * 1024, env="MAX_FILE_SIZE")  # 10MB
-    allowed_file_types: list = Field(
-        default=["pdf", "jpg", "jpeg", "png", "doc", "docx", "txt"],
+    allowed_file_types: str = Field(
+        default="pdf,jpg,jpeg,png,doc,docx,txt",
         env="ALLOWED_FILE_TYPES"
     )
     
@@ -87,7 +88,7 @@ class Settings(BaseSettings):
     # Appointment Settings
     default_appointment_duration: int = Field(default=30, env="DEFAULT_APPOINTMENT_DURATION")  # minutes
     max_appointments_per_day: int = Field(default=50, env="MAX_APPOINTMENTS_PER_DAY")
-    appointment_reminder_hours: list = Field(default=[24, 2], env="APPOINTMENT_REMINDER_HOURS")
+    appointment_reminder_hours: str = Field(default="24,2", env="APPOINTMENT_REMINDER_HOURS")
     
     # WhatsApp Chatbot Settings
     chatbot_enabled: bool = Field(default=True, env="CHATBOT_ENABLED")
@@ -150,25 +151,32 @@ class Settings(BaseSettings):
         env_file = ".env"
         case_sensitive = False
     
-    @validator("cors_origins", pre=True)
+    @field_validator("cors_origins", mode="before")
+    @classmethod
     def parse_cors_origins(cls, v):
         if isinstance(v, str):
-            return [origin.strip() for origin in v.split(",")]
+            # Handle empty string case
+            if not v.strip():
+                return "http://localhost:3000,http://localhost:8000"
+            return v
         return v
     
-    @validator("allowed_file_types", pre=True) 
+    @field_validator("allowed_file_types", mode="before") 
+    @classmethod
     def parse_allowed_file_types(cls, v):
         if isinstance(v, str):
-            return [file_type.strip().lower() for file_type in v.split(",")]
+            return v
         return v
     
-    @validator("appointment_reminder_hours", pre=True)
+    @field_validator("appointment_reminder_hours", mode="before")
+    @classmethod
     def parse_reminder_hours(cls, v):
         if isinstance(v, str):
-            return [int(hour.strip()) for hour in v.split(",")]
+            return v
         return v
     
-    @validator("database_url")
+    @field_validator("database_url")
+    @classmethod
     def validate_database_url(cls, v):
         if not v:
             raise ValueError("DATABASE_URL is required")
@@ -176,13 +184,15 @@ class Settings(BaseSettings):
             raise ValueError("DATABASE_URL must be a valid PostgreSQL or SQLite URL")
         return v
     
-    @validator("secret_key")
+    @field_validator("secret_key")
+    @classmethod
     def validate_secret_key(cls, v):
         if not v or len(v) < 32:
             raise ValueError("SECRET_KEY must be at least 32 characters long")
         return v
     
-    @validator("encryption_key")
+    @field_validator("encryption_key")
+    @classmethod
     def validate_encryption_key(cls, v):
         if not v or len(v) < 32:
             raise ValueError("ENCRYPTION_KEY must be at least 32 characters long")
@@ -211,6 +221,23 @@ class Settings(BaseSettings):
     @property
     def redis_enabled(self) -> bool:
         return bool(self.redis_url)
+    
+    @property
+    def cors_origins_list(self) -> list:
+        """Get CORS origins as a list"""
+        if not self.cors_origins.strip():
+            return ["http://localhost:3000", "http://localhost:8000"]
+        return [origin.strip() for origin in self.cors_origins.split(",") if origin.strip()]
+    
+    @property
+    def allowed_file_types_list(self) -> list:
+        """Get allowed file types as a list"""
+        return [file_type.strip().lower() for file_type in self.allowed_file_types.split(",") if file_type.strip()]
+    
+    @property
+    def appointment_reminder_hours_list(self) -> list:
+        """Get appointment reminder hours as a list of integers"""
+        return [int(hour.strip()) for hour in self.appointment_reminder_hours.split(",") if hour.strip()]
 
 @lru_cache()
 def get_settings() -> Settings:
@@ -367,5 +394,3 @@ if __name__ == "__main__":
         print(f"Calendar enabled: {settings.calendar_enabled}")
     except Exception as e:
         print(f"Configuration error: {e}")
-        
-settings = get_settings()
