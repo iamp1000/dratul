@@ -48,8 +48,66 @@ def update_schedules_for_location(
     except crud.CRUDError as e:
         raise HTTPException(status_code=400, detail=str(e))
 
+@router.put("/{location_id}/{day_of_week}", response_model=schemas.LocationScheduleResponse)
+def update_day_schedule(
+    location_id: int,
+    day_of_week: int,
+    schedule_update: schemas.LocationScheduleCreate,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user)
+):
+    """
+    Update the schedule for a specific day of the week for a location.
+    Requires admin or manager privileges.
+    """
+    if current_user.role not in [schemas.UserRole.admin, 'manager']:
+        raise HTTPException(
+            status_code=403,
+            detail="Not authorized to update schedules"
+        )
+    
+    try:
+        updated_schedule = crud.update_schedule_for_day(
+            db=db, 
+            location_id=location_id, 
+            day_of_week=day_of_week, 
+            schedule_update=schedule_update
+        )
+        return updated_schedule
+    except crud.CRUDError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+@router.put("/{location_id}/{day_of_week}", response_model=schemas.LocationScheduleResponse)
+def update_day_schedule(
+    location_id: int,
+    day_of_week: int,
+    schedule_update: schemas.LocationScheduleCreate,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user)
+):
+    """
+    Update the schedule for a specific day of the week for a location.
+    Requires admin or manager privileges.
+    """
+    if current_user.role not in [schemas.UserRole.admin, 'manager']:
+        raise HTTPException(
+            status_code=403,
+            detail="Not authorized to update schedules"
+        )
+    
+    try:
+        updated_schedule = crud.update_schedule_for_day(
+            db=db, 
+            location_id=location_id, 
+            day_of_week=day_of_week, 
+            schedule_update=schedule_update
+        )
+        return updated_schedule
+    except crud.CRUDError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
 @router.get("/availability/{location_id}/{for_date}", response_model=List[time])
-def get_availability_for_date(
+async def get_availability_for_date(
     location_id: int,
     for_date: date,
     db: Session = Depends(get_db)
@@ -58,6 +116,6 @@ def get_availability_for_date(
     Retrieve available appointment slots for a given location and date.
     """
     try:
-        return crud.get_available_slots(db=db, location_id=location_id, for_date=for_date)
+        return await crud.get_available_slots(db=db, location_id=location_id, for_date=for_date)
     except crud.CRUDError as e:
         raise HTTPException(status_code=400, detail=str(e))

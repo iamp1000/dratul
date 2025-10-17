@@ -391,6 +391,16 @@ class UnavailablePeriodResponse(UnavailablePeriodBase):
     id: int
     created_by: int
     created_at: datetime
+
+# --- Emergency Block Schemas ---
+class EmergencyBlockCreate(BaseSchema):
+    block_date: date
+    reason: str = Field(..., min_length=5, max_length=255)
+
+# --- Emergency Block Schemas ---
+class EmergencyBlockCreate(BaseSchema):
+    block_date: date
+    reason: str = Field(..., min_length=5, max_length=255)
     
 # --- Service Status Schemas ---
 class ServiceStatusResponse(BaseSchema):
