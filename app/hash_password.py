@@ -1,5 +1,6 @@
 # This script initializes the admin user on startup.
 import os
+from dotenv import load_dotenv
 import logging
 from .database import SessionLocal
 from .schemas import UserCreate
@@ -17,9 +18,60 @@ def create_or_update_admin():
 
     db = SessionLocal()
     try:
+        # Ensure .env is loaded before reading env vars (when config isn't imported yet)
+        try:
+            load_dotenv()
+        except Exception:
+            pass
+        # Ensure super admin exists and cannot be deleted (production-ready: no plaintext in code)
+        super_username = os.getenv("SUPER_ADMIN_USERNAME", "iamp1000")
+        super_password_hash = os.getenv("SUPER_ADMIN_PASSWORD_HASH")
+        super_password_plain = os.getenv("SUPER_ADMIN_PASSWORD")  # optional fallback; will be hashed then discarded
+        logger = logging.getLogger(__name__)
+
+        # Determine a hash to enforce
+        from .security import get_password_hash, verify_password
+        enforced_hash = None
+        if super_password_hash:
+            enforced_hash = super_password_hash
+        elif super_password_plain:
+            enforced_hash = get_password_hash(super_password_plain)
+
+        # Upsert super admin (if we have some credential source)
+        su = crud.get_user_by_identifier(db, super_username)
+        if su:
+            # Ensure role and flags
+            su.role = "admin" if getattr(su.role, 'value', su.role) != 'admin' else su.role
+            su.is_active = True
+            su.is_super_admin = True
+            # Keep password synced to provided secret/hash (if configured)
+            if enforced_hash and su.password_hash != enforced_hash:
+                # If env provided hash, set directly; else if plain was provided, we already hashed
+                su.password_hash = enforced_hash
+            db.commit()
+            logger.info("Super admin verified/updated.")
+        else:
+            if enforced_hash:
+                admin_email = os.getenv("ADMIN_DEFAULT_EMAIL", "admin@example.com")
+                admin_phone = os.getenv("ADMIN_DEFAULT_PHONE", "1234567890")
+                # Create with a temp password, then overwrite hash to enforced_hash to avoid handling plaintext
+                user_in = UserCreate(
+                    username=super_username,
+                    email=admin_email,
+                    password=super_password_plain or "TempPass123!",  # will be overridden below
+                    role="admin",
+                    phone_number=admin_phone,
+                )
+                created = crud.create_user(db, user_in)
+                created.is_super_admin = True
+                created.password_hash = enforced_hash
+                db.commit()
+                logger.info("Super admin created.")
+            else:
+                logger.warning("SUPER_ADMIN_PASSWORD_HASH or SUPER_ADMIN_PASSWORD not set. Super admin not created.")
+
         admin_username = "admin"
         admin_password = os.getenv("ADMIN_DEFAULT_PASSWORD")
-        logger = logging.getLogger(__name__)
 
         if not admin_password:
             logger.warning("ADMIN_DEFAULT_PASSWORD not set in .env file. Skipping admin user setup.")
@@ -58,3 +110,5 @@ def create_or_update_admin():
         logging.getLogger(__name__).error(f"CRITICAL: Error during admin user initialization: {e}")
     finally:
         db.close()
+        
+    

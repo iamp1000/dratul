@@ -30,12 +30,11 @@ security_logger = logging.getLogger("security")
 
 # Enhanced password hashing with multiple algorithms
 pwd_context = CryptContext(
-    schemes=["argon2", "bcrypt"],
+    schemes=["argon2"],
     deprecated="auto",
     argon2__rounds=4,
     argon2__memory_cost=65536,
     argon2__parallelism=1,
-    bcrypt__rounds=12,
 )
 
 # JWT Configuration
@@ -448,7 +447,11 @@ mfa_service = MFAService()
 # Password utilities
 def verify_password(plain_password: str, hashed_password: str) -> bool:
     """Verify a password against its hash"""
-    return pwd_context.verify(plain_password, hashed_password)
+    try:
+        return pwd_context.verify(plain_password, hashed_password)
+    except Exception:
+        # Unknown/legacy hash formats should not crash login; treat as non-match
+        return False
 
 def get_password_hash(password: str) -> str:
     """Generate password hash"""

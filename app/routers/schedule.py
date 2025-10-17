@@ -6,6 +6,7 @@ from datetime import date, time
 from .. import crud, models, schemas
 from ..database import get_db
 from ..security import get_current_user
+from .. import crud
 
 router = APIRouter(
     prefix="/schedules",
@@ -14,7 +15,7 @@ router = APIRouter(
     responses={404: {"description": "Not found"}},
 )
 
-@router.get("/{location_id}", response_model=List[schemas.LocationScheduleResponse])
+@router.get("/by-location/{location_id}", response_model=List[schemas.LocationScheduleResponse])
 def read_schedules_for_location(location_id: int, db: Session = Depends(get_db)):
     """
     Retrieve all schedule entries for a specific location.
@@ -24,7 +25,7 @@ def read_schedules_for_location(location_id: int, db: Session = Depends(get_db))
         return []
     return schedules
 
-@router.post("/{location_id}", response_model=List[schemas.LocationScheduleResponse])
+@router.post("/by-location/{location_id}", response_model=List[schemas.LocationScheduleResponse])
 def update_schedules_for_location(
     location_id: int, 
     schedules: List[schemas.LocationScheduleCreate], 
@@ -48,6 +49,37 @@ def update_schedules_for_location(
     except crud.CRUDError as e:
         raise HTTPException(status_code=400, detail=str(e))
 
+
+@router.get("/config")
+def get_schedule_config(db: Session = Depends(get_db)):
+    """Get global schedule configuration (limits and intervals)."""
+    interval = crud.get_system_config(db, "appointment_interval_minutes")
+    daily_limit = crud.get_system_config(db, "appointment_daily_limit")
+    return {
+        "appointment_interval_minutes": (interval.value if interval else 15),
+        "appointment_daily_limit": (daily_limit.value if daily_limit else 2)
+    }
+
+
+@router.post("/config")
+def set_schedule_config(
+    appointment_interval_minutes: int,
+    appointment_daily_limit: int,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user)
+):
+    """Set global schedule configuration (requires admin/manager)."""
+    if current_user.role not in [schemas.UserRole.admin, schemas.UserRole.manager]:
+        raise HTTPException(status_code=403, detail="Not authorized to update config")
+    if appointment_interval_minutes not in [10, 15, 20, 30, 60]:
+        raise HTTPException(status_code=400, detail="Invalid interval")
+    if appointment_daily_limit < 1 or appointment_daily_limit > 10:
+        raise HTTPException(status_code=400, detail="Invalid daily limit")
+
+    crud.set_system_config(db, "appointment_interval_minutes", appointment_interval_minutes, "integer", "Slot interval in minutes", "scheduling")
+    crud.set_system_config(db, "appointment_daily_limit", appointment_daily_limit, "integer", "Daily booking limit per patient", "scheduling")
+    return {"success": True}
+
 @router.put("/{location_id}/{day_of_week}", response_model=schemas.LocationScheduleResponse)
 def update_day_schedule(
     location_id: int,
@@ -60,7 +92,7 @@ def update_day_schedule(
     Update the schedule for a specific day of the week for a location.
     Requires admin or manager privileges.
     """
-    if current_user.role not in [schemas.UserRole.admin, 'manager']:
+    if current_user.role not in [schemas.UserRole.admin, schemas.UserRole.manager]:
         raise HTTPException(
             status_code=403,
             detail="Not authorized to update schedules"
@@ -77,34 +109,7 @@ def update_day_schedule(
     except crud.CRUDError as e:
         raise HTTPException(status_code=400, detail=str(e))
 
-@router.put("/{location_id}/{day_of_week}", response_model=schemas.LocationScheduleResponse)
-def update_day_schedule(
-    location_id: int,
-    day_of_week: int,
-    schedule_update: schemas.LocationScheduleCreate,
-    db: Session = Depends(get_db),
-    current_user: models.User = Depends(get_current_user)
-):
-    """
-    Update the schedule for a specific day of the week for a location.
-    Requires admin or manager privileges.
-    """
-    if current_user.role not in [schemas.UserRole.admin, 'manager']:
-        raise HTTPException(
-            status_code=403,
-            detail="Not authorized to update schedules"
-        )
-    
-    try:
-        updated_schedule = crud.update_schedule_for_day(
-            db=db, 
-            location_id=location_id, 
-            day_of_week=day_of_week, 
-            schedule_update=schedule_update
-        )
-        return updated_schedule
-    except crud.CRUDError as e:
-        raise HTTPException(status_code=400, detail=str(e))
+# Removed duplicate route definition above.
 
 @router.get("/availability/{location_id}/{for_date}", response_model=List[time])
 async def get_availability_for_date(
@@ -117,5 +122,18 @@ async def get_availability_for_date(
     """
     try:
         return await crud.get_available_slots(db=db, location_id=location_id, for_date=for_date)
+    except crud.CRUDError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@router.get("/availability-detailed/{location_id}/{for_date}")
+async def get_availability_detailed(
+    location_id: int,
+    for_date: date,
+    db: Session = Depends(get_db)
+):
+    """Return slot list with availability and reason codes for UI tooltips/colors."""
+    try:
+        return await crud.get_available_slots_detailed(db=db, location_id=location_id, for_date=for_date)
     except crud.CRUDError as e:
         raise HTTPException(status_code=400, detail=str(e))

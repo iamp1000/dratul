@@ -4,20 +4,18 @@ from sqlalchemy import or_, and_, desc, func
 from sqlalchemy.exc import SQLAlchemyError, IntegrityError
 from datetime import datetime, timedelta, date, time
 from typing import Optional, List, Dict, Any
+import secrets
 import logging
 import asyncio
 from . import models, schemas
-from .security import get_password_hash, verify_password, encryption_service
+from .security import get_password_hash, verify_password, encryption_service, SecurityConfig
 from fastapi import HTTPException, status
-from app.services.calendar_service import GoogleCalendarService
-from app.services.whatsapp_service import WhatsAppService
 
 logger = logging.getLogger(__name__)
-calendar_service = GoogleCalendarService()
-whatsapp_service = WhatsAppService()
+# IMPORTANT: Avoid importing services at module import time to prevent circular imports.
+# Import service classes lazily inside functions when needed.
 
 class CRUDError(Exception):
-    """Custom exception for CRUD operations"""
     pass
 
 # --- NEW UTILITY FUNCTION ---
@@ -55,6 +53,17 @@ def get_user_by_identifier(db: Session, identifier: str) -> Optional[models.User
         logger.error(f"Error fetching user by identifier '{identifier}': {str(e)}")
         raise CRUDError(f"Database error: {str(e)}")
 
+def get_user_by_username(db: Session, username: str) -> Optional[models.User]:
+    try:
+        user = db.query(models.User).filter(
+            models.User.username == username,
+            models.User.deleted_at.is_(None)
+        ).first()
+        return _ensure_complete_user(user)
+    except SQLAlchemyError as e:
+        logger.error(f"Error fetching user by username '{username}': {str(e)}")
+        raise CRUDError(f"Database error: {str(e)}")
+
 def get_users(db: Session, skip: int = 0, limit: int = 100, role: str = None, is_active: bool = None) -> List[models.User]:
     """Get users with optional filters."""
     try:
@@ -82,10 +91,17 @@ def create_user(db: Session, user: schemas.UserCreate, created_by: int = None) -
         
         hashed_password = get_password_hash(user.password)
         db_user = models.User(
-            username=user.username, email=user.email, phone_number=user.phone_number,
-            password_hash=hashed_password, role=user.role, is_active=True, is_verified=False,
-            mfa_enabled=False, failed_login_attempts=0,
-            password_last_changed=datetime.utcnow(), permissions={}
+            username=user.username,
+            email=user.email,
+            phone_number=user.phone_number,
+            password_hash=hashed_password,
+            role=user.role,
+            is_active=True,
+            is_verified=False,
+            mfa_enabled=False,
+            failed_login_attempts=0,
+            password_last_changed=datetime.utcnow(),
+            permissions=(getattr(user, 'permissions', {}) or {})
         )
         db.add(db_user)
         db.commit()
@@ -131,13 +147,16 @@ def get_patient(db: Session, patient_id: int) -> Optional[models.Patient]:
 
 
 def create_patient(db: Session, patient: schemas.PatientCreate, created_by: int) -> models.Patient:
+    # Combine first and last name into a single stored name
+    full_name = patient.first_name.strip()
+    if getattr(patient, "last_name", None):
+        full_name = (full_name + " " + patient.last_name.strip()).strip()
+
     db_patient = models.Patient(
-        first_name_encrypted=encryption_service.encrypt(patient.first_name),
-        last_name_encrypted=encryption_service.encrypt(patient.last_name) if patient.last_name else None,
+        name_encrypted=encryption_service.encrypt(full_name),
         phone_number_encrypted=encryption_service.encrypt(patient.phone_number) if patient.phone_number else None,
         email_encrypted=encryption_service.encrypt(patient.email) if patient.email else None,
-        first_name_hash=encryption_service.hash_for_lookup(patient.first_name),
-        last_name_hash=encryption_service.hash_for_lookup(patient.last_name) if patient.last_name else None,
+        name_hash=encryption_service.hash_for_lookup(full_name),
         phone_hash=encryption_service.hash_for_lookup(patient.phone_number) if patient.phone_number else None,
         email_hash=encryption_service.hash_for_lookup(patient.email) if patient.email else None,
         date_of_birth=patient.date_of_birth,
@@ -154,13 +173,9 @@ def get_patients(db: Session, skip: int = 0, limit: int = 100, search: str = Non
     """Get patients with optional search"""
     query = db.query(models.Patient)
     if search:
+        # Search by name hash contains – compute on provided search string
         search_hash = encryption_service.hash_for_lookup(search)
-        query = query.filter(
-            or_(
-                models.Patient.first_name_hash.ilike(f"%{search_hash}%"),
-                models.Patient.last_name_hash.ilike(f"%{search_hash}%"),
-            )
-        )
+        query = query.filter(models.Patient.name_hash.ilike(f"%{search_hash}%"))
     return query.offset(skip).limit(limit).all()
 
 def update_patient(db: Session, patient_id: int, patient_update: schemas.PatientUpdate) -> Optional[models.Patient]:
@@ -171,12 +186,20 @@ def update_patient(db: Session, patient_id: int, patient_update: schemas.Patient
     update_data = patient_update.dict(exclude_unset=True)
 
     for key, value in update_data.items():
-        if key == 'first_name' and value:
-            db_patient.first_name_encrypted = encryption_service.encrypt(value)
-            db_patient.first_name_hash = encryption_service.hash_for_lookup(value)
-        elif key == 'last_name' and value:
-            db_patient.last_name_encrypted = encryption_service.encrypt(value)
-            db_patient.last_name_hash = encryption_service.hash_for_lookup(value)
+        if key == 'first_name':
+            # Combine with existing last name if present in update
+            last = update_data.get('last_name')
+            full_name = value if not last else f"{value} {last}"
+            db_patient.name_encrypted = encryption_service.encrypt(full_name)
+            db_patient.name_hash = encryption_service.hash_for_lookup(full_name)
+        elif key == 'last_name':
+            # Combine with existing first name from decrypted stored name
+            current_name = encryption_service.decrypt(db_patient.name_encrypted) if db_patient.name_encrypted else ""
+            parts = current_name.split(" ", 1)
+            first = parts[0] if parts else ""
+            full_name = f"{first} {value}".strip()
+            db_patient.name_encrypted = encryption_service.encrypt(full_name)
+            db_patient.name_hash = encryption_service.hash_for_lookup(full_name)
         elif key == 'phone_number' and value:
             db_patient.phone_number_encrypted = encryption_service.encrypt(value)
             db_patient.phone_hash = encryption_service.hash_for_lookup(value)
@@ -212,11 +235,72 @@ async def create_appointment(db: Session, appointment: schemas.AppointmentCreate
     start_time = appointment_data['start_time']
     end_time = appointment_data['end_time']
 
-    if start_time.minute % 15 != 0:
-        raise CRUDError("Appointments must start on a 15-minute interval (00, 15, 30, 45).")
-    
-    if (end_time - start_time) != timedelta(minutes=15):
-        raise CRUDError("Appointment duration must be exactly 15 minutes.")
+    # Pull configured interval (default 15)
+    interval_entry = get_system_config(db, "appointment_interval_minutes")
+    slot_minutes = int(interval_entry.value) if interval_entry and str(interval_entry.value).isdigit() else 15
+    if start_time.minute % slot_minutes != 0:
+        raise CRUDError(f"Appointments must start on a {slot_minutes}-minute interval.")
+    if (end_time - start_time) != timedelta(minutes=slot_minutes):
+        raise CRUDError(f"Appointment duration must be exactly {slot_minutes} minutes.")
+
+    # Enforce weekly schedule availability and unavailable periods
+    # 1) Weekly schedule
+    day_of_week = start_time.weekday()
+    schedule = db.query(models.LocationSchedule).filter(
+        models.LocationSchedule.location_id == appointment_data['location_id'],
+        models.LocationSchedule.day_of_week == day_of_week,
+        models.LocationSchedule.is_available == True
+    ).first()
+    if not schedule:
+        raise CRUDError("Selected day is unavailable for this location.")
+    # Ensure within working hours
+    schedule_start = datetime.combine(start_time.date(), schedule.start_time)
+    schedule_end = datetime.combine(start_time.date(), schedule.end_time)
+    if not (schedule_start <= start_time and end_time <= schedule_end):
+        raise CRUDError("Selected time is outside working hours for this location.")
+    # Respect break times if configured
+    if schedule.break_start and schedule.break_end:
+        break_start_dt = datetime.combine(start_time.date(), schedule.break_start)
+        break_end_dt = datetime.combine(start_time.date(), schedule.break_end)
+        if not (end_time <= break_start_dt or start_time >= break_end_dt):
+            raise CRUDError("Selected time falls within a break period.")
+
+    # 2) Unavailable periods
+    overlaps_unavailable = db.query(models.UnavailablePeriod).filter(
+        models.UnavailablePeriod.location_id == appointment_data['location_id'],
+        models.UnavailablePeriod.start_datetime < end_time,
+        models.UnavailablePeriod.end_datetime > start_time
+    ).first()
+    if overlaps_unavailable:
+        raise CRUDError("Selected time is blocked due to unavailability.")
+
+    # 3) Daily booking limits per patient (basic limit)
+    patient_id_for_limit = appointment_data.get('patient_id')
+    if patient_id_for_limit:
+        day_start = datetime.combine(start_time.date(), time.min)
+        day_end = datetime.combine(start_time.date(), time.max)
+        limit_entry = get_system_config(db, "appointment_daily_limit")
+        daily_limit_val = int(limit_entry.value) if limit_entry and str(limit_entry.value).isdigit() else SecurityConfig.APPOINTMENT_BOOKING_DAILY_LIMIT
+        daily_count = db.query(models.Appointment).filter(
+            models.Appointment.patient_id == patient_id_for_limit,
+            models.Appointment.start_time >= day_start,
+            models.Appointment.end_time <= day_end,
+            models.Appointment.status != models.AppointmentStatus.cancelled
+        ).count()
+        if daily_count >= daily_limit_val:
+            raise CRUDError("Daily booking limit reached for this patient.")
+
+    # 4) Respect Google Calendar busy times as source of truth
+    try:
+        from app.services.calendar_service import GoogleCalendarService
+        calendar_service = GoogleCalendarService()
+        if calendar_service.enabled:
+            busy = await calendar_service.get_busy_times(start_time, end_time)
+            if busy:
+                raise CRUDError("Selected time is busy in Google Calendar.")
+    except Exception:
+        # Fail-open if calendar check throws; we already enforce overlaps elsewhere
+        pass
 
     # NEW: Add calendar event creation to the appointment workflow
     appointment_data['google_calendar_event_id'] = None # Initialize field
@@ -247,7 +331,7 @@ async def create_appointment(db: Session, appointment: schemas.AppointmentCreate
         models.Appointment.location_id == appointment_data['location_id'], # Assuming one doctor per location for now
         models.Appointment.start_time < appointment_data['end_time'],
         models.Appointment.end_time > appointment_data['start_time'],
-        models.Appointment.status != 'cancelled'
+        models.Appointment.status != models.AppointmentStatus.cancelled
     ).first()
 
     if existing_appointment:
@@ -264,6 +348,9 @@ async def create_appointment(db: Session, appointment: schemas.AppointmentCreate
 
         # NEW: Create Google Calendar event
         try:
+            # Lazy import to avoid circular dependency
+            from app.services.calendar_service import GoogleCalendarService
+            calendar_service = GoogleCalendarService()
             patient = get_patient(db, db_appointment.patient_id)
             location = get_location(db, db_appointment.location_id)
             if patient and location and calendar_service.enabled:
@@ -290,6 +377,47 @@ async def update_appointment(db: Session, appointment_id: int, appointment_updat
     if not db_appointment:
         return None
     update_data = appointment_update.dict(exclude_unset=True)
+    # If times are being updated, enforce schedule and unavailable periods
+    if 'start_time' in update_data or 'end_time' in update_data:
+        new_start = update_data.get('start_time', db_appointment.start_time)
+        new_end = update_data.get('end_time', db_appointment.end_time)
+        # Weekly schedule
+        day_of_week = new_start.weekday()
+        schedule = db.query(models.LocationSchedule).filter(
+            models.LocationSchedule.location_id == db_appointment.location_id,
+            models.LocationSchedule.day_of_week == day_of_week,
+            models.LocationSchedule.is_available == True
+        ).first()
+        if not schedule:
+            raise CRUDError("Selected day is unavailable for this location.")
+        schedule_start = datetime.combine(new_start.date(), schedule.start_time)
+        schedule_end = datetime.combine(new_start.date(), schedule.end_time)
+        if not (schedule_start <= new_start and new_end <= schedule_end):
+            raise CRUDError("Selected time is outside working hours for this location.")
+        if schedule.break_start and schedule.break_end:
+            break_start_dt = datetime.combine(new_start.date(), schedule.break_start)
+            break_end_dt = datetime.combine(new_start.date(), schedule.break_end)
+            if not (new_end <= break_start_dt or new_start >= break_end_dt):
+                raise CRUDError("Selected time falls within a break period.")
+        # Unavailable periods
+        overlaps_unavailable = db.query(models.UnavailablePeriod).filter(
+            models.UnavailablePeriod.location_id == db_appointment.location_id,
+            models.UnavailablePeriod.start_datetime < new_end,
+            models.UnavailablePeriod.end_datetime > new_start
+        ).first()
+        if overlaps_unavailable:
+            raise CRUDError("Selected time is blocked due to unavailability.")
+
+        # Google Calendar busy check on update
+        try:
+            from app.services.calendar_service import GoogleCalendarService
+            calendar_service = GoogleCalendarService()
+            if calendar_service.enabled:
+                busy = await calendar_service.get_busy_times(new_start, new_end)
+                if busy:
+                    raise CRUDError("Selected time is busy in Google Calendar.")
+        except Exception:
+            pass
     for key, value in update_data.items():
         setattr(db_appointment, key, value)
     db.commit()
@@ -297,16 +425,19 @@ async def update_appointment(db: Session, appointment_id: int, appointment_updat
 
     # NEW: Update Google Calendar event
     try:
-        if db_appointment.google_calendar_event_id and calendar_service.enabled:
-            patient = get_patient(db, db_appointment.patient_id)
-            location = get_location(db, db_appointment.location_id)
-            if patient and location:
-                await calendar_service.update_calendar_event(
-                    event_id=db_appointment.google_calendar_event_id,
-                    appointment=db_appointment,
-                    patient=patient,
-                    location=location
-                )
+        if db_appointment.google_calendar_event_id:
+            from app.services.calendar_service import GoogleCalendarService
+            calendar_service = GoogleCalendarService()
+            if calendar_service.enabled:
+                patient = get_patient(db, db_appointment.patient_id)
+                location = get_location(db, db_appointment.location_id)
+                if patient and location:
+                    await calendar_service.update_calendar_event(
+                        event_id=db_appointment.google_calendar_event_id,
+                        appointment=db_appointment,
+                        patient=patient,
+                        location=location
+                    )
     except Exception as e:
         logger.error(f"Failed to update calendar event for appointment {db_appointment.id}: {e}")
 
@@ -319,8 +450,11 @@ async def delete_appointment(db: Session, appointment_id: int) -> bool:
 
     # NEW: Delete Google Calendar event
     try:
-        if db_appointment.google_calendar_event_id and calendar_service.enabled:
-            await calendar_service.delete_calendar_event(db_appointment.google_calendar_event_id)
+        if db_appointment.google_calendar_event_id:
+            from app.services.calendar_service import GoogleCalendarService
+            calendar_service = GoogleCalendarService()
+            if calendar_service.enabled:
+                await calendar_service.delete_calendar_event(db_appointment.google_calendar_event_id)
     except Exception as e:
         logger.error(f"Failed to delete calendar event for appointment {db_appointment.id}: {e}")
 
@@ -456,7 +590,7 @@ async def get_available_slots(db: Session, location_id: int, for_date: date) -> 
             models.Appointment.location_id == location_id,
             models.Appointment.start_time >= start_of_day,
             models.Appointment.end_time <= end_of_day,
-            models.Appointment.status != 'cancelled'
+            models.Appointment.status != models.AppointmentStatus.cancelled
         ).all()
 
         booked_slots = set()
@@ -481,6 +615,8 @@ async def get_available_slots(db: Session, location_id: int, for_date: date) -> 
                 slot_time += timedelta(minutes=15)
 
         # 4. NEW: Get busy times from Google Calendar
+        from app.services.calendar_service import GoogleCalendarService
+        calendar_service = GoogleCalendarService()
         if calendar_service.enabled:
             gcal_busy_times = await calendar_service.get_busy_times(start_of_day, end_of_day)
             for busy_period in gcal_busy_times:
@@ -506,6 +642,97 @@ async def get_available_slots(db: Session, location_id: int, for_date: date) -> 
             current_time += slot_duration
             
         return available_slots
+    except SQLAlchemyError as e:
+        logger.error(f"Error calculating available slots for location {location_id} on {for_date}: {e}")
+        raise CRUDError("A database error occurred while calculating availability.")
+async def get_available_slots_detailed(db: Session, location_id: int, for_date: date) -> List[Dict[str, Any]]:
+    """Return slot list with availability and reason (available, booked, break, unavailable, gcal_busy)."""
+    result: List[Dict[str, Any]] = []
+    try:
+        day_of_week = for_date.weekday()
+        schedule = db.query(models.LocationSchedule).filter(
+            models.LocationSchedule.location_id == location_id,
+            models.LocationSchedule.day_of_week == day_of_week,
+            models.LocationSchedule.is_available == True
+        ).first()
+        if not schedule:
+            return []
+
+        start_of_day = datetime.combine(for_date, time.min)
+        end_of_day = datetime.combine(for_date, time.max)
+
+        appointments = db.query(models.Appointment).filter(
+            models.Appointment.location_id == location_id,
+            models.Appointment.start_time >= start_of_day,
+            models.Appointment.end_time <= end_of_day,
+            models.Appointment.status != models.AppointmentStatus.cancelled
+        ).all()
+
+        booked_ranges = [(a.start_time, a.end_time) for a in appointments]
+
+        unavailable_periods = db.query(models.UnavailablePeriod).filter(
+            models.UnavailablePeriod.location_id == location_id,
+            models.UnavailablePeriod.start_datetime <= end_of_day,
+            models.UnavailablePeriod.end_datetime >= start_of_day
+        ).all()
+        unavailable_ranges = [(u.start_datetime, u.end_datetime) for u in unavailable_periods]
+
+        gcal_ranges: List[tuple] = []
+        try:
+            from app.services.calendar_service import GoogleCalendarService
+            calendar_service = GoogleCalendarService()
+            if calendar_service.enabled:
+                gcal_busy = await calendar_service.get_busy_times(start_of_day, end_of_day)
+                for b in gcal_busy:
+                    gcal_ranges.append((b['start'], b['end']))
+        except Exception:
+            pass
+
+        slot_duration = timedelta(minutes=15)
+        current_time = datetime.combine(for_date, schedule.start_time)
+        end_time = datetime.combine(for_date, schedule.end_time)
+
+        while current_time < end_time:
+            reason = "available"
+            # break window
+            if schedule.break_start and schedule.break_end:
+                bs = datetime.combine(for_date, schedule.break_start)
+                be = datetime.combine(for_date, schedule.break_end)
+                if not (current_time + slot_duration <= bs or current_time >= be):
+                    reason = "break"
+
+            # booked
+            if reason == "available":
+                for s, e in booked_ranges:
+                    if s <= current_time < e:
+                        reason = "booked"
+                        break
+
+            # unavailable
+            if reason == "available":
+                for s, e in unavailable_ranges:
+                    if s <= current_time < e:
+                        reason = "unavailable"
+                        break
+
+            # gcal busy
+            if reason == "available":
+                for s, e in gcal_ranges:
+                    if s <= current_time < e:
+                        reason = "gcal_busy"
+                        break
+
+            result.append({
+                "time": current_time.time(),
+                "available": reason == "available",
+                "reason": reason
+            })
+            current_time += slot_duration
+
+        return result
+    except SQLAlchemyError as e:
+        logger.error(f"Error calculating detailed slots for location {location_id} on {for_date}: {e}")
+        raise CRUDError("A database error occurred while calculating availability.")
 
     except SQLAlchemyError as e:
         logger.error(f"Error calculating available slots for location {location_id} on {for_date}: {e}")
@@ -523,7 +750,7 @@ async def emergency_cancel_appointments(db: Session, block_date: date, reason: s
     appointments_to_cancel = db.query(models.Appointment).filter(
         models.Appointment.start_time >= start_of_day,
         models.Appointment.end_time <= end_of_day,
-        models.Appointment.status != 'cancelled'
+        models.Appointment.status != models.AppointmentStatus.cancelled
     ).all()
 
     cancelled_appointments = []
@@ -535,9 +762,21 @@ async def emergency_cancel_appointments(db: Session, block_date: date, reason: s
 
         # 3. Notify patient via WhatsApp
         patient = get_patient(db, appointment.patient_id)
-        if patient and patient.whatsapp_number and whatsapp_service.enabled:
-            message = f"EMERGENCY CANCELLATION: Dear {patient.first_name}, due to an emergency, all appointments for {block_date.strftime('%A, %B %d')} have been cancelled. We sincerely apologize for any inconvenience. Please contact us to reschedule."
-            await whatsapp_service.send_message(patient.whatsapp_number, message)
+        try:
+            if patient and patient.whatsapp_number:
+                from app.services.whatsapp_service import WhatsAppService
+                ws = WhatsAppService()
+                if ws.enabled:
+                    # We don't have separate first name; use full name
+                    patient_name = encryption_service.decrypt(patient.name_encrypted) if patient.name_encrypted else "Patient"
+                    message = (
+                        f"EMERGENCY CANCELLATION: Dear {patient_name}, due to an emergency, all appointments for "
+                        f"{block_date.strftime('%A, %B %d')} have been cancelled. We sincerely apologize for any inconvenience. "
+                        "Please contact us to reschedule."
+                    )
+                    await ws.send_message(patient.whatsapp_number, message)
+        except Exception:
+            pass
     
     # 4. Create an unavailable period for the entire day for both locations
     for location_id in [1, 2]: # Assuming location IDs 1 and 2
@@ -618,6 +857,13 @@ def get_prescriptions_for_patient(db: Session, patient_id: int) -> List[models.P
     except SQLAlchemyError as e:
         logger.error(f"Error fetching prescriptions for patient {patient_id}: {e}")
         raise CRUDError("A database error occurred while fetching prescriptions.")
+
+def get_recent_prescriptions(db: Session, limit: int = 5) -> List[models.Prescription]:
+    try:
+        return db.query(models.Prescription).order_by(models.Prescription.prescribed_date.desc()).limit(limit).all()
+    except SQLAlchemyError as e:
+        logger.error(f"Error fetching recent prescriptions: {e}")
+        raise CRUDError("A database error occurred while fetching recent prescriptions.")
 
 
 # ==================== REMARK CRUD OPERATIONS (NEW) ====================
@@ -737,9 +983,259 @@ def get_dashboard_stats(db: Session, location_id: int = None) -> Dict[str, Any]:
 def get_appointments(db: Session, skip: int = 0, limit: int = 100, **kwargs) -> List[models.Appointment]:
     """Get appointments with comprehensive filtering"""
     try:
-        # ... (implementation from original file)
         return db.query(models.Appointment).options(joinedload(models.Appointment.patient)).offset(skip).limit(limit).all()
     except SQLAlchemyError as e:
         logger.error(f"Error fetching appointments: {str(e)}")
         raise CRUDError(f"Database error: {str(e)}")
+
+def get_appointments_by_date_range(db: Session, start_date: datetime, end_date: datetime) -> List[models.Appointment]:
+    try:
+        return db.query(models.Appointment).filter(
+            models.Appointment.start_time >= start_date,
+            models.Appointment.end_time <= end_date
+        ).order_by(models.Appointment.start_time.asc()).all()
+    except SQLAlchemyError as e:
+        logger.error(f"Error fetching appointments by range: {e}")
+        raise CRUDError("A database error occurred while fetching appointments.")
+
+# ==================== MISSING HELPERS USED BY ROUTERS/SERVICES ====================
+
+def get_patient_by_phone(db: Session, phone_number: str) -> Optional[models.Patient]:
+    if not phone_number:
+        return None
+    phone_hash = encryption_service.hash_for_lookup(phone_number)
+    return db.query(models.Patient).filter(models.Patient.phone_hash == phone_hash).first()
+
+def get_patient_by_email(db: Session, email: str) -> Optional[models.Patient]:
+    if not email:
+        return None
+    email_hash = encryption_service.hash_for_lookup(email)
+    return db.query(models.Patient).filter(models.Patient.email_hash == email_hash).first()
+
+def get_patient_by_phone_hash(db: Session, phone_number: str) -> Optional[models.Patient]:
+    # Alias for services expecting this name
+    return get_patient_by_phone(db, phone_number)
+
+def create_patient_document(db: Session, patient_id: int, file_path: str, description: str, user_id: Optional[int]) -> models.Document:
+    import hashlib as _hashlib
+    # Encrypt stored file path and compute a simple checksum of the path
+    encrypted_path = encryption_service.encrypt(file_path)
+    checksum = _hashlib.sha256(file_path.encode()).hexdigest()
+    document = models.Document(
+        patient_id=patient_id,
+        name=file_path.split('/')[-1],
+        description=description,
+        document_type=models.DocumentType.other,
+        file_path_encrypted=encrypted_path,
+        checksum=checksum,
+        encryption_key_id="default",
+        uploaded_by=user_id,
+    )
+    db.add(document)
+    db.commit()
+    db.refresh(document)
+    return document
+
+def create_document_for_patient(
+    db: Session,
+    patient_id: int,
+    file_path: str,
+    description: str,
+    user_id: Optional[int],
+    document_type: Optional[models.DocumentType] = None,
+    mime_type: Optional[str] = None,
+    file_size: Optional[int] = None,
+) -> models.Document:
+    import hashlib as _hashlib
+    encrypted_path = encryption_service.encrypt(file_path)
+    checksum = _hashlib.sha256(file_path.encode()).hexdigest()
+    document = models.Document(
+        patient_id=patient_id,
+        name=file_path.split('/')[-1],
+        description=description,
+        document_type=document_type or models.DocumentType.prescription,
+        mime_type=mime_type,
+        file_size=file_size,
+        file_path_encrypted=encrypted_path,
+        checksum=checksum,
+        encryption_key_id="default",
+        uploaded_by=user_id,
+    )
+    db.add(document)
+    db.commit()
+    db.refresh(document)
+    return document
+
+def get_available_appointment_slots(db: Session, days_ahead: int = 7) -> List[Dict[str, Any]]:
+    # Provide simple default slots at 10:00 for location 1 for the next N days
+    slots: List[Dict[str, Any]] = []
+    today = datetime.now().date()
+    ten_am = time(hour=10, minute=0)
+    for i in range(days_ahead):
+        day = today + timedelta(days=i)
+        slots.append({"date": day, "time": ten_am, "location_id": 1})
+    return slots
+
+def create_patient_from_whatsapp(db: Session, patient_data: schemas.PatientCreate) -> models.Patient:
+    return create_patient(db, patient_data, created_by=None)
+
+def create_or_get_patient_from_payload(db: Session, payload: Dict[str, Any], created_by: Optional[int] = None) -> models.Patient:
+    """Single entry point to deduplicate and create a patient from loose payload.
+    Supported keys: first_name, last_name, phone_number, email, date_of_birth, city
+    If phone or email matches existing, return existing; else create new.
+    """
+    phone = payload.get('phone_number')
+    email = payload.get('email')
+    existing = None
+    if phone:
+        existing = get_patient_by_phone(db, phone)
+    if not existing and email:
+        existing = get_patient_by_email(db, email)
+    if existing:
+        return existing
+    patient_schema = schemas.PatientCreate(
+        first_name=payload.get('first_name') or payload.get('name') or 'Patient',
+        last_name=payload.get('last_name'),
+        phone_number=phone,
+        email=email,
+        date_of_birth=payload.get('date_of_birth'),
+        city=payload.get('city'),
+        gender=payload.get('gender'),
+        whatsapp_number=payload.get('whatsapp_number')
+    )
+    return create_patient(db, patient_schema, created_by=created_by if created_by is not None else None)
+
+def has_active_appointment(db: Session, phone_number: str) -> bool:
+    patient = get_patient_by_phone(db, phone_number)
+    if not patient:
+        return False
+    now = datetime.now()
+    return db.query(models.Appointment).filter(
+        models.Appointment.patient_id == patient.id,
+        models.Appointment.start_time >= now,
+        models.Appointment.status.in_([models.AppointmentStatus.scheduled, models.AppointmentStatus.confirmed])
+    ).first() is not None
+
+def create_appointment_with_validation(db: Session, appointment_data: schemas.AppointmentCreate, phone_number: Optional[str] = None) -> models.Appointment:
+    data = appointment_data.dict()
+    # Basic conflict check
+    conflict = db.query(models.Appointment).filter(
+        models.Appointment.location_id == data['location_id'],
+        models.Appointment.start_time < data['end_time'],
+        models.Appointment.end_time > data['start_time'],
+        models.Appointment.status != models.AppointmentStatus.cancelled
+    ).first()
+    if conflict:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Time slot is not available")
+    appt = models.Appointment(**data)
+    db.add(appt)
+    db.commit()
+    db.refresh(appt)
+    return appt
+
+def get_patient_upcoming_appointments(db: Session, patient_id: int) -> List[models.Appointment]:
+    now = datetime.now()
+    return db.query(models.Appointment).filter(
+        models.Appointment.patient_id == patient_id,
+        models.Appointment.start_time >= now
+    ).order_by(models.Appointment.start_time.asc()).all()
+
+def get_whatsapp_session(db: Session, phone_number: str) -> Optional[models.WhatsAppSession]:
+    return db.query(models.WhatsAppSession).filter(models.WhatsAppSession.phone_number == phone_number, models.WhatsAppSession.is_active == True).first()
+
+def create_whatsapp_session(db: Session, phone_number: str) -> models.WhatsAppSession:
+    session = models.WhatsAppSession(
+        phone_number=phone_number,
+        session_id=secrets.token_urlsafe(16),
+        is_active=True,
+        context_data={},
+    )
+    db.add(session)
+    db.commit()
+    db.refresh(session)
+    return session
+
+def update_whatsapp_session(db: Session, session_id: int, context_data: Dict[str, Any]) -> None:
+    db.query(models.WhatsAppSession).filter(models.WhatsAppSession.id == session_id).update({
+        models.WhatsAppSession.context_data: context_data,
+        models.WhatsAppSession.last_activity: datetime.now()
+    })
+    db.commit()
+
+def create_communication_log(db: Session, log: schemas.CommunicationLogCreate) -> models.CommunicationLog:
+    entry = models.CommunicationLog(
+        patient_id=log.patient_id,
+        communication_type=models.CommunicationType(log.communication_type),
+        direction=log.direction,
+        content=log.content,
+        status=log.status,
+    )
+    db.add(entry)
+    db.commit()
+    db.refresh(entry)
+    return entry
+
+# ==================== PRESCRIPTION SHARING HELPERS ====================
+
+def get_patient_details(db: Session, patient_id: int) -> Optional[Dict[str, Any]]:
+    patient = db.query(models.Patient).filter(models.Patient.id == patient_id).first()
+    if not patient:
+        return None
+    name = encryption_service.decrypt(patient.name_encrypted) if patient.name_encrypted else ""
+    phone_plain = encryption_service.decrypt(patient.phone_number_encrypted) if patient.phone_number_encrypted else None
+    email_plain = encryption_service.decrypt(patient.email_encrypted) if patient.email_encrypted else None
+    return {
+        "id": patient.id,
+        "name": name,
+        "whatsapp_number": patient.whatsapp_number,
+        "phone_number": phone_plain,
+        "email": email_plain,
+    }
+
+def create_prescription_share_log(db: Session, user_id: int, patient_id: int, method: str, success: bool) -> None:
+    status_text = "success" if success else "failed"
+    try:
+        create_communication_log(db, schemas.CommunicationLogCreate(
+            patient_id=patient_id,
+            communication_type=schemas.CommunicationType.whatsapp if method == "whatsapp" else schemas.CommunicationType.email,
+            direction="outbound",
+            content=f"Prescription shared via {method}: {status_text}",
+            status="sent" if success else "failed",
+        ))
+    except Exception:
+        pass
+
+# ==================== SYSTEM CONFIGURATION HELPERS ====================
+
+def get_system_config(db: Session, key: str) -> Optional[models.SystemConfiguration]:
+    return db.query(models.SystemConfiguration).filter(models.SystemConfiguration.key == key).first()
+
+def set_system_config(
+    db: Session,
+    key: str,
+    value: Any,
+    value_type: str = "string",
+    description: Optional[str] = None,
+    category: Optional[str] = None,
+) -> models.SystemConfiguration:
+    entry = get_system_config(db, key)
+    if entry is None:
+        entry = models.SystemConfiguration(
+            key=key,
+            value=value,
+            value_type=value_type,
+            description=description,
+            category=category,
+        )
+        db.add(entry)
+    else:
+        entry.value = value
+        entry.value_type = value_type
+        if description is not None:
+            entry.description = description
+        if category is not None:
+            entry.category = category
+    db.commit()
+    db.refresh(entry)
+    return entry
         

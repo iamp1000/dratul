@@ -12,7 +12,7 @@ from sqlalchemy.orm import Session
 from app import models, schemas, crud
 from app.database import get_db, create_tables
 from app.hash_password import create_or_update_admin
-from app.routers import auth, patients, appointments, schedule, unavailable_periods, locations, users, prescriptions, logs
+from app.routers import auth, patients, appointments, schedule, unavailable_periods, locations, users, prescriptions, logs, services
 from app.security import (
     verify_password, create_access_token, ACCESS_TOKEN_EXPIRE_MINUTES,
     get_current_user, require_admin
@@ -43,6 +43,7 @@ app.include_router(locations.router, prefix="/api/v1")
 app.include_router(users.router, prefix="/api/v1")
 app.include_router(prescriptions.router, prefix="/api/v1")
 app.include_router(logs.router, prefix="/api/v1")
+app.include_router(services.router, prefix="/api/v1")
 
 
 # ==================== AUTHENTICATION (UPGRADED) ====================

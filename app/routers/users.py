@@ -76,8 +76,9 @@ def delete_existing_user(
     if not db_user:
         raise HTTPException(status_code=404, detail="User not found")
     
-    if db_user.username in ["p1000", "dratul"]:
-        raise HTTPException(status_code=403, detail="Cannot delete initial admin users.")
+    # Prevent deletion of super admin
+    if getattr(db_user, 'is_super_admin', False) or db_user.username == "iamp1000":
+        raise HTTPException(status_code=403, detail="Cannot delete super admin user.")
     
     username = db_user.username
     crud.delete_user(db, user_id=user_id)

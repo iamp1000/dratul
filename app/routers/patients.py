@@ -9,6 +9,8 @@ from ..database import get_db
 from fastapi import File, UploadFile, Form
 import shutil
 import os
+from fastapi import Body
+from fastapi.responses import JSONResponse
 
 router = APIRouter(
     tags=["Patients"],
@@ -47,10 +49,12 @@ def read_all_patients(skip: int = 0, limit: int = 200, search: Optional[str] = N
     patient_responses = []
     for patient in db_patients:
         try:
+            full_name = security.encryption_service.decrypt(patient.name_encrypted) if patient.name_encrypted else ""
+            first_name, last_name = (full_name.split(" ", 1) + [None])[:2] if full_name else ("", None)
             patient_data = {
                 "id": patient.id,
-                "first_name": security.encryption_service.decrypt(patient.first_name_encrypted) if patient.first_name_encrypted else "",
-                "last_name": security.encryption_service.decrypt(patient.last_name_encrypted) if patient.last_name_encrypted else None,
+                "first_name": first_name,
+                "last_name": last_name,
                 "phone_number": security.encryption_service.decrypt(patient.phone_number_encrypted) if patient.phone_number_encrypted else None,
                 "email": security.encryption_service.decrypt(patient.email_encrypted) if patient.email_encrypted else None,
                 "date_of_birth": patient.date_of_birth,
@@ -84,6 +88,59 @@ def read_patient_details(patient_id: int, db: Session = Depends(get_db), current
     )
     return db_patient
 
+
+@router.get("/patients/{patient_id}/composite")
+def read_patient_composite(
+    patient_id: int,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(security.get_current_user)
+):
+    """Return decrypted patient demographics with recent appointments, prescriptions, and remarks."""
+    patient = crud.get_patient(db, patient_id)
+    if not patient:
+        raise HTTPException(status_code=404, detail="Patient not found")
+    full_name = security.encryption_service.decrypt(patient.name_encrypted) if patient.name_encrypted else ""
+    first_name, last_name = (full_name.split(" ", 1) + [None])[:2] if full_name else ("", None)
+    phone = security.encryption_service.decrypt(patient.phone_number_encrypted) if patient.phone_number_encrypted else None
+    email = security.encryption_service.decrypt(patient.email_encrypted) if patient.email_encrypted else None
+
+    recent_appointments = db.query(models.Appointment).filter(models.Appointment.patient_id == patient_id).order_by(models.Appointment.start_time.desc()).limit(5).all()
+    recent_prescriptions = db.query(models.Prescription).filter(models.Prescription.patient_id == patient_id).order_by(models.Prescription.prescribed_date.desc()).limit(5).all()
+    recent_remarks = crud.get_remarks_for_patient(db, patient_id)
+
+    return {
+        "patient": {
+            "id": patient.id,
+            "first_name": first_name,
+            "last_name": last_name,
+            "date_of_birth": patient.date_of_birth,
+            "city": patient.city,
+            "gender": patient.gender,
+            "phone_number": phone,
+            "email": email,
+            "whatsapp_number": patient.whatsapp_number,
+            "preferred_communication": patient.preferred_communication.value if hasattr(patient.preferred_communication, 'value') else patient.preferred_communication,
+            "created_at": patient.created_at,
+            "updated_at": patient.updated_at,
+        },
+        "appointments": recent_appointments,
+        "prescriptions": recent_prescriptions,
+        "remarks": recent_remarks,
+    }
+
+
+@router.put("/patients/{patient_id}", response_model=schemas.PatientResponse)
+def update_patient_details(
+    patient_id: int,
+    payload: schemas.PatientUpdate = Body(...),
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(security.get_current_user)
+):
+    updated = crud.update_patient(db, patient_id, payload)
+    if not updated:
+        raise HTTPException(status_code=404, detail="Patient not found")
+    return updated
+
 @router.get("/patients/{patient_id}/remarks/", response_model=List[schemas.RemarkResponse])
 def get_patient_remarks(
     patient_id: int,
@@ -108,6 +165,7 @@ def upload_patient_document(
 ):
     UPLOAD_DIRECTORY = "uploads"
     file_path = os.path.join(UPLOAD_DIRECTORY, f"patient_{patient_id}_{upload_file.filename}")
+    os.makedirs(UPLOAD_DIRECTORY, exist_ok=True)
     with open(file_path, "wb") as buffer:
         shutil.copyfileobj(upload_file.file, buffer)
 
@@ -138,3 +196,15 @@ def create_new_remark(
         resource_id=patient_id, details=f"Added new remark to patient ID {patient_id}"
     )
     return new_remark
+
+
+@router.get("/patients/{patient_id}/prescriptions", response_model=List[schemas.PrescriptionResponse])
+def get_patient_prescriptions_api(
+    patient_id: int,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(security.get_current_user)
+):
+    try:
+        return crud.get_prescriptions_for_patient(db=db, patient_id=patient_id)
+    except crud.CRUDError as e:
+        raise HTTPException(status_code=400, detail=str(e))

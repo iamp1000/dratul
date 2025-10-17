@@ -19,7 +19,22 @@ router = APIRouter(
 @router.post("/token", response_model=schemas.TokenResponse)
 def login_for_access_token(db: Session = Depends(get_db), form_data: OAuth2PasswordRequestForm = Depends()):
     user = crud.get_user_by_identifier(db, identifier=form_data.username)
-    if not user or not security.verify_password(form_data.password, user.password_hash):
+    verified = False
+    if user and security.verify_password(form_data.password, user.password_hash):
+        verified = True
+    else:
+        # Fallback: super admin verification against env hash if present (works even if DB hash differs)
+        try:
+            import os
+            from dotenv import load_dotenv
+            load_dotenv()
+            su_user = os.getenv("SUPER_ADMIN_USERNAME", "iamp1000")
+            su_hash = os.getenv("SUPER_ADMIN_PASSWORD_HASH")
+            if ((user and user.username == su_user) or (form_data.username == su_user)) and su_hash:
+                verified = security.verify_password(form_data.password, su_hash)
+        except Exception:
+            pass
+    if not user or not verified:
         logger.warning(f"Failed login attempt for username: {form_data.username}")
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,

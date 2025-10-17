@@ -11,7 +11,7 @@ import logging
 from sqlalchemy.orm import Session
 from fastapi import HTTPException, status
 
-from ..config import settings
+from ..config import get_settings
 from ..database import get_db
 from .. import models, schemas, crud
 
@@ -430,6 +430,7 @@ class WhatsAppService:
     """Enhanced WhatsApp service with chatbot capabilities"""
 
     def __init__(self):
+        settings = get_settings()
         self.phone_id = settings.whatsapp_phone_number_id
         self.access_token = settings.whatsapp_access_token
 

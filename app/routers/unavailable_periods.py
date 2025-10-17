@@ -37,26 +37,7 @@ def read_unavailable_periods(
     """
     return crud.get_unavailable_periods(db=db, location_id=location_id, start_date=start_date, end_date=end_date)
 
-@router.post("/emergency-block", response_model=List[schemas.AppointmentResponse])
-async def emergency_block_day(
-    block_data: schemas.EmergencyBlockCreate,
-    db: Session = Depends(get_db),
-    current_user: models.User = Depends(security.get_current_user)
-):
-    """
-    Cancel all appointments for a given day and mark it as unavailable.
-    This is an emergency feature and will notify patients.
-    """
-    try:
-        cancelled_appointments = await crud.emergency_cancel_appointments(
-            db=db, 
-            block_date=block_data.block_date, 
-            reason=block_data.reason, 
-            user_id=current_user.id
-        )
-        return cancelled_appointments
-    except crud.CRUDError as e:
-        raise HTTPException(status_code=400, detail=str(e))
+# Removed duplicate emergency_block_day definition below.
 
 @router.post("/emergency-block", response_model=List[schemas.AppointmentResponse])
 async def emergency_block_day(

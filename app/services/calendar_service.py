@@ -12,7 +12,7 @@ from googleapiclient.errors import HttpError
 import logging
 from sqlalchemy.orm import Session
 
-from ..config import settings
+from ..config import get_settings
 from .. import models, schemas, crud
 
 logger = logging.getLogger(__name__)

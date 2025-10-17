@@ -121,6 +121,7 @@ class User(Base):
     is_active = Column(Boolean, default=True)
     is_verified = Column(Boolean, default=False)
     permissions = Column(JSON, nullable=True)  # Custom permissions per user
+    is_super_admin = Column(Boolean, default=False)
     
     # Timestamps
     created_at = Column(DateTime(timezone=True), server_default=func.now())
@@ -389,6 +390,7 @@ class Prescription(Base):
     is_active = Column(Boolean, default=True)
     is_discontinued = Column(Boolean, default=False)
     discontinuation_reason = Column(Text, nullable=True)
+    document_id = Column(Integer, nullable=True)  # linked editor document
     
     # E-prescribing
     ndc_number = Column(String(20), nullable=True)  # National Drug Code

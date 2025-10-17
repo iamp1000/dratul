@@ -3,7 +3,7 @@ from dotenv import load_dotenv
 import os
 
 load_dotenv()
-from typing import Optional
+from typing import Optional, Union, Union
 from functools import lru_cache
 
 import json
@@ -41,7 +41,7 @@ class Settings(BaseSettings):
     encryption_key: str = Field(..., alias="ENCRYPTION_KEY")
     
     # CORS
-    cors_origins: list[str] = Field(default=["http://localhost:3000", "http://localhost:8000"], alias="CORS_ORIGINS")
+    cors_origins: Union[str, list[str]] = Field(default=["http://localhost:3000", "http://localhost:8000"], alias="CORS_ORIGINS")
     
     # WhatsApp Business API
     whatsapp_access_token: Optional[str] = Field(default=None, alias="WHATSAPP_ACCESS_TOKEN")
@@ -54,18 +54,9 @@ class Settings(BaseSettings):
     @classmethod
     def parse_cors_origins(cls, v):
         if isinstance(v, str):
-            v = v.strip()
-            if not v:
-                return ["http://localhost:3000", "http://localhost:8000", "http://127.0.0.1:8000"]
-            # Try JSON decode (for values like '["url1","url2"]')
-            try:
-                parsed = json.loads(v)
-                if isinstance(parsed, list):
-                    return parsed
-            except json.JSONDecodeError:
-                pass
-            # Fallback to comma split for plain strings
-            return [origin.strip() for origin in v.split(",") if origin.strip()]
+            if not v.strip():
+                return ["http://localhost:3000", "http://localhost:8000"]
+            return [origin.strip() for origin in v.split(',') if origin.strip()]
         return v
 
     @field_validator("database_url")
@@ -141,3 +132,6 @@ def get_config_by_env(env: str) -> Settings:
     
     config_class = configs.get(env.lower(), Settings)
     return config_class()
+
+# Note: Do not instantiate settings at import time to avoid failing
+# on missing environment variables. Use `get_settings()` instead.

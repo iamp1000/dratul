@@ -12,6 +12,9 @@
         href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800&family=Inter:wght@300;400;500;600;700&display=swap"
         rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://cdn.quilljs.com/1.3.7/quill.snow.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/themes/material_blue.css">
+    <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
     <script>
         tailwind.config = {
             theme: {
@@ -179,6 +182,14 @@
             background: rgba(0, 0, 0, 0.5);
             backdrop-filter: blur(5px);
         }
+        .editor-shell { display:grid; grid-template-columns:340px 1fr; gap:20px; }
+        .editor-toolbar { position:sticky; top:0; z-index:20; background:#fff; border-bottom:1px solid #e5e7eb; }
+        .editor-page-wrap { display:flex; justify-content:center; padding:20px 0; background:linear-gradient(180deg,#fafafa,#f3f4f6); }
+        .editor-page { position:relative; width:794px; min-height:1123px; background:#fff; box-shadow:0 10px 30px rgba(0,0,0,.08); border-radius:12px; overflow:hidden; }
+        .editor-template-overlay { position:absolute; inset:0; background-position:center top; background-repeat:no-repeat; background-size:contain; opacity:.18; pointer-events:none; }
+        .editor-content { position:relative; padding:48px 56px; }
+        .ql-toolbar.ql-snow { border:none; border-bottom:1px solid #e5e7eb; }
+        .ql-container.ql-snow { border:none; font-size:15px; line-height:1.7; }
 
         .floating-elements::before {
             content: '';
@@ -219,11 +230,50 @@
             background: #0B4D6B;
         }
 
+        /* Modern input styling shared across inputs, selects, textareas */
         .form-input-themed {
-            @apply w-full p-3 bg-gray-50 border border-gray-200 rounded-lg text-medical-dark placeholder-medical-gray font-secondary;
-            @apply transition-all duration-300;
-            @apply focus:outline-none focus:ring-2 focus:ring-medical-accent focus:bg-white focus:border-transparent;
+            width: 100%;
+            padding: 12px 14px;
+            background: #F9FAFB; /* gray-50 */
+            border: 1px solid #E5E7EB; /* gray-200 */
+            border-radius: 12px;
+            color: #0B4D6B; /* medical-dark-ish text */
+            font-family: 'Inter', sans-serif;
+            transition: box-shadow .2s ease, border-color .2s ease, background-color .2s ease;
+            outline: none;
         }
+        .form-input-themed::placeholder { color: #94A3B8; }
+        .form-input-themed:focus {
+            background: #ffffff;
+            border-color: #2196F3; /* medical-accent */
+            box-shadow: 0 0 0 3px rgba(33,150,243,0.18);
+        }
+        /* Date & time pickers: reduce native chrome look and unify */
+        input[type="date"].form-input-themed,
+        input[type="time"].form-input-themed,
+        input[type="datetime-local"].form-input-themed {
+            appearance: none;
+            -webkit-appearance: none;
+            color-scheme: light;
+            padding-right: 36px; /* room for picker icon */
+        }
+        input[type="date"].form-input-themed::-webkit-calendar-picker-indicator,
+        input[type="time"].form-input-themed::-webkit-calendar-picker-indicator,
+        input[type="datetime-local"].form-input-themed::-webkit-calendar-picker-indicator {
+            cursor: pointer;
+            filter: invert(34%) sepia(48%) saturate(404%) hue-rotate(179deg) brightness(96%) contrast(95%);
+            opacity: .8;
+        }
+        input[type="date"].form-input-themed:hover::-webkit-calendar-picker-indicator,
+        input[type="time"].form-input-themed:hover::-webkit-calendar-picker-indicator,
+        input[type="datetime-local"].form-input-themed:hover::-webkit-calendar-picker-indicator { opacity: 1; }
+        /* Selects */
+        select.form-input-themed { background-image: linear-gradient(45deg, transparent 50%, #64748B 50%), linear-gradient(135deg, #64748B 50%, transparent 50%); background-position: calc(100% - 18px) calc(1em + 2px), calc(100% - 13px) calc(1em + 2px); background-size: 5px 5px, 5px 5px; background-repeat: no-repeat; }
+        select.form-input-themed::-ms-expand { display: none; }
+        /* Textareas */
+        textarea.form-input-themed { min-height: 110px; resize: vertical; line-height: 1.6; }
+        textarea.form-input-themed::-webkit-scrollbar { width: 8px; }
+        textarea.form-input-themed::-webkit-scrollbar-thumb { background: #93C5FD; border-radius: 8px; }
     </style>
 </head>
 
@@ -257,7 +307,14 @@
                     window.location.href = './admin_login.html';
                     return;
                 }
-                return res.json();
+                const text = await res.text();
+                let data = null;
+                try { data = text ? JSON.parse(text) : null; } catch {}
+                if (!res.ok) {
+                    const msg = (data && (data.detail || data.message)) || text || 'Request failed';
+                    throw new Error(msg);
+                }
+                return data;
             } catch (error) {
                 console.error('API Error:', error);
                 throw error;
@@ -270,6 +327,23 @@
                 <div className="w-8 h-8 border-4 border-medical-accent border-t-transparent rounded-full animate-spin"></div>
             </div>
         );
+
+        // Enhance native date/time inputs with Flatpickr for consistent styling
+        React.useEffect(() => {
+            const initPickers = () => {
+                if (window.flatpickr) {
+                    window.flatpickr("input[type='date'].form-input-themed", { dateFormat: "Y-m-d", allowInput: true });
+                    window.flatpickr("input[type='time'].form-input-themed", { enableTime: true, noCalendar: true, dateFormat: "h:i K", minuteIncrement: 5, allowInput: true });
+                    window.flatpickr("input[type='datetime-local'].form-input-themed", { enableTime: true, dateFormat: "Y-m-d H:i", allowInput: true });
+                }
+            };
+            // Initial
+            initPickers();
+            // Re-init when DOM updates after modals open
+            const observer = new MutationObserver(() => initPickers());
+            observer.observe(document.body, { childList: true, subtree: true });
+            return () => observer.disconnect();
+        }, []);
 
         const StatCard = ({ icon, title, value, subtitle, color = "medical-accent" }) => (
             <div className="stat-card p-6 rounded-2xl medical-card animate-slide-up">
@@ -306,66 +380,7 @@
             );
         };
 
-        // Emergency Block Modal Component
-        const EmergencyBlockModal = ({ onClose }) => {
-            const [blockDate, setBlockDate] = React.useState(new Date().toISOString().split('T')[0]);
-            const [reason, setReason] = React.useState('');
-            const [error, setError] = React.useState('');
-            const [successMessage, setSuccessMessage] = React.useState('');
-
-            const handleSubmit = async () => {
-                setError('');
-                setSuccessMessage('');
-                if (!blockDate || !reason) {
-                    setError('Both date and reason are required.');
-                    return;
-                }
-
-                const payload = {
-                    block_date: blockDate,
-                    reason: reason,
-                };
-
-                try {
-                    const result = await api('/api/v1/unavailable-periods/emergency-block', {
-                        method: 'POST',
-                        body: JSON.stringify(payload),
-                    });
-                    setSuccessMessage(`Successfully cancelled ${result.length} appointment(s) and blocked the day.`);
-                    // Optionally close modal after a delay
-                    setTimeout(() => onClose(), 3000);
-                } catch (err) {
-                    const errorData = await err.json?.();
-                    setError(errorData?.detail || 'An unexpected error occurred.');
-                    console.error('Emergency block error:', err);
-                }
-            };
-
-            return (
-                <div className="space-y-6">
-                    {error && <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded-lg">{error}</div>}
-                    {successMessage && <div className="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded-lg">{successMessage}</div>}
-                    <div>
-                        <label className="block text-sm font-medium text-medical-gray mb-2">Emergency Block</label>
-                        <p className="text-sm text-medical-gray">This action will cancel all appointments for the selected day and notify patients via WhatsApp.</p>
-                    </div>
-                    <div>
-                        <label className="block text-sm font-medium text-medical-gray mb-2">Date to Block</label>
-                        <input type="date" value={blockDate} onChange={(e) => setBlockDate(e.target.value)} className="form-input-themed focus:ring-red-500" />
-                    </div>
-                    <div>
-                        <label className="block text-sm font-medium text-medical-gray mb-2">Reason for Emergency</label>
-                        <input type="text" value={reason} onChange={(e) => setReason(e.target.value)} className="form-input-themed focus:ring-red-500" placeholder="e.g., Unforeseen personal matter" />
-                    </div>
-                    <div className="flex justify-end space-x-3">
-                        <button onClick={onClose} className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300">Cancel</button>
-                        <button onClick={handleSubmit} className="bg-red-600 hover:bg-red-700 px-4 py-2 text-white rounded-lg relative z-10">
-                            Confirm Emergency Block
-                        </button>
-                    </div>
-                </div>
-            );
-        };
+        
 
         // Emergency Block Modal Component
         const EmergencyBlockModal = ({ onClose }) => {
@@ -412,11 +427,11 @@
                     </div>
                     <div>
                         <label className="block text-sm font-medium text-medical-gray mb-2">Date to Block</label>
-                        <input type="date" value={blockDate} onChange={(e) => setBlockDate(e.target.value)} className="w-full p-3 border border-gray-300 rounded-lg focus:border-red-500 focus:outline-none" />
+                        <input type="date" value={blockDate} onChange={(e) => setBlockDate(e.target.value)} className="form-input-themed" />
                     </div>
                     <div>
                         <label className="block text-sm font-medium text-medical-gray mb-2">Reason for Emergency</label>
-                        <input type="text" value={reason} onChange={(e) => setReason(e.target.value)} className="w-full p-3 border border-gray-300 rounded-lg focus:border-red-500 focus:outline-none" placeholder="e.g., Unforeseen personal matter" />
+                        <input type="text" value={reason} onChange={(e) => setReason(e.target.value)} className="form-input-themed" placeholder="e.g., Unforeseen personal matter" />
                     </div>
                     <div className="flex justify-end space-x-3">
                         <button onClick={onClose} className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300">Cancel</button>
@@ -503,6 +518,7 @@
         // Dashboard Component
                         const Dashboard = ({ openModal, closeModal }) => {
             const [stats, setStats] = React.useState(null);
+            const [recentPresc, setRecentPresc] = React.useState([]);
             const [loading, setLoading] = React.useState(true);
 
             React.useEffect(() => {
@@ -516,7 +532,14 @@
                         setLoading(false);
                     }
                 };
+                const fetchRecent = async () => {
+                    try {
+                        const data = await api('/api/v1/prescriptions/recent?limit=5');
+                        setRecentPresc(Array.isArray(data) ? data : []);
+                    } catch {}
+                };
                 fetchStats();
+                fetchRecent();
             }, []);
 
                         if (loading) return <LoadingSpinner />;
@@ -590,29 +613,31 @@
                         <div className="medical-card p-6 rounded-2xl">
                             <h3 className="text-lg font-bold text-medical-dark mb-4 font-primary">System Status</h3>
                             <div className="space-y-3">
-                                <div className="flex items-center justify-between p-3 bg-medical-success/10 rounded-xl">
-                                    <div className="flex items-center space-x-3">
-                                        <div className="w-3 h-3 bg-medical-success rounded-full"></div>
-                                        <span className="font-secondary">Database</span>
-                                    </div>
-                                    <span className="text-medical-success text-sm font-medium">Online</span>
-                                </div>
-                                <div className="flex items-center justify-between p-3 bg-medical-success/10 rounded-xl">
-                                    <div className="flex items-center space-x-3">
-                                        <div className="w-3 h-3 bg-medical-success rounded-full"></div>
-                                        <span className="font-secondary">API Services</span>
-                                    </div>
-                                    <span className="text-medical-success text-sm font-medium">Online</span>
-                                </div>
-                                <div className="flex items-center justify-between p-3 bg-medical-warning/10 rounded-xl">
-                                    <div className="flex items-center space-x-3">
-                                        <div className="w-3 h-3 bg-medical-warning rounded-full animate-pulse"></div>
-                                        <span className="font-secondary">WhatsApp Bot</span>
-                                    </div>
-                                    <span className="text-medical-warning text-sm font-medium">Limited</span>
-                                </div>
+                                <DashboardServices />
                             </div>
                         </div>
+                    </div>
+
+                    <div className="medical-card p-6 rounded-2xl mt-6">
+                        <h3 className="text-lg font-bold text-medical-dark mb-4 font-primary">Recent Prescriptions</h3>
+                        {recentPresc.length === 0 ? (
+                            <div className="text-medical-gray text-sm">No recent prescriptions.</div>
+                        ) : (
+                            <div className="space-y-2">
+                                {recentPresc.map(p => (
+                                    <div key={p.id} className="flex items-center justify-between p-3 border border-gray-200 rounded-lg">
+                                        <div>
+                                            <div className="font-medium text-medical-dark">{p.medication_name}</div>
+                                            <div className="text-sm text-medical-gray">Patient ID: {p.patient_id} • {new Date(p.prescribed_date).toLocaleDateString()}</div>
+                                        </div>
+                                        <div className="flex items-center space-x-2">
+                                            <button onClick={()=>window.open(`/api/v1/prescriptions/editor/pdf/${p.document_id||''}`,'_blank')} className="px-2 py-1 bg-gray-100 rounded text-sm">PDF</button>
+                                            <button onClick={()=>window.open(`/api/v1/prescriptions/editor/html/${p.document_id||''}`,'_blank')} className="px-2 py-1 bg-gray-100 rounded text-sm">HTML</button>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
                     </div>
                 </div>
             );
@@ -804,6 +829,29 @@
                             />
                         ) : null}
                     </Modal>
+                </div>
+            );
+        };
+
+        // Dashboard Services (live)
+        const DashboardServices = () => {
+            const [status, setStatus] = React.useState(null);
+            React.useEffect(()=>{ (async()=>{ try{ const s = await api('/api/v1/services/status'); setStatus(s);}catch{ setStatus(null);} })(); },[]);
+            const pill = (label, ok) => (
+                <div className="flex items-center justify-between p-3 rounded-xl border" style={{backgroundColor: ok? 'rgba(16,185,129,0.1)':'rgba(239,68,68,0.1)', borderColor: ok? 'rgba(16,185,129,0.2)':'rgba(239,68,68,0.2)'}}>
+                    <div className="flex items-center space-x-3">
+                        <div className={`w-3 h-3 rounded-full ${ok? 'bg-medical-success':'bg-medical-error'}`}></div>
+                        <span className="font-secondary">{label}</span>
+                    </div>
+                    <span className={`text-sm font-medium ${ok? 'text-medical-success':'text-medical-error'}`}>{ok? 'Online':'Disabled'}</span>
+                </div>
+            );
+            if (!status) return <LoadingSpinner/>;
+            return (
+                <div className="space-y-2">
+                    {pill('WhatsApp', !!status.whatsapp?.enabled)}
+                    {pill('Email', !!status.email?.enabled)}
+                    {pill('Google Calendar', !!status.calendar?.enabled)}
                 </div>
             );
         };
@@ -1003,7 +1051,7 @@
 
                     const newSchedules = { 1: {}, 2: {} };
                     for (const loc of fetchedLocations) {
-                        const data = await api(`/api/v1/schedules/${loc.id}`);
+                        const data = await api(`/api/v1/schedules/by-location/${loc.id}`);
                         const scheduleMap = (data || []).reduce((acc, item) => {
                             acc[item.day_of_week] = item;
                             return acc;
@@ -1064,18 +1112,6 @@
                                 <i className="fas fa-exclamation-triangle"></i>
                                 <span>Emergency Block</span>
                             </button>
-                            <div className="flex space-x-4">
-                            <button
-                            onClick={() => {
-                                setModalTitle('Emergency Day Block');
-                                setModalContent(<EmergencyBlockModal onClose={() => setShowModal(false)} />);
-                                    setShowModal(true);
-                                }}
-                                    className="bg-red-600 hover:bg-red-700 px-6 py-3 text-white rounded-xl font-secondary flex items-center space-x-2 relative z-10 transition-all duration-300 transform hover:scale-105"
-                            >
-                                <i className="fas fa-exclamation-triangle"></i>
-                                    <span>Emergency Block</span>
-                            </button>
                             <button
                                 onClick={() => {
                                     setModalTitle('Edit Weekly Schedule');
@@ -1087,7 +1123,6 @@
                                 <i className="fas fa-edit"></i>
                                 <span>Edit Weekly Schedule</span>
                             </button>
-                        </div>
                         </div>
                     </div>
 
@@ -1354,7 +1389,7 @@
 
                     // Fetch Prescriptions
                     try {
-                        const prescriptionData = await api(`/api/v1/prescriptions/by-patient/${patient.id}`);
+                        const prescriptionData = await api(`/api/v1/patients/${patient.id}/prescriptions`);
                         setPatientPrescriptions(prescriptionData || []);
                     } catch (error) {
                         console.error('Error fetching patient prescriptions:', error);
@@ -1542,12 +1577,18 @@
                                                         Prescribed: {new Date(prescription.prescribed_date).toLocaleDateString()}
                                                     </div>
                                                 </div>
-                                                <span className={`px-2 py-1 rounded-full text-xs ${prescription.is_active
-                                                    ? 'bg-medical-success/10 text-medical-success'
-                                                    : 'bg-medical-gray/10 text-medical-gray'
-                                                    }`}>
-                                                    {prescription.is_active ? 'Active' : 'Inactive'}
-                                                </span>
+                                                <div className="flex items-center space-x-2">
+                                                    <button title="View PDF" onClick={()=>window.open(`/api/v1/prescriptions/editor/pdf/${prescription.document_id||''}`,'_blank')} className="px-2 py-1 bg-gray-100 rounded text-sm">PDF</button>
+                                                    <button title="View HTML" onClick={()=>window.open(`/api/v1/prescriptions/editor/html/${prescription.document_id||''}`,'_blank')} className="px-2 py-1 bg-gray-100 rounded text-sm">HTML</button>
+                                                    <button title="Send WhatsApp" onClick={async()=>{try{await api('/api/v1/prescriptions/share',{method:'POST',body:JSON.stringify({patient_id: prescription.patient_id||patient.id, document_id: prescription.document_id, method:'whatsapp'})});toast('Sent via WhatsApp');}catch{toast('Send failed');}}} className="px-2 py-1 bg-green-600 text-white rounded text-sm">WA</button>
+                                                    <button title="Send Email" onClick={async()=>{try{await api('/api/v1/prescriptions/share',{method:'POST',body:JSON.stringify({patient_id: prescription.patient_id||patient.id, document_id: prescription.document_id, method:'email'})});toast('Sent via Email');}catch{toast('Send failed');}}} className="px-2 py-1 bg-blue-600 text-white rounded text-sm">Email</button>
+                                                    <span className={`px-2 py-1 rounded-full text-xs ${prescription.is_active
+                                                        ? 'bg-medical-success/10 text-medical-success'
+                                                        : 'bg-medical-gray/10 text-medical-gray'
+                                                        }`}>
+                                                        {prescription.is_active ? 'Active' : 'Inactive'}
+                                                    </span>
+                                                </div>
                                             </div>
                                         </div>
                                     ))}
@@ -1602,102 +1643,161 @@
 
         // Prescriptions Component
         const Prescriptions = () => {
-            const [prescriptions, setPrescriptions] = React.useState([]);
-            const [loading, setLoading] = React.useState(true);
+            const [templatePath, setTemplatePath] = React.useState(null);
+            const [patientId, setPatientId] = React.useState('');
+            const [patientSearch, setPatientSearch] = React.useState('');
+            const [filteredPatients, setFilteredPatients] = React.useState([]);
+            const [createNew, setCreateNew] = React.useState(false);
+            const [newPatient, setNewPatient] = React.useState({ first_name: '', last_name: '', phone_number: '', email: '' });
+            const [lastSaved, setLastSaved] = React.useState(null);
+            const editorRef = React.useRef(null);
+            const quillRef = React.useRef(null);
 
             React.useEffect(() => {
-                // Mock data - replace with actual API call
-                setTimeout(() => {
-                    setPrescriptions([
-                        {
-                            id: 1,
-                            patient: { name: 'John Doe', id: 1 },
-                            medication_name: 'Lisinopril',
-                            dosage: '10mg',
-                            frequency: 'Once daily',
-                            prescribed_date: '2024-01-15',
-                            is_active: true,
-                            prescriber: { username: 'Dr. Smith' }
-                        },
-                        {
-                            id: 2,
-                            patient: { name: 'Jane Smith', id: 2 },
-                            medication_name: 'Metformin',
-                            dosage: '500mg',
-                            frequency: 'Twice daily',
-                            prescribed_date: '2024-01-10',
-                            is_active: true,
-                            prescriber: { username: 'Dr. Johnson' }
-                        }
-                    ]);
-                    setLoading(false);
-                }, 500);
+                (async () => {
+                    try { const data = await api('/api/v1/prescriptions/template'); setTemplatePath(data?.path || null); } catch {}
+                })();
+                const Quill = window.Quill; if (!Quill) return;
+                const q = new Quill(editorRef.current, {
+                    theme: 'snow',
+                    modules: {
+                        toolbar: '#presc-toolbar'
+                    }
+                });
+                quillRef.current = q;
             }, []);
 
-            if (loading) return <LoadingSpinner />;
+            const searchPatients = async (term) => {
+                setPatientSearch(term);
+                if (!term) { setFilteredPatients([]); return; }
+                try { const data = await api(`/api/v1/patients?search=${encodeURIComponent(term)}`); setFilteredPatients(Array.isArray(data)?data:[]); } catch { setFilteredPatients([]); }
+            };
+
+            const selectPatient = (p) => { setPatientId(String(p.id)); setPatientSearch(`${p.first_name || ''} ${p.last_name || ''}`.trim()); setFilteredPatients([]); setCreateNew(false); };
+
+            const saveRich = async () => {
+                const html = quillRef.current?.root?.innerHTML || '';
+                if (!html) return toast('Add content to the prescription');
+                const payload = { body_html: html };
+                if (patientId) payload.patient_id = parseInt(patientId);
+                else if (createNew) payload.patient = newPatient;
+                else return toast('Select or create a patient');
+                try {
+                    const res = await api('/api/v1/prescriptions/rich', { method: 'POST', body: JSON.stringify(payload) });
+                    if (!res || !res.id) return toast('Save failed');
+                    setLastSaved(res);
+                    toast('Prescription saved');
+                } catch { toast('Save failed'); }
+            };
+
+            const openPdf = () => { if (!lastSaved?.document_id) return toast('No document yet'); window.open(`/api/v1/prescriptions/editor/pdf/${lastSaved.document_id}`, '_blank'); };
+
+            const sendWhatsApp = async () => {
+                if (!lastSaved?.patient_id) return toast('Save prescription first');
+                try {
+                    await api('/api/v1/prescriptions/share', { method: 'POST', body: JSON.stringify({ patient_id: lastSaved.patient_id, document_id: lastSaved.document_id, method: 'whatsapp' }) });
+                    toast('Sent via WhatsApp');
+                } catch { toast('Send failed'); }
+            };
+
+            const sendEmail = async () => {
+                if (!lastSaved?.patient_id) return toast('Save prescription first');
+                try {
+                    await api('/api/v1/prescriptions/share', { method: 'POST', body: JSON.stringify({ patient_id: lastSaved.patient_id, document_id: lastSaved.document_id, method: 'email' }) });
+                    toast('Sent via Email');
+                } catch { toast('Send failed'); }
+            };
+
+            const editorContainerStyle = templatePath ? { backgroundImage: `url(${templatePath})`, backgroundRepeat: 'no-repeat', backgroundPosition: 'center top', backgroundSize: 'contain' } : {};
 
             return (
                 <div className="space-y-6">
-                    <div className="flex items-center justify-between">
-                        <h2 className="text-2xl font-bold text-medical-dark font-primary">Prescriptions</h2>
-                        <button className="medical-button px-6 py-3 text-white rounded-xl font-secondary flex items-center space-x-2 relative z-10">
-                            <i className="fas fa-plus"></i>
-                            <span>New Prescription</span>
-                        </button>
+                    <div className="editor-toolbar rounded-2xl medical-card p-4">
+                        <div className="flex items-center justify-between">
+                            <div className="flex items-center space-x-3">
+                                <i className="fas fa-file-signature text-medical-accent"></i>
+                                <h2 className="text-xl font-bold text-medical-dark font-primary">Prescription Composer</h2>
+                            </div>
+                            <div className="flex items-center space-x-2">
+                                <button onClick={saveRich} className="medical-button px-4 py-2 text-white rounded">Save</button>
+                                <button onClick={openPdf} className="px-4 py-2 bg-gray-100 rounded">Print/PDF</button>
+                                <button onClick={sendWhatsApp} className="px-4 py-2 bg-green-600 text-white rounded">WhatsApp</button>
+                                <button onClick={sendEmail} className="px-4 py-2 bg-blue-600 text-white rounded">Email</button>
+                            </div>
+                        </div>
+                        <div id="presc-toolbar" className="ql-toolbar ql-snow rounded-t-2xl mt-3">
+                            <span class="ql-formats">
+                                <select class="ql-font"></select>
+                                <select class="ql-size"></select>
+                            </span>
+                            <span class="ql-formats">
+                                <button class="ql-bold"></button>
+                                <button class="ql-italic"></button>
+                                <button class="ql-underline"></button>
+                                <button class="ql-strike"></button>
+                            </span>
+                            <span class="ql-formats">
+                                <select class="ql-color"></select>
+                                <select class="ql-background"></select>
+                            </span>
+                            <span class="ql-formats">
+                                <button class="ql-list" value="ordered"></button>
+                                <button class="ql-list" value="bullet"></button>
+                                <button class="ql-indent" value="-1"></button>
+                                <button class="ql-indent" value="+1"></button>
+                                <select class="ql-align"></select>
+                            </span>
+                            <span class="ql-formats">
+                                <button class="ql-clean"></button>
+                            </span>
+                        </div>
                     </div>
 
-                    <div className="medical-card rounded-2xl overflow-hidden">
-                        <div className="overflow-x-auto">
-                            <table className="w-full">
-                                <thead className="bg-medical-light">
-                                    <tr>
-                                        <th className="text-left p-4 font-semibold text-medical-dark">Patient</th>
-                                        <th className="text-left p-4 font-semibold text-medical-dark">Medication</th>
-                                        <th className="text-left p-4 font-semibold text-medical-dark">Dosage</th>
-                                        <th className="text-left p-4 font-semibold text-medical-dark">Frequency</th>
-                                        <th className="text-left p-4 font-semibold text-medical-dark">Date</th>
-                                        <th className="text-left p-4 font-semibold text-medical-dark">Status</th>
-                                        <th className="text-left p-4 font-semibold text-medical-dark">Actions</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {prescriptions.map(prescription => (
-                                        <tr key={prescription.id} className="table-row border-b border-gray-100">
-                                            <td className="p-4">
-                                                <div className="font-semibold text-medical-dark">{prescription.patient.name}</div>
-                                                <div className="text-sm text-medical-gray">ID: {prescription.patient.id}</div>
-                                            </td>
-                                            <td className="p-4 text-medical-gray">{prescription.medication_name}</td>
-                                            <td className="p-4 text-medical-gray">{prescription.dosage}</td>
-                                            <td className="p-4 text-medical-gray">{prescription.frequency}</td>
-                                            <td className="p-4 text-medical-gray">
-                                                {new Date(prescription.prescribed_date).toLocaleDateString()}
-                                            </td>
-                                            <td className="p-4">
-                                                <span className={`px-2 py-1 rounded-full text-xs ${prescription.is_active
-                                                    ? 'bg-medical-success/10 text-medical-success'
-                                                    : 'bg-medical-gray/10 text-medical-gray'
-                                                    }`}>
-                                                    {prescription.is_active ? 'Active' : 'Inactive'}
-                                                </span>
-                                            </td>
-                                            <td className="p-4">
-                                                <div className="flex space-x-2">
-                                                    <button className="text-medical-accent hover:text-medical-dark">
-                                                        <i className="fas fa-eye"></i>
-                                                    </button>
-                                                    <button className="text-medical-success hover:text-green-700">
-                                                        <i className="fas fa-edit"></i>
-                                                    </button>
-                                                    <button className="text-medical-error hover:text-red-700">
-                                                        <i className="fas fa-trash"></i>
-                                                    </button>
-                                                </div>
-                                            </td>
-                                        </tr>
-                                    ))}
-                                </tbody>
-                            </table>
+                    <div className="editor-shell">
+                        <div className="medical-card p-4 rounded-2xl h-max">
+                            <div className="mb-3 font-semibold text-medical-dark">Patient</div>
+                            <div className="relative mb-3">
+                                <input type="text" value={patientSearch} onChange={(e)=>searchPatients(e.target.value)} onFocus={()=>searchPatients(patientSearch)} onBlur={()=>setTimeout(()=>setFilteredPatients([]),200)} className="form-input-themed" placeholder="Search name/phone/email" />
+                                {filteredPatients.length>0 && (
+                                    <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-60 overflow-y-auto">
+                                        {filteredPatients.map(p => (
+                                            <div key={p.id} onMouseDown={()=>selectPatient(p)} className="p-3 hover:bg-medical-light cursor-pointer">
+                                                {`${p.first_name||''} ${p.last_name||''}`.trim()} {p.phone_number?`• ${p.phone_number}`:''}
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
+                            <div className="flex items-center space-x-2 mb-3">
+                                <input type="number" value={patientId} onChange={(e)=>setPatientId(e.target.value)} className="form-input-themed w-40" placeholder="Patient ID" />
+                                <label className="flex items-center space-x-2 cursor-pointer"><input type="checkbox" checked={createNew} onChange={(e)=>setCreateNew(e.target.checked)} /><span>Create new</span></label>
+                            </div>
+                            {createNew && (
+                                <div className="space-y-2">
+                                    <div className="grid grid-cols-2 gap-2">
+                                        <input className="form-input-themed" placeholder="First name" value={newPatient.first_name} onChange={(e)=>setNewPatient({...newPatient, first_name:e.target.value})} />
+                                        <input className="form-input-themed" placeholder="Last name" value={newPatient.last_name} onChange={(e)=>setNewPatient({...newPatient, last_name:e.target.value})} />
+                                    </div>
+                                    <input className="form-input-themed" placeholder="Phone" value={newPatient.phone_number} onChange={(e)=>setNewPatient({...newPatient, phone_number:e.target.value})} />
+                                    <input className="form-input-themed" placeholder="Email" value={newPatient.email} onChange={(e)=>setNewPatient({...newPatient, email:e.target.value})} />
+                                </div>
+                            )}
+                            {lastSaved && (
+                                <div className="mt-4 p-3 bg-medical-light rounded-lg text-sm text-medical-dark">
+                                    Saved • Document #{lastSaved.document_id || 'N/A'}
+                                </div>
+                            )}
+                        </div>
+
+                        <div className="medical-card rounded-2xl overflow-hidden">
+                            <div className="editor-page-wrap">
+                                <div className="editor-page">
+                                    {templatePath && <div className="editor-template-overlay" style={{backgroundImage:`url(${templatePath})`}}></div>}
+                                    <div className="editor-content">
+                                        <div ref={editorRef}></div>
+                                    </div>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -1865,24 +1965,7 @@
                 fetchPatients();
             }, []);
 
-            React.useEffect(() => {
-                const fetchAvailableSlots = async () => {
-                    if (appointmentDate) {
-                        try {
-                            // Hardcoding location_id=1 for now
-                            const slots = await api(`/api/v1/schedules/availability/1/${appointmentDate}`);
-                            // The backend returns \"HH:MM:SS\", so we format it to \"HH:MM\"
-                            setAvailableSlots(slots.map(slot => slot.substring(0, 5)) || []);
-                        } catch (error) {
-                            console.error('Error fetching available slots:', error);
-                            setAvailableSlots([]); // Clear slots on error
-                        }
-                    } else {
-                        setAvailableSlots([]);
-                    }
-                };
-                fetchAvailableSlots();
-            }, [appointmentDate]);
+
 
             const handleSubmit = async () => {
                 setError('');
@@ -2239,15 +2322,15 @@
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                         <div>
                             <label className="block text-sm font-medium text-medical-gray mb-2">First Name</label>
-                            <input type="text" value={firstName} onChange={(e) => setFirstName(e.target.value)} className="w-full p-3 border border-gray-300 rounded-lg focus:border-medical-accent focus:outline-none" placeholder="Enter first name" />
+                            <input type="text" value={firstName} onChange={(e) => setFirstName(e.target.value)} className="form-input-themed" placeholder="Enter first name" />
                         </div>
                         <div>
                             <label className="block text-sm font-medium text-medical-gray mb-2">Last Name</label>
-                            <input type="text" value={lastName} onChange={(e) => setLastName(e.target.value)} className="w-full p-3 border border-gray-300 rounded-lg focus:border-medical-accent focus:outline-none" placeholder="Enter last name" />
+                            <input type="text" value={lastName} onChange={(e) => setLastName(e.target.value)} className="form-input-themed" placeholder="Enter last name" />
                         </div>
                         <div>
                             <label className="block text-sm font-medium text-medical-gray mb-2">Date of Birth</label>
-                            <input type="date" value={dob} onChange={(e) => setDob(e.target.value)} className="w-full p-3 border border-gray-300 rounded-lg focus:border-medical-accent focus:outline-none" />
+                            <input type="date" value={dob} onChange={(e) => setDob(e.target.value)} className="form-input-themed" />
                         </div>
                         <div>
                             <label className="block text-sm font-medium text-medical-gray mb-2">Phone Number</label>
@@ -2466,20 +2549,20 @@
                     refreshSchedules();
                     onClose();
                 } catch (err) {
-                     const errorData = await err.json?.();
+                    const errorData = await err.json?.();
                     setError(errorData?.detail || 'An unexpected error occurred.');
                     console.error('Day schedule save error:', err);
                 }
             };
 
             return (
-                 <div className="space-y-6">
+                <div className="space-y-6">
                     {error && <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded-lg">{error}</div>}
                     {/* Home Clinic Schedule */}
                     <div>
                         <h4 className="font-semibold text-medical-dark mb-2">Home Clinic</h4>
                         <div className="grid grid-cols-3 gap-4 items-center">
-                             <div>
+                            <div>
                                 <label className="block text-xs font-medium text-medical-gray mb-1">Start Time</label>
                                 <input type="time" value={homeClinic.start_time.substring(0,5)} onChange={(e) => setHomeClinic(p => ({...p, start_time: e.target.value}))} className="form-input-themed" disabled={!homeClinic.is_available} />
                             </div>
@@ -2496,8 +2579,8 @@
                     {/* Hospital Schedule */}
                     <div>
                         <h4 className="font-semibold text-medical-dark mb-2">Hospital</h4>
-                         <div className="grid grid-cols-3 gap-4 items-center">
-                             <div>
+                        <div className="grid grid-cols-3 gap-4 items-center">
+                            <div>
                                 <label className="block text-xs font-medium text-medical-gray mb-1">Start Time</label>
                                 <input type="time" value={hospital.start_time.substring(0,5)} onChange={(e) => setHospital(p => ({...p, start_time: e.target.value}))} className="form-input-themed" disabled={!hospital.is_available} />
                             </div>
@@ -2511,7 +2594,7 @@
                             </label>
                         </div>
                     </div>
-                     <div className="flex justify-end space-x-3 pt-4 border-t">
+                    <div className="flex justify-end space-x-3 pt-4 border-t">
                         <button onClick={onClose} className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300">Cancel</button>
                         <button onClick={handleSave} className="medical-button px-4 py-2 text-white rounded-lg relative z-10">Save Changes</button>
                     </div>
@@ -2593,7 +2676,7 @@
                             <input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} className="form-input-themed" />
                         </div>
                     </div>
-                     <div>
+                    <div>
                         <label className="block text-sm font-medium text-medical-gray mb-2">Select Locations</label>
                         <div className="flex space-x-6 mt-2">
                             <label className="flex items-center space-x-2 cursor-pointer">
@@ -2858,8 +2941,181 @@
             );
         };
 
+        // ============== Quick Actions (Services, Schedule Config, Prescriptions) ==============
+        const QuickActions = () => {
+            const [open, setOpen] = React.useState(false);
+            const [services, setServices] = React.useState(null);
+            const [config, setConfig] = React.useState({ appointment_interval_minutes: 15, appointment_daily_limit: 2 });
+            const [loading, setLoading] = React.useState(false);
+            const [error, setError] = React.useState("");
+
+            const fetchServices = async () => {
+                setLoading(true); setError("");
+                try {
+                    const data = await api('/api/v1/services/status');
+                    setServices(data);
+                } catch (e) { setError('Failed to load services status'); }
+                finally { setLoading(false); }
+            };
+
+            const fetchConfig = async () => {
+                try {
+                    const data = await api('/api/v1/schedules/config');
+                    setConfig(data);
+                } catch (e) { /* ignore */ }
+            };
+
+            React.useEffect(() => { fetchConfig(); }, []);
+
+            const saveConfig = async () => {
+                setLoading(true); setError("");
+                try {
+                    await api(`/api/v1/schedules/config?appointment_interval_minutes=${config.appointment_interval_minutes}&appointment_daily_limit=${config.appointment_daily_limit}`, { method: 'POST' });
+                    toast('Schedule config saved');
+                } catch (e) { setError('Failed to save config'); }
+                finally { setLoading(false); }
+            };
+
+            const onTemplateUpload = async (e) => {
+                const file = e.target.files?.[0]; if (!file) return;
+                const token = sessionStorage.getItem('accessToken');
+                const form = new FormData(); form.append('template_file', file);
+                try {
+                    const res = await fetch(API_BASE_URL + '/api/v1/prescriptions/template/upload', {
+                        method: 'POST', headers: { 'Authorization': `Bearer ${token}` }, body: form
+                    });
+                    const data = await res.json();
+                    if (!res.ok) throw new Error(data?.detail || 'Upload failed');
+                    toast('Template uploaded');
+                } catch(err) { toast('Template upload failed'); }
+            };
+
+            const onHandwrittenUpload = async (patientId, file) => {
+                if (!file || !patientId) return toast('Select patient and file');
+                const token = sessionStorage.getItem('accessToken');
+                const form = new FormData(); form.append('patient_id', String(patientId)); form.append('file', file);
+                try {
+                    const res = await fetch(API_BASE_URL + '/api/v1/prescriptions/handwritten/upload', {
+                        method: 'POST', headers: { 'Authorization': `Bearer ${token}` }, body: form
+                    });
+                    const data = await res.json();
+                    if (!res.ok) throw new Error(data?.detail || 'Upload failed');
+                    toast('Handwritten prescription uploaded');
+                } catch(err) { toast('Upload failed'); }
+            };
+
+            const [editorHtml, setEditorHtml] = React.useState('');
+            const [editorPatientId, setEditorPatientId] = React.useState('');
+            const saveEditor = async () => {
+                if (!editorHtml || !editorPatientId) return toast('Enter patient and content');
+                const token = sessionStorage.getItem('accessToken');
+                const form = new FormData(); form.append('patient_id', editorPatientId); form.append('html_content', editorHtml);
+                try {
+                    const res = await fetch(API_BASE_URL + '/api/v1/prescriptions/editor/save', {
+                        method: 'POST', headers: { 'Authorization': `Bearer ${token}` }, body: form
+                    });
+                    const data = await res.json();
+                    if (!res.ok) throw new Error(data?.detail || 'Save failed');
+                    toast('Prescription saved');
+                } catch(err) { toast('Save failed'); }
+            };
+
+            return (
+                <>
+                    <div className="fixed bottom-6 right-6 z-50 flex flex-col items-end space-y-3">
+                        {open && (
+                            <div className="medical-card p-4 rounded-xl w-96 shadow-xl">
+                                <div className="flex items-center justify-between mb-3">
+                                    <h3 className="font-semibold text-medical-dark">Quick Actions</h3>
+                                    <button onClick={() => setOpen(false)} className="text-medical-gray"><i className="fas fa-times"></i></button>
+                                </div>
+                                {error && <div className="text-red-600 text-sm mb-2">{error}</div>}
+                                <div className="space-y-4">
+                                    <div className="border-b pb-3">
+                                        <div className="flex items-center justify-between mb-2">
+                                            <span className="font-medium">Services status</span>
+                                            <button onClick={fetchServices} className="text-medical-accent text-sm">Refresh</button>
+                                        </div>
+                                        {loading && <LoadingSpinner/>}
+                                        {services && (
+                                            <div className="grid grid-cols-3 gap-2 text-sm">
+                                                {['whatsapp','email','calendar'].map(k => (
+                                                    <div key={k} className="p-2 rounded bg-gray-50">
+                                                        <div className="capitalize">{k}</div>
+                                                        <div className={services[k]?.enabled ? 'text-green-600' : 'text-gray-500'}>
+                                                            {services[k]?.status || (services[k]?.enabled ? 'healthy' : 'disabled')}
+                                                        </div>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        )}
+                                    </div>
+
+                                    <div className="border-b pb-3">
+                                        <div className="font-medium mb-2">Schedule config</div>
+                                        <div className="flex items-center space-x-2 mb-2">
+                                            <label className="text-sm w-40">Interval (min)</label>
+                                            <input type="number" value={config.appointment_interval_minutes}
+                                                onChange={e=>setConfig({...config, appointment_interval_minutes: Number(e.target.value)})}
+                                                className="form-input-themed" />
+                                        </div>
+                                        <div className="flex items-center space-x-2 mb-2">
+                                            <label className="text-sm w-40">Daily limit</label>
+                                            <input type="number" value={config.appointment_daily_limit}
+                                                onChange={e=>setConfig({...config, appointment_daily_limit: Number(e.target.value)})}
+                                                className="form-input-themed" />
+                                        </div>
+                                        <button onClick={saveConfig} className="medical-button text-white px-4 py-2 rounded">Save Config</button>
+                                    </div>
+
+                                    <div className="border-b pb-3">
+                                        <div className="font-medium mb-2">Prescription template</div>
+                                        <input type="file" accept="image/*,application/pdf" onChange={onTemplateUpload} className="w-full" />
+                                    </div>
+
+                                    <div className="border-b pb-3">
+                                        <div className="font-medium mb-2">Handwritten prescription upload</div>
+                                        <div className="flex items-center space-x-2 mb-2">
+                                            <input type="number" placeholder="Patient ID" className="form-input-themed" id="handw_pid" />
+                                        </div>
+                                        <input type="file" accept="image/*,application/pdf" onChange={(e)=>{
+                                            const pid = document.getElementById('handw_pid').value;
+                                            onHandwrittenUpload(pid, e.target.files?.[0]);
+                                        }} className="w-full" />
+                                    </div>
+
+                                    <div>
+                                        <div className="font-medium mb-2">Prescription editor save</div>
+                                        <div className="flex items-center space-x-2 mb-2">
+                                            <input type="number" placeholder="Patient ID" value={editorPatientId} onChange={(e)=>setEditorPatientId(e.target.value)} className="form-input-themed" />
+                                        </div>
+                                        <textarea rows="4" placeholder="Paste editor HTML here" value={editorHtml} onChange={(e)=>setEditorHtml(e.target.value)} className="form-input-themed"></textarea>
+                                        <div className="mt-2 flex justify-end">
+                                            <button onClick={saveEditor} className="medical-button text-white px-4 py-2 rounded">Save</button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+                        <button onClick={() => setOpen(!open)} className="medical-button text-white px-4 py-3 rounded-full shadow-lg">
+                            <i className="fas fa-bolt mr-2"></i>Quick Actions
+                        </button>
+                    </div>
+                </>
+            );
+        };
+
+        // Simple toast utility
+        const toast = (msg) => {
+            const el = document.createElement('div');
+            el.className = 'fixed bottom-4 left-1/2 -translate-x-1/2 bg-medical-dark text-white px-4 py-2 rounded shadow z-[9999]';
+            el.textContent = msg;
+            document.body.appendChild(el);
+            setTimeout(()=>{ el.remove(); }, 2500);
+        };
+
         // Render the App
-        ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+        ReactDOM.createRoot(document.getElementById('root')).render(<><App /><QuickActions /></>);
     </script>
 </body>
 

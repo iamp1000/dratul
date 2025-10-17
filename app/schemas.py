@@ -67,6 +67,7 @@ class UserBase(BaseModel):
     email: EmailStr
     role: UserRole
     phone_number: Optional[str] = Field(None, max_length=20)
+    permissions: Optional[Dict[str, Any]] = None
 
 class UserCreate(UserBase):
     password: str = Field(..., min_length=8)
@@ -391,11 +392,6 @@ class UnavailablePeriodResponse(UnavailablePeriodBase):
     id: int
     created_by: int
     created_at: datetime
-
-# --- Emergency Block Schemas ---
-class EmergencyBlockCreate(BaseSchema):
-    block_date: date
-    reason: str = Field(..., min_length=5, max_length=255)
 
 # --- Emergency Block Schemas ---
 class EmergencyBlockCreate(BaseSchema):
