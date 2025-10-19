@@ -468,6 +468,22 @@ def get_location(db: Session, location_id: int) -> Optional[models.Location]:
     """Get a single location by ID."""
     return db.query(models.Location).filter(models.Location.id == location_id).first()
 
+def get_location_by_name(db: Session, name: str) -> Optional[models.Location]:
+    """Get a single location by its name."""
+    return db.query(models.Location).filter(models.Location.name == name).first()
+
+def get_locations(db: Session, skip: int = 0, limit: int = 100) -> List[models.Location]:
+    """Get all locations."""
+    return db.query(models.Location).offset(skip).limit(limit).all()
+
+def create_location(db: Session, location: schemas.LocationCreate) -> models.Location:
+    """Create a new location."""
+    db_location = models.Location(**location.dict())
+    db.add(db_location)
+    db.commit()
+    db.refresh(db_location)
+    return db_location
+
 def get_appointments_without_calendar_events(db: Session) -> List[models.Appointment]:
     """Get all appointments that are missing a Google Calendar event ID."""
     return db.query(models.Appointment).filter(models.Appointment.google_calendar_event_id.is_(None)).all()
@@ -492,8 +508,7 @@ def update_schedules_for_location(db: Session, location_id: int, schedules: List
         new_schedules = []
         for schedule_data in schedules:
             new_schedule = models.LocationSchedule(
-                **schedule_data.dict(),
-                location_id=location_id
+                **schedule_data.dict()
             )
             new_schedules.append(new_schedule)
         

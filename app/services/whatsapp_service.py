@@ -5,8 +5,8 @@ import json
 import asyncio
 from datetime import datetime, timedelta
 from typing import Optional, Dict, Any, List
-from pywa import WhatsApp
-from pywa.types import Message, CallbackButton, Button
+from twilio.rest import Client
+from twilio.base.exceptions import TwilioRestException
 import logging
 from sqlalchemy.orm import Session
 from fastapi import HTTPException, status
@@ -427,28 +427,21 @@ Simply reply with the number or describe what you need."""
 
 
 class WhatsAppService:
-    """Enhanced WhatsApp service with chatbot capabilities"""
+    """Twilio-based WhatsApp service"""
 
     def __init__(self):
         settings = get_settings()
-        self.phone_id = settings.whatsapp_phone_number_id
-        self.access_token = settings.whatsapp_access_token
+        self.account_sid = os.getenv("TWILIO_ACCOUNT_SID")
+        self.auth_token = os.getenv("TWILIO_AUTH_TOKEN")
+        self.from_number = os.getenv("TWILIO_WHATSAPP_FROM")
 
-        self.enabled = bool(
-            self.phone_id and 
-            self.access_token and
-            self.phone_id != "your_phone_id" and
-            self.access_token != "your_token"
-        )
+        self.enabled = bool(self.account_sid and self.auth_token and self.from_number)
 
         if self.enabled:
-            self.client = WhatsApp(
-                phone_id=self.phone_id,
-                token=self.access_token
-            )
-            logger.info("✅ WhatsApp Business API - ENABLED")
+            self.client = Client(self.account_sid, self.auth_token)
+            logger.info("✅ Twilio WhatsApp Service - ENABLED")
         else:
-            logger.warning("⚠️ WhatsApp Business API not configured - Service disabled")
+            logger.warning("⚠️ Twilio WhatsApp not configured - Service disabled")
             self.client = None
 
         self.chatbot = WhatsAppChatbot()
@@ -460,11 +453,18 @@ class WhatsAppService:
             return {"success": True, "message": "Message sent (simulated)", "message_id": "sim_" + str(datetime.now().timestamp())}
 
         try:
-            response = self.client.send_message(
-                to=phone_number,
-                text=message
+            # Twilio requires the recipient number to be in the format 'whatsapp:+91...' 
+            if not phone_number.startswith('whatsapp:'):
+                to_number = f"whatsapp:{phone_number}"
+            else:
+                to_number = phone_number
+
+            message = self.client.messages.create(
+                from_=self.from_number,
+                body=message,
+                to=to_number
             )
-            return {"success": True, "message": "Message sent successfully", "message_id": response.id}
+            return {"success": True, "message": "Message sent successfully", "message_id": message.sid}
         except Exception as e:
             logger.error(f"Failed to send WhatsApp message: {str(e)}")
             return {"success": False, "error": str(e)}

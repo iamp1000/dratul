@@ -1,6 +1,5 @@
 <!DOCTYPE html>
 <html lang="en">
-
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -183,63 +182,14 @@
             background: rgba(0, 0, 0, 0.5);
             backdrop-filter: blur(5px);
         }
-
-        .editor-shell {
-            display: grid;
-            grid-template-columns: 340px 1fr;
-            gap: 20px;
-        }
-
-        .editor-toolbar {
-            position: sticky;
-            top: 0;
-            z-index: 20;
-            background: #fff;
-            border-bottom: 1px solid #e5e7eb;
-        }
-
-        .editor-page-wrap {
-            display: flex;
-            justify-content: center;
-            padding: 20px 0;
-            background: linear-gradient(180deg, #fafafa, #f3f4f6);
-        }
-
-        .editor-page {
-            position: relative;
-            width: 794px;
-            min-height: 1123px;
-            background: #fff;
-            box-shadow: 0 10px 30px rgba(0, 0, 0, .08);
-            border-radius: 12px;
-            overflow: hidden;
-        }
-
-        .editor-template-overlay {
-            position: absolute;
-            inset: 0;
-            background-position: center top;
-            background-repeat: no-repeat;
-            background-size: contain;
-            opacity: .18;
-            pointer-events: none;
-        }
-
-        .editor-content {
-            position: relative;
-            padding: 48px 56px;
-        }
-
-        .ql-toolbar.ql-snow {
-            border: none;
-            border-bottom: 1px solid #e5e7eb;
-        }
-
-        .ql-container.ql-snow {
-            border: none;
-            font-size: 15px;
-            line-height: 1.7;
-        }
+        .editor-shell { display:grid; grid-template-columns:340px 1fr; gap:20px; }
+        .editor-toolbar { position:sticky; top:0; z-index:20; background:#fff; border-bottom:1px solid #e5e7eb; }
+        .editor-page-wrap { display:flex; justify-content:center; padding:20px 0; background:linear-gradient(180deg,#fafafa,#f3f4f6); }
+        .editor-page { position:relative; width:794px; min-height:1123px; background:#fff; box-shadow:0 10px 30px rgba(0,0,0,.08); border-radius:12px; overflow:hidden; }
+        .editor-template-overlay { position:absolute; inset:0; background-position:center top; background-repeat:no-repeat; background-size:contain; opacity:.18; pointer-events:none; }
+        .editor-content { position:relative; padding:48px 56px; }
+        .ql-toolbar.ql-snow { border:none; border-bottom:1px solid #e5e7eb; }
+        .ql-container.ql-snow { border:none; font-size:15px; line-height:1.7; }
 
         .floating-elements::before {
             content: '';
@@ -284,29 +234,20 @@
         .form-input-themed {
             width: 100%;
             padding: 12px 14px;
-            background: #F9FAFB;
-            /* gray-50 */
-            border: 1px solid #E5E7EB;
-            /* gray-200 */
+            background: #F9FAFB; /* gray-50 */
+            border: 1px solid #E5E7EB; /* gray-200 */
             border-radius: 12px;
-            color: #0B4D6B;
-            /* medical-dark-ish text */
+            color: #0B4D6B; /* medical-dark-ish text */
             font-family: 'Inter', sans-serif;
             transition: box-shadow .2s ease, border-color .2s ease, background-color .2s ease;
             outline: none;
         }
-
-        .form-input-themed::placeholder {
-            color: #94A3B8;
-        }
-
+        .form-input-themed::placeholder { color: #94A3B8; }
         .form-input-themed:focus {
             background: #ffffff;
-            border-color: #2196F3;
-            /* medical-accent */
-            box-shadow: 0 0 0 3px rgba(33, 150, 243, 0.18);
+            border-color: #2196F3; /* medical-accent */
+            box-shadow: 0 0 0 3px rgba(33,150,243,0.18);
         }
-
         /* Date & time pickers: reduce native chrome look and unify */
         input[type="date"].form-input-themed,
         input[type="time"].form-input-themed,
@@ -314,10 +255,8 @@
             appearance: none;
             -webkit-appearance: none;
             color-scheme: light;
-            padding-right: 36px;
-            /* room for picker icon */
+            padding-right: 36px; /* room for picker icon */
         }
-
         input[type="date"].form-input-themed::-webkit-calendar-picker-indicator,
         input[type="time"].form-input-themed::-webkit-calendar-picker-indicator,
         input[type="datetime-local"].form-input-themed::-webkit-calendar-picker-indicator {
@@ -325,40 +264,16 @@
             filter: invert(34%) sepia(48%) saturate(404%) hue-rotate(179deg) brightness(96%) contrast(95%);
             opacity: .8;
         }
-
         input[type="date"].form-input-themed:hover::-webkit-calendar-picker-indicator,
         input[type="time"].form-input-themed:hover::-webkit-calendar-picker-indicator,
-        input[type="datetime-local"].form-input-themed:hover::-webkit-calendar-picker-indicator {
-            opacity: 1;
-        }
-
+        input[type="datetime-local"].form-input-themed:hover::-webkit-calendar-picker-indicator { opacity: 1; }
         /* Selects */
-        select.form-input-themed {
-            background-image: linear-gradient(45deg, transparent 50%, #64748B 50%), linear-gradient(135deg, #64748B 50%, transparent 50%);
-            background-position: calc(100% - 18px) calc(1em + 2px), calc(100% - 13px) calc(1em + 2px);
-            background-size: 5px 5px, 5px 5px;
-            background-repeat: no-repeat;
-        }
-
-        select.form-input-themed::-ms-expand {
-            display: none;
-        }
-
+        select.form-input-themed { background-image: linear-gradient(45deg, transparent 50%, #64748B 50%), linear-gradient(135deg, #64748B 50%, transparent 50%); background-position: calc(100% - 18px) calc(1em + 2px), calc(100% - 13px) calc(1em + 2px); background-size: 5px 5px, 5px 5px; background-repeat: no-repeat; }
+        select.form-input-themed::-ms-expand { display: none; }
         /* Textareas */
-        textarea.form-input-themed {
-            min-height: 110px;
-            resize: vertical;
-            line-height: 1.6;
-        }
-
-        textarea.form-input-themed::-webkit-scrollbar {
-            width: 8px;
-        }
-
-        textarea.form-input-themed::-webkit-scrollbar-thumb {
-            background: #93C5FD;
-            border-radius: 8px;
-        }
+        textarea.form-input-themed { min-height: 110px; resize: vertical; line-height: 1.6; }
+        textarea.form-input-themed::-webkit-scrollbar { width: 8px; }
+        textarea.form-input-themed::-webkit-scrollbar-thumb { background: #93C5FD; border-radius: 8px; }
     </style>
 </head>
 
@@ -394,7 +309,7 @@
                 }
                 const text = await res.text();
                 let data = null;
-                try { data = text ? JSON.parse(text) : null; } catch { }
+                try { data = text ? JSON.parse(text) : null; } catch {}
                 if (!res.ok) {
                     const msg = (data && (data.detail || data.message)) || text || 'Request failed';
                     throw new Error(msg);
@@ -425,7 +340,7 @@
                         {subtitle}
                     </div>
                 </div>
-                <div className="text-xl sm:text-2xl lg:text-3xl font-bold text-medical-dark mb-1">{value}</div>
+                <div className="text-3xl font-bold text-medical-dark mb-1">{value}</div>
                 <div className="text-medical-gray font-secondary">{title}</div>
             </div>
         );
@@ -450,7 +365,7 @@
             );
         };
 
-
+        
 
         // Emergency Block Modal Component
         const EmergencyBlockModal = ({ onClose }) => {
@@ -514,7 +429,7 @@
         };
 
         // Sidebar Component
-        const Sidebar = ({ currentView, setCurrentView, user, isMobileMenuOpen, setIsMobileMenuOpen }) => {
+        const Sidebar = ({ currentView, setCurrentView, user }) => {
             const menuItems = [
                 { id: 'dashboard', label: 'Dashboard', icon: 'fas fa-home' },
                 { id: 'appointments', label: 'Appointments', icon: 'fas fa-calendar-alt' },
@@ -531,74 +446,62 @@
             };
 
             return (
-                <>
-                    {/* Mobile Menu Overlay */}
-                    {
-                        isMobileMenuOpen && (
-                            <div
-                                className="fixed inset-0 bg-black bg-opacity-50 z-40 md:hidden"
-                                onClick={() => setIsMobileMenuOpen(false)}
-                            />
-                        )
-                    }
-
-                    <div className={`w-64 sidebar-gradient text-white flex flex-col h-full overflow-y-auto fixed md:relative z-50 transition-transform duration-300 ${isMobileMenuOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0"}`}>
-                        <div className="p-6 border-b border-white/20">
-                            <div className="flex items-center mb-4">
-                                <div className="w-12 h-12 bg-white/20 rounded-xl flex items-center justify-center mr-3">
-                                    <i className="fas fa-stethoscope text-white text-xl"></i>
+                <div className="w-64 sidebar-gradient text-white flex flex-col h-full">
+                    <div className="p-6 border-b border-white/20">
+                        <div className="flex items-center mb-4">
+                            <div className="w-12 h-12 bg-white/20 rounded-xl flex items-center justify-center mr-3">
+                                <i className="fas fa-stethoscope text-white text-xl"></i>
+                            </div>
+                            <div>
+                                <h1 className="text-xl font-bold font-primary">Medical Portal</h1>
+                                <p className="text-blue-200 font-secondary text-sm">Dr. Dhingra's Clinic</p>
+                            </div>
+                        </div>
+                        <div className="bg-white/10 p-3 rounded-xl">
+                            <div className="flex items-center">
+                                <div className="w-8 h-8 bg-white/20 rounded-full flex items-center justify-center mr-2">
+                                    <i className="fas fa-user text-white text-sm"></i>
                                 </div>
                                 <div>
-                                    <h1 className="text-xl font-bold font-primary">Medical Portal</h1>
-                                    <p className="text-blue-200 font-secondary text-sm">Dr. Dhingra's Clinic</p>
+                                    <div className="font-semibold text-sm">{user?.username}</div>
+                                    <div className="text-blue-200 text-xs capitalize">{user?.role}</div>
                                 </div>
                             </div>
-                            <div className="bg-white/10 p-3 rounded-xl">
-                                <div className="flex items-center">
-                                    <div className="w-8 h-8 bg-white/20 rounded-full flex items-center justify-center mr-2">
-                                        <i className="fas fa-user text-white text-sm"></i>
-                                    </div>
-                                    <div>
-                                        <div className="font-semibold text-sm">{user?.username}</div>
-                                        <div className="text-blue-200 text-xs capitalize">{user?.role}</div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-
-                        <nav className="flex-1 p-4 space-y-2">
-                            {menuItems.map(item => {
-                                if (item.adminOnly && user?.role !== 'admin') return null;
-                                return (
-                                    <button
-                                        key={item.id}
-                                        onClick={() => setCurrentView(item.id)}
-                                        className={`nav-item w-full text-left px-3 sm:px-4 py-3 sm:py-3 rounded-xl flex items-center space-x-3 font-secondary ${currentView === item.id ? 'active' : ''
-                                            }`}
-                                    >
-                                        <i className={item.icon}></i>
-                                        <span>{item.label}</span>
-                                    </button>
-                                );
-                            })}
-                        </nav>
-
-                        <div className="p-4 border-t border-white/20">
-                            <button
-                                onClick={handleLogout}
-                                className="nav-item w-full text-left px-3 sm:px-4 py-3 sm:py-3 rounded-xl flex items-center space-x-3 font-secondary text-red-200 hover:bg-red-500/10"
-                            >
-                                <i className="fas fa-sign-out-alt"></i>
-                                <span>Logout</span>
-                            </button>
                         </div>
                     </div>
-                </>
+
+                    <nav className="flex-1 p-4 space-y-2">
+                        {menuItems.map(item => {
+                            if (item.adminOnly && user?.role !== 'admin') return null;
+                            return (
+                                <button
+                                    key={item.id}
+                                    onClick={() => setCurrentView(item.id)}
+                                    className={`nav-item w-full text-left px-4 py-3 rounded-xl flex items-center space-x-3 font-secondary ${currentView === item.id ? 'active' : ''
+                                        }`}
+                                >
+                                    <i className={item.icon}></i>
+                                    <span>{item.label}</span>
+                                </button>
+                            );
+                        })}
+                    </nav>
+
+                    <div className="p-4 border-t border-white/20">
+                        <button
+                            onClick={handleLogout}
+                            className="nav-item w-full text-left px-4 py-3 rounded-xl flex items-center space-x-3 font-secondary text-red-200 hover:bg-red-500/10"
+                        >
+                            <i className="fas fa-sign-out-alt"></i>
+                            <span>Logout</span>
+                        </button>
+                    </div>
+                </div>
             );
         };
 
         // Dashboard Component
-        const Dashboard = ({ openModal, closeModal }) => {
+                        const Dashboard = ({ openModal, closeModal }) => {
             const [stats, setStats] = React.useState(null);
             const [recentPresc, setRecentPresc] = React.useState([]);
             const [loading, setLoading] = React.useState(true);
@@ -618,19 +521,19 @@
                     try {
                         const data = await api('/api/v1/prescriptions/recent?limit=5');
                         setRecentPresc(Array.isArray(data) ? data : []);
-                    } catch { }
+                    } catch {}
                 };
                 fetchStats();
                 fetchRecent();
             }, []);
 
-            if (loading) return <LoadingSpinner />;
+                        if (loading) return <LoadingSpinner />;
 
 
             return (
                 <div className="space-y-8">
                     <div className="flex items-center justify-between">
-                        <h2 className="text-lg sm:text-xl lg:text-2xl font-bold text-medical-dark font-primary">Dashboard Overview</h2>
+                        <h2 className="text-2xl font-bold text-medical-dark font-primary">Dashboard Overview</h2>
                         <div className="text-medical-gray font-secondary">
                             <i className="fas fa-calendar-day mr-2"></i>
                             {new Date().toLocaleDateString('en-US', {
@@ -677,15 +580,15 @@
                         <div className="medical-card p-6 rounded-2xl">
                             <h3 className="text-lg font-bold text-medical-dark mb-4 font-primary">Quick Actions</h3>
                             <div className="space-y-3">
-                                <button onClick={() => openModal('Create New Appointment', <AppointmentEditor onClose={closeModal} />)} className="medical-button w-full p-3 text-white rounded-xl font-secondary flex items-center justify-center space-x-2 relative z-10">
+                                                                <button onClick={() => openModal('Create New Appointment', <AppointmentEditor onClose={closeModal} />)} className="medical-button w-full p-3 text-white rounded-xl font-secondary flex items-center justify-center space-x-2 relative z-10">
                                     <i className="fas fa-plus"></i>
                                     <span>New Appointment</span>
                                 </button>
-                                <button onClick={() => openModal('Add New Patient', <PatientEditor onClose={closeModal} />)} className="medical-button w-full p-3 text-white rounded-xl font-secondary flex items-center justify-center space-x-2 relative z-10">
+                                                                <button onClick={() => openModal('Add New Patient', <PatientEditor onClose={closeModal} />)} className="medical-button w-full p-3 text-white rounded-xl font-secondary flex items-center justify-center space-x-2 relative z-10">
                                     <i className="fas fa-user-plus"></i>
                                     <span>Add Patient</span>
                                 </button>
-                                <button onClick={() => openModal('Create New Prescription', <PrescriptionEditor onClose={closeModal} />)} className="medical-button w-full p-3 text-white rounded-xl font-secondary flex items-center justify-center space-x-2 relative z-10">
+                                                                <button onClick={() => openModal('Create New Prescription', <PrescriptionEditor onClose={closeModal} />)} className="medical-button w-full p-3 text-white rounded-xl font-secondary flex items-center justify-center space-x-2 relative z-10">
                                     <i className="fas fa-prescription"></i>
                                     <span>New Prescription</span>
                                 </button>
@@ -712,9 +615,9 @@
                                             <div className="font-medium text-medical-dark">{p.medication_name}</div>
                                             <div className="text-sm text-medical-gray">Patient ID: {p.patient_id} • {new Date(p.prescribed_date).toLocaleDateString()}</div>
                                         </div>
-                                        <div className="flex flex-wrap items-center gap-2">
-                                            <button onClick={() => window.open(`/api/v1/prescriptions/editor/pdf/${p.document_id || ''}`, '_blank')} className="px-2 py-1 bg-gray-100 rounded text-sm">PDF</button>
-                                            <button onClick={() => window.open(`/api/v1/prescriptions/editor/html/${p.document_id || ''}`, '_blank')} className="px-2 py-1 bg-gray-100 rounded text-sm">HTML</button>
+                                        <div className="flex items-center space-x-2">
+                                            <button onClick={()=>window.open(`/api/v1/prescriptions/editor/pdf/${p.document_id||''}`,'_blank')} className="px-2 py-1 bg-gray-100 rounded text-sm">PDF</button>
+                                            <button onClick={()=>window.open(`/api/v1/prescriptions/editor/html/${p.document_id||''}`,'_blank')} className="px-2 py-1 bg-gray-100 rounded text-sm">HTML</button>
                                         </div>
                                     </div>
                                 ))}
@@ -828,7 +731,7 @@
                         </div>
                     </div>
 
-                    <div className="grid grid-cols-7 gap-1 sm:gap-2">
+                    <div className="grid grid-cols-7 gap-2">
                         {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(day => (
                             <div key={day} className="p-2 text-center font-semibold text-medical-gray">
                                 {day}
@@ -877,8 +780,8 @@
             return (
                 <div className="space-y-8">
                     <div className="flex items-center justify-between">
-                        <h2 className="text-lg sm:text-xl lg:text-2xl font-bold text-medical-dark font-primary">Appointments</h2>
-                        <button className="medical-button px-6 py-3 text-white rounded-xl font-secondary flex flex-wrap items-center gap-2 relative z-10">
+                        <h2 className="text-2xl font-bold text-medical-dark font-primary">Appointments</h2>
+                        <button className="medical-button px-6 py-3 text-white rounded-xl font-secondary flex items-center space-x-2 relative z-10">
                             <i className="fas fa-plus"></i>
                             <span>New Appointment</span>
                         </button>
@@ -918,17 +821,17 @@
         // Dashboard Services (live)
         const DashboardServices = () => {
             const [status, setStatus] = React.useState(null);
-            React.useEffect(() => { (async () => { try { const s = await api('/api/v1/services/status'); setStatus(s); } catch { setStatus(null); } })(); }, []);
+            React.useEffect(()=>{ (async()=>{ try{ const s = await api('/api/v1/services/status'); setStatus(s);}catch{ setStatus(null);} })(); },[]);
             const pill = (label, ok) => (
-                <div className="flex items-center justify-between p-3 rounded-xl border" style={{ backgroundColor: ok ? 'rgba(16,185,129,0.1)' : 'rgba(239,68,68,0.1)', borderColor: ok ? 'rgba(16,185,129,0.2)' : 'rgba(239,68,68,0.2)' }}>
+                <div className="flex items-center justify-between p-3 rounded-xl border" style={{backgroundColor: ok? 'rgba(16,185,129,0.1)':'rgba(239,68,68,0.1)', borderColor: ok? 'rgba(16,185,129,0.2)':'rgba(239,68,68,0.2)'}}>
                     <div className="flex items-center space-x-3">
-                        <div className={`w-3 h-3 rounded-full ${ok ? 'bg-medical-success' : 'bg-medical-error'}`}></div>
+                        <div className={`w-3 h-3 rounded-full ${ok? 'bg-medical-success':'bg-medical-error'}`}></div>
                         <span className="font-secondary">{label}</span>
                     </div>
-                    <span className={`text-sm font-medium ${ok ? 'text-medical-success' : 'text-medical-error'}`}>{ok ? 'Online' : 'Disabled'}</span>
+                    <span className={`text-sm font-medium ${ok? 'text-medical-success':'text-medical-error'}`}>{ok? 'Online':'Disabled'}</span>
                 </div>
             );
-            if (!status) return <LoadingSpinner />;
+            if (!status) return <LoadingSpinner/>;
             return (
                 <div className="space-y-2">
                     {pill('WhatsApp', !!status.whatsapp?.enabled)}
@@ -1013,7 +916,7 @@
                                             {new Date(apt.start_time).toLocaleTimeString()} - {apt.appointment_type}
                                         </div>
                                     </div>
-                                    <div className="flex flex-wrap items-center gap-2">
+                                    <div className="flex items-center space-x-2">
                                         <span className="px-2 py-1 bg-medical-accent/10 text-medical-accent rounded-full text-xs">
                                             {apt.status}
                                         </span>
@@ -1103,7 +1006,7 @@
                             </button>
                         </div>
                     </div>
-                    <div className="grid grid-cols-7 gap-1 sm:gap-2">
+                    <div className="grid grid-cols-7 gap-2">
                         {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(day => (
                             <div key={day} className="p-2 text-center font-semibold text-medical-gray">{day}</div>
                         ))}
@@ -1120,7 +1023,6 @@
             const [loading, setLoading] = React.useState(true);
             const [showModal, setShowModal] = React.useState(false);
             const [modalContent, setModalContent] = React.useState(null);
-            const [isMobileMenuOpen, setIsMobileMenuOpen] = React.useState(false);
 
             // Enhance native date/time inputs with Flatpickr for consistent styling
             React.useEffect(() => {
@@ -1171,7 +1073,7 @@
             React.useEffect(() => {
                 fetchSchedulesAndLocations();
             }, []);
-
+            
             const handleSave = async (updatedSchedules) => {
                 try {
                     for (const locationId in updatedSchedules) {
@@ -1200,15 +1102,15 @@
             return (
                 <div className="space-y-8">
                     <div className="flex items-center justify-between">
-                        <h2 className="text-lg sm:text-xl lg:text-2xl font-bold text-medical-dark font-primary">Doctor Schedule</h2>
-                        <div className="flex space-x-2 sm:space-x-4">
+                        <h2 className="text-2xl font-bold text-medical-dark font-primary">Doctor Schedule</h2>
+                        <div className="flex space-x-4">
                             <button
                                 onClick={() => {
                                     setModalTitle('Emergency Day Block');
                                     setModalContent(<EmergencyBlockModal onClose={() => setShowModal(false)} />);
                                     setShowModal(true);
                                 }}
-                                className="bg-red-600 hover:bg-red-700 px-6 py-3 text-white rounded-xl font-secondary flex flex-wrap items-center gap-2 relative z-10 transition-all duration-300 transform hover:scale-105"
+                                className="bg-red-600 hover:bg-red-700 px-6 py-3 text-white rounded-xl font-secondary flex items-center space-x-2 relative z-10 transition-all duration-300 transform hover:scale-105"
                             >
                                 <i className="fas fa-exclamation-triangle"></i>
                                 <span>Emergency Block</span>
@@ -1219,7 +1121,7 @@
                                     setModalContent(<ScheduleEditor schedules={schedules} locations={locations} onSave={handleSave} onClose={() => setShowModal(false)} />);
                                     setShowModal(true);
                                 }}
-                                className="medical-button px-6 py-3 text-white rounded-xl font-secondary flex flex-wrap items-center gap-2 relative z-10"
+                                className="medical-button px-6 py-3 text-white rounded-xl font-secondary flex items-center space-x-2 relative z-10"
                             >
                                 <i className="fas fa-edit"></i>
                                 <span>Edit Weekly Schedule</span>
@@ -1275,7 +1177,7 @@
                     }
                 }));
             };
-
+            
             const activeSchedule = localSchedules[activeLocationId] || {};
 
             return (
@@ -1320,7 +1222,7 @@
                                     />
                                 </div>
                                 <div className="flex items-center justify-center">
-                                    <label className="flex flex-wrap items-center gap-2 cursor-pointer">
+                                    <label className="flex items-center space-x-2 cursor-pointer">
                                         <input
                                             type="checkbox"
                                             checked={dayData.is_available}
@@ -1379,8 +1281,8 @@
             return (
                 <div className="space-y-6">
                     <div className="flex items-center justify-between">
-                        <h2 className="text-lg sm:text-xl lg:text-2xl font-bold text-medical-dark font-primary">Patients</h2>
-                        <div className="flex space-x-2 sm:space-x-4">
+                        <h2 className="text-2xl font-bold text-medical-dark font-primary">Patients</h2>
+                        <div className="flex space-x-4">
                             <div className="relative">
                                 <input
                                     type="text"
@@ -1391,7 +1293,7 @@
                                 />
                                 <i className="fas fa-search absolute left-3 top-1/2 transform -translate-y-1/2 text-medical-gray"></i>
                             </div>
-                            <button className="medical-button px-6 py-3 text-white rounded-xl font-secondary flex flex-wrap items-center gap-2 relative z-10">
+                            <button className="medical-button px-6 py-3 text-white rounded-xl font-secondary flex items-center space-x-2 relative z-10">
                                 <i className="fas fa-user-plus"></i>
                                 <span>Add Patient</span>
                             </button>
@@ -1400,7 +1302,7 @@
 
                     <div className="medical-card rounded-2xl overflow-hidden">
                         <div className="overflow-x-auto">
-                            <div className="overflow-x-auto -mx-4 sm:mx-0"><table className="w-full">
+                            <table className="w-full">
                                 <thead className="bg-medical-light">
                                     <tr>
                                         <th className="text-left p-4 font-semibold text-medical-dark">Name</th>
@@ -1453,7 +1355,7 @@
                                         </tr>
                                     ))}
                                 </tbody>
-                            </table></div>
+                            </table>
                         </div>
 
                         {patients.length === 0 && (
@@ -1472,7 +1374,7 @@
                     >
                         {selectedPatient && <PatientDetails patient={selectedPatient} />}
                     </Modal>
-                </div >
+                </div>
             );
         };
 
@@ -1495,7 +1397,7 @@
                     } catch (error) {
                         console.error('Error fetching patient prescriptions:', error);
                     }
-
+                    
                     // Fetch Remarks
                     try {
                         const remarksData = await api(`/api/v1/patients/${patient.id}/remarks/`);
@@ -1549,14 +1451,14 @@
 
             return (
                 <div className="space-y-6">
-                    <div className="flex flex-wrap items-center gap-2 sm:space-x-4 pb-4 border-b border-gray-200">
+                    <div className="flex items-center space-x-4 pb-4 border-b border-gray-200">
                         <div className="w-16 h-16 bg-medical-accent/10 rounded-full flex items-center justify-center">
                             <span className="text-medical-accent text-xl font-bold">
                                 {patient.name?.charAt(0) || 'P'}
                             </span>
                         </div>
                         <div>
-                            <h3 className="text-lg sm:text-xl lg:text-2xl font-bold text-medical-dark">{`${patient.first_name || ''} ${patient.last_name || ''}`.trim() || 'Unknown Patient'}</h3>
+                            <h3 className="text-2xl font-bold text-medical-dark">{`${patient.first_name || ''} ${patient.last_name || ''}`.trim() || 'Unknown Patient'}</h3>
                             <p className="text-medical-gray">Patient ID: {patient.id}</p>
                         </div>
                     </div>
@@ -1678,11 +1580,11 @@
                                                         Prescribed: {new Date(prescription.prescribed_date).toLocaleDateString()}
                                                     </div>
                                                 </div>
-                                                <div className="flex flex-wrap items-center gap-2">
-                                                    <button title="View PDF" onClick={() => window.open(`/api/v1/prescriptions/editor/pdf/${prescription.document_id || ''}`, '_blank')} className="px-2 py-1 bg-gray-100 rounded text-sm">PDF</button>
-                                                    <button title="View HTML" onClick={() => window.open(`/api/v1/prescriptions/editor/html/${prescription.document_id || ''}`, '_blank')} className="px-2 py-1 bg-gray-100 rounded text-sm">HTML</button>
-                                                    <button title="Send WhatsApp" onClick={async () => { try { await api('/api/v1/prescriptions/share', { method: 'POST', body: JSON.stringify({ patient_id: prescription.patient_id || patient.id, document_id: prescription.document_id, method: 'whatsapp' }) }); toast('Sent via WhatsApp'); } catch { toast('Send failed'); } }} className="px-2 py-1 bg-green-600 text-white rounded text-sm">WA</button>
-                                                    <button title="Send Email" onClick={async () => { try { await api('/api/v1/prescriptions/share', { method: 'POST', body: JSON.stringify({ patient_id: prescription.patient_id || patient.id, document_id: prescription.document_id, method: 'email' }) }); toast('Sent via Email'); } catch { toast('Send failed'); } }} className="px-2 py-1 bg-blue-600 text-white rounded text-sm">Email</button>
+                                                <div className="flex items-center space-x-2">
+                                                    <button title="View PDF" onClick={()=>window.open(`/api/v1/prescriptions/editor/pdf/${prescription.document_id||''}`,'_blank')} className="px-2 py-1 bg-gray-100 rounded text-sm">PDF</button>
+                                                    <button title="View HTML" onClick={()=>window.open(`/api/v1/prescriptions/editor/html/${prescription.document_id||''}`,'_blank')} className="px-2 py-1 bg-gray-100 rounded text-sm">HTML</button>
+                                                    <button title="Send WhatsApp" onClick={async()=>{try{await api('/api/v1/prescriptions/share',{method:'POST',body:JSON.stringify({patient_id: prescription.patient_id||patient.id, document_id: prescription.document_id, method:'whatsapp'})});toast('Sent via WhatsApp');}catch{toast('Send failed');}}} className="px-2 py-1 bg-green-600 text-white rounded text-sm">WA</button>
+                                                    <button title="Send Email" onClick={async()=>{try{await api('/api/v1/prescriptions/share',{method:'POST',body:JSON.stringify({patient_id: prescription.patient_id||patient.id, document_id: prescription.document_id, method:'email'})});toast('Sent via Email');}catch{toast('Send failed');}}} className="px-2 py-1 bg-blue-600 text-white rounded text-sm">Email</button>
                                                     <span className={`px-2 py-1 rounded-full text-xs ${prescription.is_active
                                                         ? 'bg-medical-success/10 text-medical-success'
                                                         : 'bg-medical-gray/10 text-medical-gray'
@@ -1756,7 +1658,7 @@
 
             React.useEffect(() => {
                 (async () => {
-                    try { const data = await api('/api/v1/prescriptions/template'); setTemplatePath(data?.path || null); } catch { }
+                    try { const data = await api('/api/v1/prescriptions/template'); setTemplatePath(data?.path || null); } catch {}
                 })();
                 const Quill = window.Quill; if (!Quill) return;
                 const q = new Quill(editorRef.current, {
@@ -1771,7 +1673,7 @@
             const searchPatients = async (term) => {
                 setPatientSearch(term);
                 if (!term) { setFilteredPatients([]); return; }
-                try { const data = await api(`/api/v1/patients?search=${encodeURIComponent(term)}`); setFilteredPatients(Array.isArray(data) ? data : []); } catch { setFilteredPatients([]); }
+                try { const data = await api(`/api/v1/patients?search=${encodeURIComponent(term)}`); setFilteredPatients(Array.isArray(data)?data:[]); } catch { setFilteredPatients([]); }
             };
 
             const selectPatient = (p) => { setPatientId(String(p.id)); setPatientSearch(`${p.first_name || ''} ${p.last_name || ''}`.trim()); setFilteredPatients([]); setCreateNew(false); };
@@ -1819,7 +1721,7 @@
                                 <i className="fas fa-file-signature text-medical-accent"></i>
                                 <h2 className="text-xl font-bold text-medical-dark font-primary">Prescription Composer</h2>
                             </div>
-                            <div className="flex flex-wrap items-center gap-2">
+                            <div className="flex items-center space-x-2">
                                 <button onClick={saveRich} className="medical-button px-4 py-2 text-white rounded">Save</button>
                                 <button onClick={openPdf} className="px-4 py-2 bg-gray-100 rounded">Print/PDF</button>
                                 <button onClick={sendWhatsApp} className="px-4 py-2 bg-green-600 text-white rounded">WhatsApp</button>
@@ -1858,29 +1760,29 @@
                         <div className="medical-card p-4 rounded-2xl h-max">
                             <div className="mb-3 font-semibold text-medical-dark">Patient</div>
                             <div className="relative mb-3">
-                                <input type="text" value={patientSearch} onChange={(e) => searchPatients(e.target.value)} onFocus={() => searchPatients(patientSearch)} onBlur={() => setTimeout(() => setFilteredPatients([]), 200)} className="form-input-themed" placeholder="Search name/phone/email" />
-                                {filteredPatients.length > 0 && (
+                                <input type="text" value={patientSearch} onChange={(e)=>searchPatients(e.target.value)} onFocus={()=>searchPatients(patientSearch)} onBlur={()=>setTimeout(()=>setFilteredPatients([]),200)} className="form-input-themed" placeholder="Search name/phone/email" />
+                                {filteredPatients.length>0 && (
                                     <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-60 overflow-y-auto">
                                         {filteredPatients.map(p => (
-                                            <div key={p.id} onMouseDown={() => selectPatient(p)} className="p-3 hover:bg-medical-light cursor-pointer">
-                                                {`${p.first_name || ''} ${p.last_name || ''}`.trim()} {p.phone_number ? `• ${p.phone_number}` : ''}
+                                            <div key={p.id} onMouseDown={()=>selectPatient(p)} className="p-3 hover:bg-medical-light cursor-pointer">
+                                                {`${p.first_name||''} ${p.last_name||''}`.trim()} {p.phone_number?`• ${p.phone_number}`:''}
                                             </div>
                                         ))}
                                     </div>
                                 )}
                             </div>
-                            <div className="flex flex-wrap items-center gap-2 mb-3">
-                                <input type="number" value={patientId} onChange={(e) => setPatientId(e.target.value)} className="form-input-themed w-40" placeholder="Patient ID" />
-                                <label className="flex flex-wrap items-center gap-2 cursor-pointer"><input type="checkbox" checked={createNew} onChange={(e) => setCreateNew(e.target.checked)} /><span>Create new</span></label>
+                            <div className="flex items-center space-x-2 mb-3">
+                                <input type="number" value={patientId} onChange={(e)=>setPatientId(e.target.value)} className="form-input-themed w-40" placeholder="Patient ID" />
+                                <label className="flex items-center space-x-2 cursor-pointer"><input type="checkbox" checked={createNew} onChange={(e)=>setCreateNew(e.target.checked)} /><span>Create new</span></label>
                             </div>
                             {createNew && (
                                 <div className="space-y-2">
                                     <div className="grid grid-cols-2 gap-2">
-                                        <input className="form-input-themed" placeholder="First name" value={newPatient.first_name} onChange={(e) => setNewPatient({ ...newPatient, first_name: e.target.value })} />
-                                        <input className="form-input-themed" placeholder="Last name" value={newPatient.last_name} onChange={(e) => setNewPatient({ ...newPatient, last_name: e.target.value })} />
+                                        <input className="form-input-themed" placeholder="First name" value={newPatient.first_name} onChange={(e)=>setNewPatient({...newPatient, first_name:e.target.value})} />
+                                        <input className="form-input-themed" placeholder="Last name" value={newPatient.last_name} onChange={(e)=>setNewPatient({...newPatient, last_name:e.target.value})} />
                                     </div>
-                                    <input className="form-input-themed" placeholder="Phone" value={newPatient.phone_number} onChange={(e) => setNewPatient({ ...newPatient, phone_number: e.target.value })} />
-                                    <input className="form-input-themed" placeholder="Email" value={newPatient.email} onChange={(e) => setNewPatient({ ...newPatient, email: e.target.value })} />
+                                    <input className="form-input-themed" placeholder="Phone" value={newPatient.phone_number} onChange={(e)=>setNewPatient({...newPatient, phone_number:e.target.value})} />
+                                    <input className="form-input-themed" placeholder="Email" value={newPatient.email} onChange={(e)=>setNewPatient({...newPatient, email:e.target.value})} />
                                 </div>
                             )}
                             {lastSaved && (
@@ -1893,7 +1795,7 @@
                         <div className="medical-card rounded-2xl overflow-hidden">
                             <div className="editor-page-wrap">
                                 <div className="editor-page">
-                                    {templatePath && <div className="editor-template-overlay" style={{ backgroundImage: `url(${templatePath})` }}></div>}
+                                    {templatePath && <div className="editor-template-overlay" style={{backgroundImage:`url(${templatePath})`}}></div>}
                                     <div className="editor-content">
                                         <div ref={editorRef}></div>
                                     </div>
@@ -1907,141 +1809,144 @@
 
         // Users Component (Admin Only)
         const Users = () => {
-            const [users, setUsers] = React.useState([]);
-            const [loading, setLoading] = React.useState(true);
-            const [showModal, setShowModal] = React.useState(false);
-            const [editingUser, setEditingUser] = React.useState(null);
+        const [users, setUsers] = React.useState([]);
+        const [loading, setLoading] = React.useState(true);
+        const [showModal, setShowModal] = React.useState(false);
+        const [editingUser, setEditingUser] = React.useState(null);
 
-            const fetchUsers = async () => {
-                setLoading(true);
-                try {
-                    const data = await api('/api/v1/users');
-                    setUsers(Array.isArray(data) ? data : data.users || []);
-                } catch (error) {
-                    console.error('Error fetching users:', error);
-                } finally {
-                    setLoading(false);
-                }
-            };
-
-            React.useEffect(() => {
-                fetchUsers();
-            }, []);
-
-            const handleEditUser = (user) => {
-                setEditingUser(user);
-                setShowModal(true);
-            };
-
-            const handleAddUser = () => {
-                setEditingUser(null);
-                setShowModal(true);
-            };
-
-            const handleCloseModal = () => {
-                setShowModal(false);
-                setEditingUser(null);
-            };
-
-            if (loading) return <LoadingSpinner />;
-
-            return (
-                <div className="space-y-6">
-                    <div className="flex items-center justify-between">
-                        <h2 className="text-lg sm:text-xl lg:text-2xl font-bold text-medical-dark font-primary">User Management</h2>
-                        <button onClick={handleAddUser} className="medical-button px-6 py-3 text-white rounded-xl font-secondary flex flex-wrap items-center gap-2 relative z-10">
-                            <i className="fas fa-user-plus"></i>
-                            <span>Add User</span>
-                        </button>
-                    </div>
-
-                    <div className="medical-card rounded-2xl overflow-hidden">
-                        <div className="overflow-x-auto">
-                            <div className="overflow-x-auto -mx-4 sm:mx-0"><table className="w-full">
-                                <thead className="bg-medical-light">
-                                    <tr>
-                                        <th className="text-left p-4 font-semibold text-medical-dark">User</th>
-                                        <th className="text-left p-4 font-semibold text-medical-dark">Role</th>
-                                        <th className="text-left p-4 font-semibold text-medical-dark">Email</th>
-                                        <th className="text-left p-4 font-semibold text-medical-dark">Status</th>
-                                        <th className="text-left p-4 font-semibold text-medical-dark">Last Login</th>
-                                        <th className="text-left p-4 font-semibold text-medical-dark">Actions</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {users.map(user => (
-                                        <tr key={user.id} className="table-row border-b border-gray-100">
-                                            <td className="p-4">
-                                                <div className="flex items-center space-x-3">
-                                                    <div className="w-10 h-10 bg-medical-accent/10 rounded-full flex items-center justify-center">
-                                                        <span className="text-medical-accent font-semibold">
-                                                            {user.username?.charAt(0).toUpperCase() || 'U'}
-                                                        </span>
-                                                    </div>
-                                                    <div>
-                                                        <div className="font-semibold text-medical-dark">{user.username}</div>
-                                                        <div className="text-sm text-medical-gray">ID: {user.id}</div>
-                                                    </div>
-                                                </div>
-                                            </td>
-                                            <td className="p-4">
-                                                <span className={`px-3 py-1 rounded-full text-xs font-medium capitalize ${user.role === 'admin' ? 'bg-medical-error/10 text-medical-error' :
-                                                    user.role === 'doctor' ? 'bg-medical-success/10 text-medical-success' :
-                                                        'bg-medical-accent/10 text-medical-accent'
-                                                    }`}>
-                                                    {user.role}
-                                                </span>
-                                            </td>
-                                            <td className="p-4 text-medical-gray">{user.email}</td>
-                                            <td className="p-4">
-                                                <span className={`px-2 py-1 rounded-full text-xs ${user.is_active
-                                                    ? 'bg-medical-success/10 text-medical-success'
-                                                    : 'bg-medical-error/10 text-medical-error'
-                                                    }`}>
-                                                    {user.is_active ? 'Active' : 'Inactive'}
-                                                </span>
-                                            </td>
-                                            <td className="p-4 text-medical-gray">
-                                                {user.last_login ?
-                                                    new Date(user.last_login).toLocaleDateString() :
-                                                    'Never'
-                                                }
-                                            </td>
-                                            <td className="p-4">
-                                                <div className="flex space-x-2">
-                                                    <button
-                                                        onClick={() => handleEditUser(user)}
-                                                        className="text-medical-accent hover:text-medical-dark"
-                                                    >
-                                                        <i className="fas fa-edit"></i>
-                                                    </button>
-                                                    <button className="text-medical-success hover:text-green-700">
-                                                        <i className="fas fa-key"></i>
-                                                    </button>
-                                                    <button className="text-medical-error hover:text-red-700">
-                                                        <i className="fas fa-trash"></i>
-                                                    </button>
-                                                </div>
-                                            </td>
-                                        </tr>
-                                    ))}
-                                </tbody>
-                            </table></div>
-                        </div>
-                    </div>
-
-                    <Modal
-                        isOpen={showModal}
-                        onClose={handleCloseModal}
-                        title={editingUser ? 'Edit User' : 'Add New User'}
-                    >
-                        <UserEditor user={editingUser} onClose={handleCloseModal} refreshUsers={fetchUsers} />
-                    </Modal>
-                </div>
-            );
+        const fetchUsers = async () => {
+        setLoading(true);
+        try {
+        const data = await api('/api/v1/users');
+        setUsers(Array.isArray(data) ? data : data.users || []);
+        } catch (error) {
+        console.error('Error fetching users:', error);
+        } finally {
+        setLoading(false);
+        }
         };
 
-        // Prescription Editor Component
+        React.useEffect(() => {
+        fetchUsers();
+        }, []);
+
+        const handleEditUser = (user) => {
+        setEditingUser(user);
+        setShowModal(true);
+        };
+
+        const handleAddUser = () => {
+        setEditingUser(null);
+        setShowModal(true);
+        };
+
+        const handleCloseModal = () => {
+        setShowModal(false);
+        setEditingUser(null);
+        };
+
+        if (loading) return <LoadingSpinner />;
+
+        return (
+        <div className="space-y-6">
+        <div className="flex items-center justify-between">
+        <h2 className="text-2xl font-bold text-medical-dark font-primary">User Management</h2>
+        <button
+        onClick={handleAddUser}
+        className="medical-button px-6 py-3 text-white rounded-xl font-secondary flex items-center space-x-2 relative z-10"
+        >
+        <i className="fas fa-user-plus"></i>
+        <span>Add User</span>
+        </button>
+        </div>
+
+        <div className="medical-card rounded-2xl overflow-hidden">
+        <div className="overflow-x-auto">
+        <table className="w-full">
+        <thead className="bg-medical-light">
+        <tr>
+        <th className="text-left p-4 font-semibold text-medical-dark">User</th>
+        <th className="text-left p-4 font-semibold text-medical-dark">Role</th>
+        <th className="text-left p-4 font-semibold text-medical-dark">Email</th>
+        <th className="text-left p-4 font-semibold text-medical-dark">Status</th>
+        <th className="text-left p-4 font-semibold text-medical-dark">Last Login</th>
+        <th className="text-left p-4 font-semibold text-medical-dark">Actions</th>
+        </tr>
+        </thead>
+        <tbody>
+        {users.map(user => (
+        <tr key={user.id} className="table-row border-b border-gray-100">
+        <td className="p-4">
+        <div className="flex items-center space-x-3">
+        <div className="w-10 h-10 bg-medical-accent/10 rounded-full flex items-center justify-center">
+        <span className="text-medical-accent font-semibold">
+        {user.username?.charAt(0).toUpperCase() || 'U'}
+        </span>
+        </div>
+        <div>
+        <div className="font-semibold text-medical-dark">{user.username}</div>
+        <div className="text-sm text-medical-gray">ID: {user.id}</div>
+        </div>
+        </div>
+        </td>
+        <td className="p-4">
+        <span className={`px-3 py-1 rounded-full text-xs font-medium capitalize ${user.role === 'admin' ? 'bg-medical-error/10 text-medical-error' :
+        user.role === 'doctor' ? 'bg-medical-success/10 text-medical-success' :
+        'bg-medical-accent/10 text-medical-accent'
+        }`}>
+        {user.role}
+        </span>
+        </td>
+        <td className="p-4 text-medical-gray">{user.email}</td>
+        <td className="p-4">
+        <span className={`px-2 py-1 rounded-full text-xs ${user.is_active
+        ? 'bg-medical-success/10 text-medical-success'
+        : 'bg-medical-error/10 text-medical-error'
+        }`}>
+        {user.is_active ? 'Active' : 'Inactive'}
+        </span>
+        </td>
+        <td className="p-4 text-medical-gray">
+        {user.last_login ?
+        new Date(user.last_login).toLocaleDateString() :
+        'Never'
+        }
+        </td>
+        <td className="p-4">
+        <div className="flex space-x-2">
+        <button
+        onClick={() => handleEditUser(user)}
+        className="text-medical-accent hover:text-medical-dark"
+        >
+        <i className="fas fa-edit"></i>
+        </button>
+        <button className="text-medical-success hover:text-green-700">
+        <i className="fas fa-key"></i>
+        </button>
+        <button className="text-medical-error hover:text-red-700">
+        <i className="fas fa-trash"></i>
+        </button>
+        </div>
+        </td>
+        </tr>
+        ))}
+        </tbody>
+        </table>
+        </div>
+        </div>
+
+        <Modal
+        isOpen={showModal}
+        onClose={handleCloseModal}
+        title={editingUser ? 'Edit User' : 'Add New User'}
+        >
+        <UserEditor user={editingUser} onClose={handleCloseModal} refreshUsers={fetchUsers} />
+        </Modal>
+        </div>
+        );
+        };
+
+                                // Prescription Editor Component
         const PrescriptionEditor = ({ prescription, onClose, refreshPrescriptions }) => {
             const [patientId, setPatientId] = React.useState(prescription?.patient_id || '');
             const [medication, setMedication] = React.useState(prescription?.medication_name || '');
@@ -2078,7 +1983,7 @@
                         method: 'POST',
                         body: JSON.stringify(payload)
                     });
-                    if (refreshPrescriptions) refreshPrescriptions();
+                    if(refreshPrescriptions) refreshPrescriptions();
                     onClose();
                 } catch (err) {
                     setError('An error occurred. Please check the console and try again.');
@@ -2108,7 +2013,7 @@
                             <label className="block text-sm font-medium text-medical-gray mb-2">Medication Name</label>
                             <input type="text" value={medication} onChange={(e) => setMedication(e.target.value)} className="form-input-themed" placeholder="e.g., Lisinopril" />
                         </div>
-                        <div>
+                         <div>
                             <label className="block text-sm font-medium text-medical-gray mb-2">Dosage</label>
                             <input type="text" value={dosage} onChange={(e) => setDosage(e.target.value)} className="form-input-themed" placeholder="e.g., 10mg" />
                         </div>
@@ -2203,7 +2108,7 @@
                     return;
                 }
                 setErrors([]);
-
+                
                 // Calculate end time
                 const startTimeObj = new Date(`${appointmentDate}T${appointmentTime}`);
                 const endTimeObj = new Date(startTimeObj.getTime() + 15 * 60000); // Add 15 minutes
@@ -2244,7 +2149,7 @@
                         method: 'POST',
                         body: JSON.stringify(payload)
                     });
-                    if (refreshAppointments) refreshAppointments();
+                    if(refreshAppointments) refreshAppointments();
                     onClose();
                 } catch (err) {
                     setError('An error occurred. Please check the console and try again.');
@@ -2328,7 +2233,7 @@
 
                     <div className="border-t border-gray-200 pt-4 space-y-4">
                         <h3 className="text-lg font-semibold text-medical-dark">Appointment Details</h3>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                             <div>
                                 <label className="block text-sm font-medium text-medical-gray mb-2">Date <span className="text-red-500">*</span></label>
                                 <input type="date" value={appointmentDate} onChange={(e) => setAppointmentDate(e.target.value)} className="form-input-themed" />
@@ -2389,12 +2294,12 @@
                     setError('Patient first name is required.');
                     return;
                 }
-                const payload = {
-                    first_name: firstName,
-                    last_name: lastName,
-                    phone_number: phoneNumber,
-                    email,
-                    date_of_birth: dob
+                const payload = { 
+                    first_name: firstName, 
+                    last_name: lastName, 
+                    phone_number: phoneNumber, 
+                    email, 
+                    date_of_birth: dob 
                 };
 
                 try {
@@ -2406,7 +2311,7 @@
                             body: JSON.stringify(payload)
                         });
                     }
-                    if (refreshPatients) refreshPatients();
+                    if(refreshPatients) refreshPatients();
                     onClose();
                 } catch (err) {
                     setError('An error occurred. Please check the console and try again.');
@@ -2556,8 +2461,8 @@
                         </div>
                     )}
 
-                    <div className="flex flex-wrap items-center gap-2 sm:space-x-4">
-                        <label className="flex flex-wrap items-center gap-2">
+                    <div className="flex items-center space-x-4">
+                        <label className="flex items-center space-x-2">
                             <input
                                 type="checkbox"
                                 checked={isActive}
@@ -2566,7 +2471,7 @@
                             />
                             <span>Active User</span>
                         </label>
-                        <label className="flex flex-wrap items-center gap-2">
+                        <label className="flex items-center space-x-2">
                             <input
                                 type="checkbox"
                                 defaultChecked={user?.mfa_enabled}
@@ -2662,14 +2567,14 @@
                         <div className="grid grid-cols-3 gap-4 items-center">
                             <div>
                                 <label className="block text-xs font-medium text-medical-gray mb-1">Start Time</label>
-                                <input type="time" value={homeClinic.start_time.substring(0, 5)} onChange={(e) => setHomeClinic(p => ({ ...p, start_time: e.target.value }))} className="form-input-themed" disabled={!homeClinic.is_available} />
+                                <input type="time" value={homeClinic.start_time.substring(0,5)} onChange={(e) => setHomeClinic(p => ({...p, start_time: e.target.value}))} className="form-input-themed" disabled={!homeClinic.is_available} />
                             </div>
                             <div>
                                 <label className="block text-xs font-medium text-medical-gray mb-1">End Time</label>
-                                <input type="time" value={homeClinic.end_time.substring(0, 5)} onChange={(e) => setHomeClinic(p => ({ ...p, end_time: e.target.value }))} className="form-input-themed" disabled={!homeClinic.is_available} />
+                                <input type="time" value={homeClinic.end_time.substring(0,5)} onChange={(e) => setHomeClinic(p => ({...p, end_time: e.target.value}))} className="form-input-themed" disabled={!homeClinic.is_available} />
                             </div>
-                            <label className="flex flex-wrap items-center gap-2 cursor-pointer mt-5">
-                                <input type="checkbox" checked={homeClinic.is_available} onChange={(e) => setHomeClinic(p => ({ ...p, is_available: e.target.checked }))} className="w-4 h-4 text-medical-accent rounded" />
+                            <label className="flex items-center space-x-2 cursor-pointer mt-5">
+                                <input type="checkbox" checked={homeClinic.is_available} onChange={(e) => setHomeClinic(p => ({...p, is_available: e.target.checked}))} className="w-4 h-4 text-medical-accent rounded" />
                                 <span>Available</span>
                             </label>
                         </div>
@@ -2680,14 +2585,14 @@
                         <div className="grid grid-cols-3 gap-4 items-center">
                             <div>
                                 <label className="block text-xs font-medium text-medical-gray mb-1">Start Time</label>
-                                <input type="time" value={hospital.start_time.substring(0, 5)} onChange={(e) => setHospital(p => ({ ...p, start_time: e.target.value }))} className="form-input-themed" disabled={!hospital.is_available} />
+                                <input type="time" value={hospital.start_time.substring(0,5)} onChange={(e) => setHospital(p => ({...p, start_time: e.target.value}))} className="form-input-themed" disabled={!hospital.is_available} />
                             </div>
                             <div>
                                 <label className="block text-xs font-medium text-medical-gray mb-1">End Time</label>
-                                <input type="time" value={hospital.end_time.substring(0, 5)} onChange={(e) => setHospital(p => ({ ...p, end_time: e.target.value }))} className="form-input-themed" disabled={!hospital.is_available} />
+                                <input type="time" value={hospital.end_time.substring(0,5)} onChange={(e) => setHospital(p => ({...p, end_time: e.target.value}))} className="form-input-themed" disabled={!hospital.is_available} />
                             </div>
-                            <label className="flex flex-wrap items-center gap-2 cursor-pointer mt-5">
-                                <input type="checkbox" checked={hospital.is_available} onChange={(e) => setHospital(p => ({ ...p, is_available: e.target.checked }))} className="w-4 h-4 text-medical-accent rounded" />
+                            <label className="flex items-center space-x-2 cursor-pointer mt-5">
+                                <input type="checkbox" checked={hospital.is_available} onChange={(e) => setHospital(p => ({...p, is_available: e.target.checked}))} className="w-4 h-4 text-medical-accent rounded" />
                                 <span>Available</span>
                             </label>
                         </div>
@@ -2744,7 +2649,7 @@
                             body: JSON.stringify(payload),
                         });
                     });
-
+                    
                     // Wait for all API calls to complete
                     await Promise.all(apiCalls);
 
@@ -2777,7 +2682,7 @@
                     <div>
                         <label className="block text-sm font-medium text-medical-gray mb-2">Select Locations</label>
                         <div className="flex space-x-6 mt-2">
-                            <label className="flex flex-wrap items-center gap-2 cursor-pointer">
+                            <label className="flex items-center space-x-2 cursor-pointer">
                                 <input
                                     type="checkbox"
                                     checked={selectedLocations[1]}
@@ -2786,7 +2691,7 @@
                                 />
                                 <span>Home Clinic</span>
                             </label>
-                            <label className="flex flex-wrap items-center gap-2 cursor-pointer">
+                            <label className="flex items-center space-x-2 cursor-pointer">
                                 <input
                                     type="checkbox"
                                     checked={selectedLocations[2]}
@@ -2869,17 +2774,17 @@
             const logCategories = ['GENERAL', 'AUTHENTICATION', 'PATIENT', 'APPOINTMENT', 'USER'];
 
             const getSeverityClass = (severity) => {
-                switch (severity) {
+                switch(severity) {
                     case 'CRITICAL': return 'bg-red-600 text-white';
                     case 'ERROR': return 'bg-red-200 text-red-800';
                     case 'WARN': return 'bg-yellow-200 text-yellow-800';
                     default: return 'bg-blue-200 text-blue-800';
                 }
             };
-
+            
             return (
                 <div className="space-y-6">
-                    <h2 className="text-lg sm:text-xl lg:text-2xl font-bold text-medical-dark font-primary">Audit Logs</h2>
+                    <h2 className="text-2xl font-bold text-medical-dark font-primary">Audit Logs</h2>
 
                     <div className="p-4 bg-gray-50 rounded-xl border border-gray-200 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                         <div>
@@ -2907,7 +2812,7 @@
                     <div className="medical-card rounded-2xl overflow-hidden">
                         <div className="overflow-x-auto">
                             {loading ? <LoadingSpinner /> : (
-                                <div className="overflow-x-auto -mx-4 sm:mx-0"><table className="<table className=w-full">
+                                <table className="w-full">
                                     <thead className="bg-medical-light">
                                         <tr>
                                             <th className="text-left p-4 font-semibold text-medical-dark">Timestamp</th>
@@ -2938,7 +2843,7 @@
                                             </tr>
                                         ))}
                                     </tbody>
-                                </table></div>
+                                </table>
                             )}
                         </div>
                         {!loading && logs.length === 0 && (
@@ -2948,7 +2853,7 @@
                             </div>
                         )}
                     </div>
-                </div >
+                </div>
             );
         };
 
@@ -3014,21 +2919,13 @@
 
             return (
                 <div className="min-h-screen bg-gradient-to-br from-medical-light-gray via-medical-light to-medical-light-gray">
-                    <div className="flex flex-col md:flex-row h-screen overflow-hidden">
+                    <div className="flex h-screen">
                         <Sidebar
                             currentView={currentView}
                             setCurrentView={setCurrentView}
                             user={user}
-                            isMobileMenuOpen={isMobileMenuOpen}
-                            setIsMobileMenuOpen={setIsMobileMenuOpen}
                         />
-                        <main className="flex-1 overflow-auto relative">
-                            <div className="md:hidden flex items-center justify-between p-4 bg-white/80 backdrop-blur-sm sticky top-0 z-30 shadow-sm">
-                                <button onClick={() => setIsMobileMenuOpen(true)} className="text-medical-dark">
-                                    <i className="fas fa-bars text-xl"></i>
-                                </button>
-                                <div className="font-semibold text-medical-dark">{user?.username}</div>
-                            </div>
+                        <main className="flex-1 overflow-auto">
                             <div className="p-8">
                                 <div className="max-w-7xl mx-auto floating-elements relative">
                                     {renderCurrentView()}
@@ -3093,7 +2990,7 @@
                     const data = await res.json();
                     if (!res.ok) throw new Error(data?.detail || 'Upload failed');
                     toast('Template uploaded');
-                } catch (err) { toast('Template upload failed'); }
+                } catch(err) { toast('Template upload failed'); }
             };
 
             const onHandwrittenUpload = async (patientId, file) => {
@@ -3107,7 +3004,7 @@
                     const data = await res.json();
                     if (!res.ok) throw new Error(data?.detail || 'Upload failed');
                     toast('Handwritten prescription uploaded');
-                } catch (err) { toast('Upload failed'); }
+                } catch(err) { toast('Upload failed'); }
             };
 
             const [editorHtml, setEditorHtml] = React.useState('');
@@ -3123,7 +3020,7 @@
                     const data = await res.json();
                     if (!res.ok) throw new Error(data?.detail || 'Save failed');
                     toast('Prescription saved');
-                } catch (err) { toast('Save failed'); }
+                } catch(err) { toast('Save failed'); }
             };
 
             return (
@@ -3142,10 +3039,10 @@
                                             <span className="font-medium">Services status</span>
                                             <button onClick={fetchServices} className="text-medical-accent text-sm">Refresh</button>
                                         </div>
-                                        {loading && <LoadingSpinner />}
+                                        {loading && <LoadingSpinner/>}
                                         {services && (
                                             <div className="grid grid-cols-3 gap-2 text-sm">
-                                                {['whatsapp', 'email', 'calendar'].map(k => (
+                                                {['whatsapp','email','calendar'].map(k => (
                                                     <div key={k} className="p-2 rounded bg-gray-50">
                                                         <div className="capitalize">{k}</div>
                                                         <div className={services[k]?.enabled ? 'text-green-600' : 'text-gray-500'}>
@@ -3159,16 +3056,16 @@
 
                                     <div className="border-b pb-3">
                                         <div className="font-medium mb-2">Schedule config</div>
-                                        <div className="flex flex-wrap items-center gap-2 mb-2">
+                                        <div className="flex items-center space-x-2 mb-2">
                                             <label className="text-sm w-40">Interval (min)</label>
                                             <input type="number" value={config.appointment_interval_minutes}
-                                                onChange={e => setConfig({ ...config, appointment_interval_minutes: Number(e.target.value) })}
+                                                onChange={e=>setConfig({...config, appointment_interval_minutes: Number(e.target.value)})}
                                                 className="form-input-themed" />
                                         </div>
-                                        <div className="flex flex-wrap items-center gap-2 mb-2">
+                                        <div className="flex items-center space-x-2 mb-2">
                                             <label className="text-sm w-40">Daily limit</label>
                                             <input type="number" value={config.appointment_daily_limit}
-                                                onChange={e => setConfig({ ...config, appointment_daily_limit: Number(e.target.value) })}
+                                                onChange={e=>setConfig({...config, appointment_daily_limit: Number(e.target.value)})}
                                                 className="form-input-themed" />
                                         </div>
                                         <button onClick={saveConfig} className="medical-button text-white px-4 py-2 rounded">Save Config</button>
@@ -3181,10 +3078,10 @@
 
                                     <div className="border-b pb-3">
                                         <div className="font-medium mb-2">Handwritten prescription upload</div>
-                                        <div className="flex flex-wrap items-center gap-2 mb-2">
+                                        <div className="flex items-center space-x-2 mb-2">
                                             <input type="number" placeholder="Patient ID" className="form-input-themed" id="handw_pid" />
                                         </div>
-                                        <input type="file" accept="image/*,application/pdf" onChange={(e) => {
+                                        <input type="file" accept="image/*,application/pdf" onChange={(e)=>{
                                             const pid = document.getElementById('handw_pid').value;
                                             onHandwrittenUpload(pid, e.target.files?.[0]);
                                         }} className="w-full" />
@@ -3192,10 +3089,10 @@
 
                                     <div>
                                         <div className="font-medium mb-2">Prescription editor save</div>
-                                        <div className="flex flex-wrap items-center gap-2 mb-2">
-                                            <input type="number" placeholder="Patient ID" value={editorPatientId} onChange={(e) => setEditorPatientId(e.target.value)} className="form-input-themed" />
+                                        <div className="flex items-center space-x-2 mb-2">
+                                            <input type="number" placeholder="Patient ID" value={editorPatientId} onChange={(e)=>setEditorPatientId(e.target.value)} className="form-input-themed" />
                                         </div>
-                                        <textarea rows="4" placeholder="Paste editor HTML here" value={editorHtml} onChange={(e) => setEditorHtml(e.target.value)} className="form-input-themed"></textarea>
+                                        <textarea rows="4" placeholder="Paste editor HTML here" value={editorHtml} onChange={(e)=>setEditorHtml(e.target.value)} className="form-input-themed"></textarea>
                                         <div className="mt-2 flex justify-end">
                                             <button onClick={saveEditor} className="medical-button text-white px-4 py-2 rounded">Save</button>
                                         </div>
@@ -3217,7 +3114,7 @@
             el.className = 'fixed bottom-4 left-1/2 -translate-x-1/2 bg-medical-dark text-white px-4 py-2 rounded shadow z-[9999]';
             el.textContent = msg;
             document.body.appendChild(el);
-            setTimeout(() => { el.remove(); }, 2500);
+            setTimeout(()=>{ el.remove(); }, 2500);
         };
 
         // Render the App

@@ -11,7 +11,7 @@ from sqlalchemy.orm import Session
 # Import our modules
 from app import models, schemas, crud
 from app.database import get_db, create_tables
-from app.hash_password import create_or_update_admin
+from app.hash_password import create_or_update_admin, create_initial_data
 from app.routers import auth, patients, appointments, schedule, unavailable_periods, locations, users, prescriptions, logs, services
 from app.security import (
     verify_password, create_access_token, ACCESS_TOKEN_EXPIRE_MINUTES,
@@ -24,6 +24,7 @@ app = FastAPI(title="Dr. Dhingra's Clinic Management System")
 @app.on_event("startup")
 def on_startup():
     create_tables()
+    create_initial_data()
     create_or_update_admin()
 
 app.add_middleware(

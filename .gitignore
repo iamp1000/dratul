@@ -35,4 +35,5 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+.calendar_credentials.json
 

@@ -3,7 +3,28 @@ import os
 from dotenv import load_dotenv
 import logging
 from .database import SessionLocal
-from .schemas import UserCreate
+from .schemas import UserCreate, LocationCreate
+from . import crud
+
+def create_initial_data():
+    """Creates initial data like locations if they don't exist."""
+    db = SessionLocal()
+    try:
+        logger = logging.getLogger(__name__)
+        locations_to_create = [
+            schemas.LocationCreate(name="Home Clinic", address="123 Home St", timezone="UTC"),
+            schemas.LocationCreate(name="Hospital", address="456 Hospital Ave", timezone="UTC")
+        ]
+        for loc_data in locations_to_create:
+            location = crud.get_location_by_name(db, loc_data.name)
+            if not location:
+                crud.create_location(db, loc_data)
+                logger.info(f"Initial location '{loc_data.name}' created.")
+    except Exception as e:
+        logging.getLogger(__name__).error(f"CRITICAL: Error during initial data creation: {e}")
+    finally:
+        db.close()
+
 
 # This function is the ONLY thing that should be imported from this file.
 def create_or_update_admin():
