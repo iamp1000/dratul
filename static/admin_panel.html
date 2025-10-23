@@ -1177,12 +1177,12 @@
                             <div className={`font-semibold mb-1 ${isToday ? 'text-medical-accent' : 'text-medical-dark'}`}>{day}</div>
                             <div className="text-xs space-y-1">
                                 {clinicSchedule && clinicSchedule.is_available ? (
-                                    <div className="text-blue-600"><strong>C:</strong> {clinicSchedule.start_time.substring(0, 5)} - {clinicSchedule.end_time.substring(0, 5)}</div>
+                                    <div className="text-blue-600"><strong>C:</strong> {clinicSchedule.start_time ? clinicSchedule.start_time.substring(0, 5) : 'N/A'} - {clinicSchedule.end_time ? clinicSchedule.end_time.substring(0, 5) : 'N/A'}</div>
                                 ) : (
                                     <div className="text-gray-400"><strong>C:</strong> Off</div>
                                 )}
                                 {hospitalScheduleData && hospitalScheduleData.is_available ? (
-                                    <div className="text-green-700"><strong>H:</strong> {hospitalScheduleData.start_time.substring(0, 5)} - {hospitalScheduleData.end_time.substring(0, 5)}</div>
+                                    <div className="text-green-700"><strong>H:</strong> {hospitalScheduleData.start_time ? hospitalScheduleData.start_time.substring(0, 5) : 'N/A'} - {hospitalScheduleData.end_time ? hospitalScheduleData.end_time.substring(0, 5) : 'N/A'}</div>
                                 ) : (
                                     <div className="text-gray-400"><strong>H:</strong> Off</div>
                                 )}
@@ -2795,13 +2795,32 @@
 
         // Edit Single Day Schedule Component
         const SingleDayScheduleEditor = ({ date, scheduleForDay, onClose, refreshSchedules }) => {
-            const [homeClinic, setHomeClinic] = React.useState(scheduleForDay.clinicSchedule || { start_time: '18:00', end_time: '20:00', is_available: false });
-            const [hospital, setHospital] = React.useState(scheduleForDay.hospitalSchedule || { start_time: '11:00', end_time: '13:30', is_available: false });
+            // Ensure we have valid default values
+            const defaultHomeClinic = { start_time: '18:00:00', end_time: '20:00:00', is_available: false };
+            const defaultHospital = { start_time: '11:00:00', end_time: '13:30:00', is_available: false };
+            
+            const [homeClinic, setHomeClinic] = React.useState(
+                scheduleForDay?.clinicSchedule ? {
+                    ...defaultHomeClinic,
+                    ...scheduleForDay.clinicSchedule,
+                    start_time: scheduleForDay.clinicSchedule.start_time || defaultHomeClinic.start_time,
+                    end_time: scheduleForDay.clinicSchedule.end_time || defaultHomeClinic.end_time
+                } : defaultHomeClinic
+            );
+            const [hospital, setHospital] = React.useState(
+                scheduleForDay?.hospitalSchedule ? {
+                    ...defaultHospital,
+                    ...scheduleForDay.hospitalSchedule,
+                    start_time: scheduleForDay.hospitalSchedule.start_time || defaultHospital.start_time,
+                    end_time: scheduleForDay.hospitalSchedule.end_time || defaultHospital.end_time
+                } : defaultHospital
+            );
             const [error, setError] = React.useState('');
 
             const handleSave = async () => {
                 setError('');
                 const dayOfWeek = (date.getDay() + 6) % 7; // 0=Monday, 6=Sunday
+
 
                 const schedulesToUpdate = [
                     { locationId: 1, data: homeClinic },
@@ -2810,11 +2829,18 @@
 
                 try {
                     const apiCalls = schedulesToUpdate.map(s => {
+                        // Ensure time format is HH:MM:SS
+                        const formatTime = (timeStr) => {
+                            if (!timeStr) return '00:00:00';
+                            if (timeStr.length === 5) return timeStr + ':00';
+                            return timeStr;
+                        };
+                        
                         const payload = {
                             location_id: s.locationId,
                             day_of_week: dayOfWeek,
-                            start_time: s.data.start_time,
-                            end_time: s.data.end_time,
+                            start_time: formatTime(s.data.start_time),
+                            end_time: formatTime(s.data.end_time),
                             is_available: s.data.is_available,
                         };
                         return api(`/api/v1/schedules/${s.locationId}/${dayOfWeek}`, {
@@ -2826,9 +2852,15 @@
                     refreshSchedules();
                     onClose();
                 } catch (err) {
-                    const errorData = await err.json?.();
-                    setError(errorData?.detail || 'An unexpected error occurred.');
                     console.error('Day schedule save error:', err);
+                    let errorMessage = 'An unexpected error occurred.';
+                    try {
+                        const errorData = await err.json?.();
+                        errorMessage = errorData?.detail || errorMessage;
+                    } catch (e) {
+                        errorMessage = err.message || errorMessage;
+                    }
+                    setError(errorMessage);
                 }
             };
 
@@ -2841,11 +2873,11 @@
                         <div className="grid grid-cols-3 gap-4 items-center">
                             <div>
                                 <label className="block text-xs font-medium text-medical-gray mb-1">Start Time</label>
-                                <input type="time" value={homeClinic.start_time.substring(0, 5)} onChange={(e) => setHomeClinic(p => ({ ...p, start_time: e.target.value }))} className="form-input-themed" disabled={!homeClinic.is_available} />
+                                <input type="time" value={homeClinic.start_time ? homeClinic.start_time.substring(0, 5) : '18:00'} onChange={(e) => setHomeClinic(p => ({ ...p, start_time: e.target.value + ':00' }))} className="form-input-themed" disabled={!homeClinic.is_available} />
                             </div>
                             <div>
                                 <label className="block text-xs font-medium text-medical-gray mb-1">End Time</label>
-                                <input type="time" value={homeClinic.end_time.substring(0, 5)} onChange={(e) => setHomeClinic(p => ({ ...p, end_time: e.target.value }))} className="form-input-themed" disabled={!homeClinic.is_available} />
+                                <input type="time" value={homeClinic.end_time ? homeClinic.end_time.substring(0, 5) : '20:00'} onChange={(e) => setHomeClinic(p => ({ ...p, end_time: e.target.value + ':00' }))} className="form-input-themed" disabled={!homeClinic.is_available} />
                             </div>
                             <label className="flex flex-wrap items-center gap-2 cursor-pointer mt-5">
                                 <input type="checkbox" checked={homeClinic.is_available} onChange={(e) => setHomeClinic(p => ({ ...p, is_available: e.target.checked }))} className="w-4 h-4 text-medical-accent rounded" />
@@ -2859,11 +2891,11 @@
                         <div className="grid grid-cols-3 gap-4 items-center">
                             <div>
                                 <label className="block text-xs font-medium text-medical-gray mb-1">Start Time</label>
-                                <input type="time" value={hospital.start_time.substring(0, 5)} onChange={(e) => setHospital(p => ({ ...p, start_time: e.target.value }))} className="form-input-themed" disabled={!hospital.is_available} />
+                                <input type="time" value={hospital.start_time ? hospital.start_time.substring(0, 5) : '11:00'} onChange={(e) => setHospital(p => ({ ...p, start_time: e.target.value + ':00' }))} className="form-input-themed" disabled={!hospital.is_available} />
                             </div>
                             <div>
                                 <label className="block text-xs font-medium text-medical-gray mb-1">End Time</label>
-                                <input type="time" value={hospital.end_time.substring(0, 5)} onChange={(e) => setHospital(p => ({ ...p, end_time: e.target.value }))} className="form-input-themed" disabled={!hospital.is_available} />
+                                <input type="time" value={hospital.end_time ? hospital.end_time.substring(0, 5) : '13:30'} onChange={(e) => setHospital(p => ({ ...p, end_time: e.target.value + ':00' }))} className="form-input-themed" disabled={!hospital.is_available} />
                             </div>
                             <label className="flex flex-wrap items-center gap-2 cursor-pointer mt-5">
                                 <input type="checkbox" checked={hospital.is_available} onChange={(e) => setHospital(p => ({ ...p, is_available: e.target.checked }))} className="w-4 h-4 text-medical-accent rounded" />
