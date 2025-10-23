@@ -1264,13 +1264,16 @@
                     const newSchedules = { 1: {}, 2: {} };
                     for (const loc of fetchedLocations) {
                         const data = await api(`/api/v1/schedules/by-location/${loc.id}`);
+                        console.log(`Fetched data for location ${loc.id}:`, JSON.stringify(data, null, 2));
                         const scheduleMap = (data || []).reduce((acc, item) => {
                             acc[item.day_of_week] = item;
                             return acc;
                         }, {});
                         newSchedules[loc.id] = scheduleMap;
                     }
+                    console.log("Final schedules after fetch:", JSON.stringify(newSchedules, null, 2));
                     setSchedules(newSchedules);
+                    console.log("Schedules state updated");
 
                 } catch (error) {
                     console.error("Error fetching schedules:", error);
@@ -1285,21 +1288,26 @@
 
             const handleSave = async (updatedSchedules) => {
                 try {
+                    console.log("=== SAVE START ===");
+                    console.log("Updated schedules being saved:", JSON.stringify(updatedSchedules, null, 2));
+                    
                     for (const locationId in updatedSchedules) {
                         const schedulePayload = Object.values(updatedSchedules[locationId]).map(daySchedule => ({
                              ...daySchedule, 
-                             location_id: parseInt(locationId), 
-                             // Ensure times are strings in HH:MM:SS format before sending
-                             start_time: typeof daySchedule.start_time === 'string' && daySchedule.start_time.length === 5 ? `${daySchedule.start_time}:00` : daySchedule.start_time,
-                             end_time: typeof daySchedule.end_time === 'string' && daySchedule.end_time.length === 5 ? `${daySchedule.end_time}:00` : daySchedule.end_time
+                             location_id: parseInt(locationId)
                         })); 
                         // Log the exact payload before sending
                         console.log(`Payload for Location ID ${locationId}:`, JSON.stringify(schedulePayload, null, 2));
-                        await api(`/api/v1/schedules/by-location/${locationId}`, {
+                        
+                        const response = await api(`/api/v1/schedules/by-location/${locationId}`, {
                             method: 'POST',
                             body: JSON.stringify(schedulePayload)
                         });
+                        
+                        console.log(`Response for Location ID ${locationId}:`, JSON.stringify(response, null, 2));
                     }
+                    
+                    console.log("=== SAVE COMPLETE ===");
                     setShowModal(false);
                     fetchSchedulesAndLocations(); // Re-fetch after saving
                 } catch (error) {
@@ -1390,7 +1398,10 @@
 
             const handleTimeChange = (locationId, dayIndex, field, value) => {
                 console.log(`handleTimeChange: locId=${locationId}, day=${dayIndex}, field=${field}, value=${value}`); // Log the exact input
-                // Pass the raw value directly from the input
+                
+                // Convert time format from HH:MM to HH:MM:SS if needed
+                const formattedValue = value && value.length === 5 ? `${value}:00` : value;
+                
                 setLocalSchedules(prev => {
                     // Get the current day's data, or create a new default object if it doesn't exist
                     const currentDayData = prev[locationId]?.[dayIndex] || {
@@ -1406,7 +1417,7 @@
                             ...prev[locationId],
                             [dayIndex]: {
                                 ...currentDayData,
-                                [field]: value // Set the new time
+                                [field]: formattedValue // Set the new time with proper format
                             }
                         }
                     };
@@ -1437,13 +1448,13 @@
             // Update the availability for the target day
                     currentLocationSchedule[dayIndex].is_available = isAvailable;
 
-            // If marking as available, ONLY set default times if they are currently missing.
-            // DO NOT copy from other days, as this overwrites user's specific changes.
+            // If marking as available, ONLY set default times if they are currently missing or empty.
+            // DO NOT overwrite existing times that the user has set.
             if (isAvailable) {
-            if (!currentLocationSchedule[dayIndex].start_time) {
+            if (!currentLocationSchedule[dayIndex].start_time || currentLocationSchedule[dayIndex].start_time === '') {
             currentLocationSchedule[dayIndex].start_time = '09:00:00';
             }
-            if (!currentLocationSchedule[dayIndex].end_time) {
+            if (!currentLocationSchedule[dayIndex].end_time || currentLocationSchedule[dayIndex].end_time === '') {
             currentLocationSchedule[dayIndex].end_time = '17:00:00';
             }
             }
