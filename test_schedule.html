@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Schedule Test</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .test-section { margin: 20px 0; padding: 20px; border: 1px solid #ccc; }
+        .time-input { margin: 10px; }
+        .result { margin: 10px 0; padding: 10px; background: #f0f0f0; }
+    </style>
+</head>
+<body>
+    <h1>Schedule Time Change Test</h1>
+    
+    <div class="test-section">
+        <h2>Test 1: Time Format Conversion</h2>
+        <p>Testing the handleTimeChange function with time format conversion:</p>
+        
+        <div class="time-input">
+            <label>Start Time: <input type="time" id="startTime" value="18:00"></label>
+        </div>
+        <div class="time-input">
+            <label>End Time: <input type="time" id="endTime" value="20:00"></label>
+        </div>
+        
+        <button onclick="testTimeChange()">Test Time Change</button>
+        <div id="result1" class="result"></div>
+    </div>
+
+    <div class="test-section">
+        <h2>Test 2: Local Schedules State</h2>
+        <p>Testing the local schedules state management:</p>
+        
+        <button onclick="testLocalSchedules()">Test Local Schedules</button>
+        <div id="result2" class="result"></div>
+    </div>
+
+    <script>
+        // Mock the handleTimeChange function from the admin panel
+        function handleTimeChange(locationId, dayIndex, field, value) {
+            console.log(`handleTimeChange: locId=${locationId}, day=${dayIndex}, field=${field}, value=${value}`);
+            
+            // Convert time format from HH:MM to HH:MM:SS if needed
+            const formattedValue = value && value.length === 5 ? `${value}:00` : value;
+            
+            return {
+                locationId,
+                dayIndex,
+                field,
+                originalValue: value,
+                formattedValue: formattedValue
+            };
+        }
+
+        // Mock local schedules state
+        let localSchedules = {
+            1: {
+                0: { day_of_week: 0, start_time: '09:00:00', end_time: '17:00:00', is_available: true },
+                1: { day_of_week: 1, start_time: '09:00:00', end_time: '17:00:00', is_available: true },
+                2: { day_of_week: 2, start_time: '09:00:00', end_time: '17:00:00', is_available: true },
+                3: { day_of_week: 3, start_time: '09:00:00', end_time: '17:00:00', is_available: true },
+                4: { day_of_week: 4, start_time: '09:00:00', end_time: '17:00:00', is_available: true },
+                5: { day_of_week: 5, start_time: '09:00:00', end_time: '17:00:00', is_available: false },
+                6: { day_of_week: 6, start_time: '09:00:00', end_time: '17:00:00', is_available: true }
+            },
+            2: {
+                0: { day_of_week: 0, start_time: '09:00:00', end_time: '17:00:00', is_available: true },
+                1: { day_of_week: 1, start_time: '09:00:00', end_time: '17:00:00', is_available: false },
+                2: { day_of_week: 2, start_time: '09:00:00', end_time: '17:00:00', is_available: false },
+                3: { day_of_week: 3, start_time: '09:00:00', end_time: '17:00:00', is_available: false },
+                4: { day_of_week: 4, start_time: '09:00:00', end_time: '17:00:00', is_available: false },
+                5: { day_of_week: 5, start_time: '09:00:00', end_time: '17:00:00', is_available: false },
+                6: { day_of_week: 6, start_time: '09:00:00', end_time: '17:00:00', is_available: false }
+            }
+        };
+
+        function testTimeChange() {
+            const startTime = document.getElementById('startTime').value;
+            const endTime = document.getElementById('endTime').value;
+            
+            const startResult = handleTimeChange(1, 0, 'start_time', startTime);
+            const endResult = handleTimeChange(1, 0, 'end_time', endTime);
+            
+            const result = document.getElementById('result1');
+            result.innerHTML = `
+                <h3>Time Change Results:</h3>
+                <p><strong>Start Time:</strong></p>
+                <ul>
+                    <li>Original: ${startResult.originalValue}</li>
+                    <li>Formatted: ${startResult.formattedValue}</li>
+                </ul>
+                <p><strong>End Time:</strong></p>
+                <ul>
+                    <li>Original: ${endResult.originalValue}</li>
+                    <li>Formatted: ${endResult.formattedValue}</li>
+                </ul>
+            `;
+        }
+
+        function testLocalSchedules() {
+            // Simulate changing Sunday (day 6) times for location 1
+            const newStartTime = '18:00:00';
+            const newEndTime = '20:00:00';
+            
+            // Update the local schedules
+            localSchedules[1][6].start_time = newStartTime;
+            localSchedules[1][6].end_time = newEndTime;
+            localSchedules[1][6].is_available = true;
+            
+            // Simulate changing Sunday (day 6) times for location 2
+            localSchedules[2][6].start_time = '11:00:00';
+            localSchedules[2][6].end_time = '13:30:00';
+            localSchedules[2][6].is_available = true;
+            
+            const result = document.getElementById('result2');
+            result.innerHTML = `
+                <h3>Local Schedules State:</h3>
+                <pre>${JSON.stringify(localSchedules, null, 2)}</pre>
+                <p><strong>Key Changes:</strong></p>
+                <ul>
+                    <li>Location 1, Sunday: ${newStartTime} - ${newEndTime} (Available: true)</li>
+                    <li>Location 2, Sunday: 11:00:00 - 13:30:00 (Available: true)</li>
+                </ul>
+            `;
+        }
+
+        // Test on page load
+        window.onload = function() {
+            testTimeChange();
+            testLocalSchedules();
+        };
+    </script>
+</body>
+</html>
