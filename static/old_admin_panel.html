@@ -969,12 +969,12 @@
                             <div className={`font-semibold mb-1 ${isToday ? 'text-medical-accent' : 'text-medical-dark'}`}>{day}</div>
                             <div className="text-xs space-y-1">
                                 {clinicSchedule && clinicSchedule.is_available ? (
-                                    <div className="text-blue-600"><strong>C:</strong> {clinicSchedule.start_time.substring(0, 5)} - {clinicSchedule.end_time.substring(0, 5)}</div>
+                                    <div className="text-blue-600"><strong>C:</strong> {clinicSchedule?.start_time?.substring(0, 5) || '--:--'} - {clinicSchedule?.end_time?.substring(0, 5) || '--:--'}</div>
                                 ) : (
                                     <div className="text-gray-400"><strong>C:</strong> Off</div>
                                 )}
                                 {hospitalScheduleData && hospitalScheduleData.is_available ? (
-                                    <div className="text-green-700"><strong>H:</strong> {hospitalScheduleData.start_time.substring(0, 5)} - {hospitalScheduleData.end_time.substring(0, 5)}</div>
+                                    <div className="text-green-700"><strong>H:</strong> {hospitalScheduleData?.start_time?.substring(0, 5) || '--:--'} - {hospitalScheduleData?.end_time?.substring(0, 5) || '--:--'}</div>
                                 ) : (
                                     <div className="text-gray-400"><strong>H:</strong> Off</div>
                                 )}
@@ -2585,11 +2585,11 @@
                         <div className="grid grid-cols-3 gap-4 items-center">
                             <div>
                                 <label className="block text-xs font-medium text-medical-gray mb-1">Start Time</label>
-                                <input type="time" value={hospital.start_time.substring(0,5)} onChange={(e) => setHospital(p => ({...p, start_time: e.target.value}))} className="form-input-themed" disabled={!hospital.is_available} />
+                                <input type="time" value={hospital?.start_time?.substring(0,5) || ''} onChange={(e) => setHospital(p => ({...p, start_time: e.target.value}))} className="form-input-themed" disabled={!hospital.is_available} />
                             </div>
                             <div>
                                 <label className="block text-xs font-medium text-medical-gray mb-1">End Time</label>
-                                <input type="time" value={hospital.end_time.substring(0,5)} onChange={(e) => setHospital(p => ({...p, end_time: e.target.value}))} className="form-input-themed" disabled={!hospital.is_available} />
+                                <input type="time" value={hospital?.end_time?.substring(0,5) || ''} onChange={(e) => setHospital(p => ({...p, end_time: e.target.value}))} className="form-input-themed" disabled={!hospital.is_available} />
                             </div>
                             <label className="flex items-center space-x-2 cursor-pointer mt-5">
                                 <input type="checkbox" checked={hospital.is_available} onChange={(e) => setHospital(p => ({...p, is_available: e.target.checked}))} className="w-4 h-4 text-medical-accent rounded" />
