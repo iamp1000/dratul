@@ -38,3 +38,7 @@ dist-ssr
 .calendar_credentials.json
 calendar_credentials.json
 
+*.json
+token.json
+.env
+.env.local
