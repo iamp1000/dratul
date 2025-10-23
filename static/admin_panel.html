@@ -1284,15 +1284,24 @@
             }, []);
 
             const handleSave = async (updatedSchedules) => {
+                const normalizeTime = (t) => {
+                    if (!t) return '09:00:00';
+                    if (typeof t === 'string') {
+                        return t.length === 5 ? `${t}:00` : t;
+                    }
+                    return t;
+                };
+
                 try {
                     for (const locationId in updatedSchedules) {
-                        const schedulePayload = Object.values(updatedSchedules[locationId]).map(daySchedule => ({
-                             ...daySchedule, 
-                             location_id: parseInt(locationId), 
-                             // Ensure times are strings in HH:MM:SS format before sending
-                             start_time: typeof daySchedule.start_time === 'string' && daySchedule.start_time.length === 5 ? `${daySchedule.start_time}:00` : daySchedule.start_time,
-                             end_time: typeof daySchedule.end_time === 'string' && daySchedule.end_time.length === 5 ? `${daySchedule.end_time}:00` : daySchedule.end_time
-                        })); 
+                        const byDay = updatedSchedules[locationId] || {};
+                        const schedulePayload = Object.entries(byDay).map(([dayKey, daySchedule]) => ({
+                            location_id: parseInt(locationId, 10),
+                            day_of_week: parseInt(dayKey, 10),
+                            start_time: normalizeTime(daySchedule?.start_time),
+                            end_time: normalizeTime(daySchedule?.end_time),
+                            is_available: !!daySchedule?.is_available,
+                        }));
                         // Log the exact payload before sending
                         console.log(`Payload for Location ID ${locationId}:`, JSON.stringify(schedulePayload, null, 2));
                         await api(`/api/v1/schedules/by-location/${locationId}`, {
@@ -1304,7 +1313,6 @@
                     fetchSchedulesAndLocations(); // Re-fetch after saving
                 } catch (error) {
                     console.error("Error saving schedules:", error);
-                    // You might want to show an error message to the user here
                 }
             };
 
@@ -2794,7 +2802,7 @@
         };
 
         // Edit Single Day Schedule Component
-        const SingleDayScheduleEditor = ({ date, scheduleForDay, onClose, refreshSchedules }) => {
+            const SingleDayScheduleEditor = ({ date, scheduleForDay, onClose, refreshSchedules }) => {
             const [homeClinic, setHomeClinic] = React.useState(scheduleForDay.clinicSchedule || { start_time: '18:00', end_time: '20:00', is_available: false });
             const [hospital, setHospital] = React.useState(scheduleForDay.hospitalSchedule || { start_time: '11:00', end_time: '13:30', is_available: false });
             const [error, setError] = React.useState('');
@@ -2809,13 +2817,14 @@
                 ];
 
                 try {
-                    const apiCalls = schedulesToUpdate.map(s => {
+                        const normalizeTime = (t) => (typeof t === 'string' && t.length === 5 ? `${t}:00` : t);
+                        const apiCalls = schedulesToUpdate.map(s => {
                         const payload = {
                             location_id: s.locationId,
                             day_of_week: dayOfWeek,
-                            start_time: s.data.start_time,
-                            end_time: s.data.end_time,
-                            is_available: s.data.is_available,
+                            start_time: normalizeTime(s.data.start_time),
+                            end_time: normalizeTime(s.data.end_time),
+                            is_available: !!s.data.is_available,
                         };
                         return api(`/api/v1/schedules/${s.locationId}/${dayOfWeek}`, {
                             method: 'PUT',
