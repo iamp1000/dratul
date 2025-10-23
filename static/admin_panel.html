@@ -1238,7 +1238,8 @@
                 const initPickers = () => {
                     if (window.flatpickr) {
                         window.flatpickr("input[type='date'].form-input-themed", { dateFormat: "Y-m-d", allowInput: true });
-                                                window.flatpickr("input[type='time'].form-input-themed", { enableTime: true, noCalendar: true, dateFormat: "H:i", minuteIncrement: 5, allowInput: true });
+                        // Exclude schedule editors' time inputs from Flatpickr to avoid conflicts with React-controlled inputs
+                        window.flatpickr("input[type='time'].form-input-themed:not(.native-time)", { enableTime: true, noCalendar: true, dateFormat: "H:i", minuteIncrement: 5, allowInput: true });
                         window.flatpickr("input[type='datetime-local'].form-input-themed", { enableTime: true, dateFormat: "Y-m-d H:i", allowInput: true });
                     }
                 };
@@ -1483,7 +1484,7 @@
                                         // Use optional chaining and default to empty string
                                         value={dayData?.start_time?.substring(0, 5) || ''}
                                         onChange={(e) => handleTimeChange(activeLocationId, dayIndex, 'start_time', e.target.value)}
-                                        className="form-input-themed"
+                                        className="form-input-themed native-time"
                                         disabled={!dayData?.is_available}
                                     />
                                 </div>
@@ -1494,7 +1495,7 @@
                                         // Use optional chaining and default to empty string
                                         value={dayData?.end_time?.substring(0, 5) || ''}
                                         onChange={(e) => handleTimeChange(activeLocationId, dayIndex, 'end_time', e.target.value)}
-                                        className="form-input-themed"
+                                        className="form-input-themed native-time"
                                         disabled={!dayData?.is_available}
                                     />
                                 </div>
@@ -2810,11 +2811,12 @@
 
                 try {
                     const apiCalls = schedulesToUpdate.map(s => {
+                        const normalizeTime = (t) => (typeof t === 'string' && t.length === 5) ? `${t}:00` : t;
                         const payload = {
                             location_id: s.locationId,
                             day_of_week: dayOfWeek,
-                            start_time: s.data.start_time,
-                            end_time: s.data.end_time,
+                            start_time: normalizeTime(s.data.start_time),
+                            end_time: normalizeTime(s.data.end_time),
                             is_available: s.data.is_available,
                         };
                         return api(`/api/v1/schedules/${s.locationId}/${dayOfWeek}`, {
@@ -2841,11 +2843,11 @@
                         <div className="grid grid-cols-3 gap-4 items-center">
                             <div>
                                 <label className="block text-xs font-medium text-medical-gray mb-1">Start Time</label>
-                                <input type="time" value={homeClinic.start_time.substring(0, 5)} onChange={(e) => setHomeClinic(p => ({ ...p, start_time: e.target.value }))} className="form-input-themed" disabled={!homeClinic.is_available} />
+                                <input type="time" value={homeClinic.start_time.substring(0, 5)} onChange={(e) => setHomeClinic(p => ({ ...p, start_time: e.target.value }))} className="form-input-themed native-time" disabled={!homeClinic.is_available} />
                             </div>
                             <div>
                                 <label className="block text-xs font-medium text-medical-gray mb-1">End Time</label>
-                                <input type="time" value={homeClinic.end_time.substring(0, 5)} onChange={(e) => setHomeClinic(p => ({ ...p, end_time: e.target.value }))} className="form-input-themed" disabled={!homeClinic.is_available} />
+                                <input type="time" value={homeClinic.end_time.substring(0, 5)} onChange={(e) => setHomeClinic(p => ({ ...p, end_time: e.target.value }))} className="form-input-themed native-time" disabled={!homeClinic.is_available} />
                             </div>
                             <label className="flex flex-wrap items-center gap-2 cursor-pointer mt-5">
                                 <input type="checkbox" checked={homeClinic.is_available} onChange={(e) => setHomeClinic(p => ({ ...p, is_available: e.target.checked }))} className="w-4 h-4 text-medical-accent rounded" />
@@ -2859,11 +2861,11 @@
                         <div className="grid grid-cols-3 gap-4 items-center">
                             <div>
                                 <label className="block text-xs font-medium text-medical-gray mb-1">Start Time</label>
-                                <input type="time" value={hospital.start_time.substring(0, 5)} onChange={(e) => setHospital(p => ({ ...p, start_time: e.target.value }))} className="form-input-themed" disabled={!hospital.is_available} />
+                                <input type="time" value={hospital.start_time.substring(0, 5)} onChange={(e) => setHospital(p => ({ ...p, start_time: e.target.value }))} className="form-input-themed native-time" disabled={!hospital.is_available} />
                             </div>
                             <div>
                                 <label className="block text-xs font-medium text-medical-gray mb-1">End Time</label>
-                                <input type="time" value={hospital.end_time.substring(0, 5)} onChange={(e) => setHospital(p => ({ ...p, end_time: e.target.value }))} className="form-input-themed" disabled={!hospital.is_available} />
+                                <input type="time" value={hospital.end_time.substring(0, 5)} onChange={(e) => setHospital(p => ({ ...p, end_time: e.target.value }))} className="form-input-themed native-time" disabled={!hospital.is_available} />
                             </div>
                             <label className="flex flex-wrap items-center gap-2 cursor-pointer mt-5">
                                 <input type="checkbox" checked={hospital.is_available} onChange={(e) => setHospital(p => ({ ...p, is_available: e.target.checked }))} className="w-4 h-4 text-medical-accent rounded" />
