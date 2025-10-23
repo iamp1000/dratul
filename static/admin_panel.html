@@ -1368,37 +1368,44 @@
         const ScheduleEditor = ({ schedules, locations, onSave, onClose }) => {
             const [localSchedules, setLocalSchedules] = React.useState({}); // Initialize with empty object
 
+            const [isInitialized, setIsInitialized] = React.useState(false);
+
             React.useEffect(() => {
-                // When the schedules prop updates (from API fetch), update the local state.
-                // We do a deep copy to prevent mutating the prop.
-                // This logic NO LONGER fills in missing days or applies defaults.
-                // What we get from the API is what we show.
-                if (schedules && Object.keys(schedules).length > 0) {
-                    console.log("useEffect: Setting localSchedules from prop:", JSON.stringify(schedules, null, 2));
+                // Only initialize local schedules once when component mounts or when schedules are first loaded
+                // Don't override user changes when schedules prop updates after saving
+                if (!isInitialized && schedules && Object.keys(schedules).length > 0) {
+                    console.log("useEffect: Setting localSchedules from prop (initial load):", JSON.stringify(schedules, null, 2));
                     // Create a deep copy and ensure both location keys exist
                     const newLocalSchedules = JSON.parse(JSON.stringify(schedules));
                     if (!newLocalSchedules[1]) newLocalSchedules[1] = {};
                     if (!newLocalSchedules[2]) newLocalSchedules[2] = {};
                     setLocalSchedules(newLocalSchedules);
-                } else {
+                    setIsInitialized(true);
+                } else if (!isInitialized && (!schedules || Object.keys(schedules).length === 0)) {
                     console.log("useEffect: Schedules prop is empty, setting empty local state.");
                     setLocalSchedules({ 1: {}, 2: {} });
+                    setIsInitialized(true);
                 }
-            }, [schedules]); // Dependency array ensures this runs when schedules prop changes
+            }, [schedules, isInitialized]); // Only run when schedules change AND we haven't initialized yet
 
             const [activeLocationId, setActiveLocationId] = React.useState(locations[0]?.id || 1);
 
             const handleTimeChange = (locationId, dayIndex, field, value) => {
                 console.log(`handleTimeChange: locId=${locationId}, day=${dayIndex}, field=${field}, value=${value}`); // Log the exact input
-                // Pass the raw value directly from the input
+                
                 setLocalSchedules(prev => {
-                    // Get the current day's data, or create a new default object if it doesn't exist
+                    // Get the current day's data, or create a new object if it doesn't exist
+                    // Don't set default times - preserve existing times or use empty values
                     const currentDayData = prev[locationId]?.[dayIndex] || {
                         day_of_week: dayIndex,
-                        start_time: '09:00:00',
-                        end_time: '17:00:00',
-                        is_available: false // Assume unavailable until checkbox is ticked
+                        start_time: '',
+                        end_time: '',
+                        is_available: false,
+                        location_id: parseInt(locationId)
                     };
+
+                    // Convert time format from HH:MM to HH:MM:SS if needed
+                    const timeValue = value && value.length === 5 ? `${value}:00` : value;
 
                     const newState = {
                         ...prev,
@@ -1406,7 +1413,7 @@
                             ...prev[locationId],
                             [dayIndex]: {
                                 ...currentDayData,
-                                [field]: value // Set the new time
+                                [field]: timeValue // Set the new time with proper format
                             }
                         }
                     };
@@ -1428,25 +1435,18 @@
             if (!currentLocationSchedule[dayIndex]) {
             currentLocationSchedule[dayIndex] = { 
                      day_of_week: dayIndex, 
-                             start_time: '09:00:00', 
-                     end_time: '17:00:00', 
-                     is_available: false 
+                     start_time: '', // Don't set default times
+                     end_time: '', // Don't set default times
+                     is_available: false,
+                     location_id: parseInt(locationId)
                          };
             }
 
             // Update the availability for the target day
                     currentLocationSchedule[dayIndex].is_available = isAvailable;
 
-            // If marking as available, ONLY set default times if they are currently missing.
-            // DO NOT copy from other days, as this overwrites user's specific changes.
-            if (isAvailable) {
-            if (!currentLocationSchedule[dayIndex].start_time) {
-            currentLocationSchedule[dayIndex].start_time = '09:00:00';
-            }
-            if (!currentLocationSchedule[dayIndex].end_time) {
-            currentLocationSchedule[dayIndex].end_time = '17:00:00';
-            }
-            }
+            // Don't automatically set default times when marking as available
+            // Let the user set their own times
 
                     return newSchedules; // Return the updated state object
             });
