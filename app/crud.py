@@ -12,6 +12,7 @@ from .security import get_password_hash, verify_password, encryption_service, Se
 from fastapi import HTTPException, status
 
 logger = logging.getLogger(__name__)
+logger.setLevel(logging.DEBUG) # Force DEBUG level for this logger
 # IMPORTANT: Avoid importing services at module import time to prevent circular imports.
 # Import service classes lazily inside functions when needed.
 
@@ -501,55 +502,69 @@ def get_schedules_for_location(db: Session, location_id: int) -> List[models.Loc
 
 def update_schedules_for_location(db: Session, location_id: int, schedules: List[schemas.LocationScheduleCreate]) -> List[models.LocationSchedule]:
     """Update or create schedule entries for a location for a full week."""
+    logger.debug(f"[update_schedules_for_location] START for loc {location_id}. Received {len(schedules)} schedule entries.")
+    logger.debug(f"[update_schedules_for_location] Incoming data: {schedules}")
     try:
+        # Check count before delete
+        count_before = db.query(models.LocationSchedule).filter(models.LocationSchedule.location_id == location_id).count()
+        logger.debug(f"[update_schedules_for_location] Count before delete for loc {location_id}: {count_before}")
+        
         # Delete existing schedules for the week for simplicity.
-        db.query(models.LocationSchedule).filter(models.LocationSchedule.location_id == location_id).delete()
+        deleted_count = db.query(models.LocationSchedule).filter(models.LocationSchedule.location_id == location_id).delete()
+        logger.debug(f"[update_schedules_for_location] Deleted {deleted_count} existing schedules for loc {location_id}.")
         
-        new_schedules = []
-        for schedule_data in schedules:
-            new_schedule = models.LocationSchedule(
-                **schedule_data.dict()
-            )
-            new_schedules.append(new_schedule)
+        # Check count after delete (before flush/commit)
+        count_after_delete = db.query(models.LocationSchedule).filter(models.LocationSchedule.location_id == location_id).count()
+        logger.debug(f"[update_schedules_for_location] Count after delete (pre-commit) for loc {location_id}: {count_after_delete}")
+        # Note: Depending on transaction isolation, this count might not reflect the delete until commit.
+        # Let's flush to see the effect sooner if possible without full commit.
+        try:
+            db.flush() # Try to push delete to DB connection buffer
+            count_after_flush = db.query(models.LocationSchedule).filter(models.LocationSchedule.location_id == location_id).count()
+            logger.debug(f"[update_schedules_for_location] Count after delete (post-flush) for loc {location_id}: {count_after_flush}")
+        except SQLAlchemyError as flush_err:
+             logger.warning(f"[update_schedules_for_location] DB flush after delete failed (might be expected): {flush_err}")
+
+        new_schedules_models = []
+        for idx, schedule_data in enumerate(schedules):
+            # Ensure location_id is present, even though schema requires it, belt-and-suspenders approach.
+            if schedule_data.location_id != location_id:
+                 logger.warning(f"[update_schedules_for_location] Mismatch! schedule_data location_id ({schedule_data.location_id}) != path location_id ({location_id}). Forcing path ID.")
+            
+            schedule_dict = schedule_data.dict()
+            schedule_dict['location_id'] = location_id # Explicitly ensure correct location_id
+
+            new_schedule = models.LocationSchedule(**schedule_dict)
+            logger.debug(f"[update_schedules_for_location] Creating model instance {idx}: Day={new_schedule.day_of_week}, Start={new_schedule.start_time}, End={new_schedule.end_time}, Avail={new_schedule.is_available}, LocID={new_schedule.location_id}")
+            new_schedules_models.append(new_schedule)
         
-        db.add_all(new_schedules)
+        logger.debug(f"[update_schedules_for_location] Prepared {len(new_schedules_models)} model instances for addition.")
+        db.add_all(new_schedules_models)
+        
+        count_before_commit = db.query(models.LocationSchedule).filter(models.LocationSchedule.location_id == location_id).count()
+        logger.debug(f"[update_schedules_for_location] Count after add_all (pre-commit) for loc {location_id}: {count_before_commit}")
+
+        logger.debug(f"[update_schedules_for_location] Committing transaction for loc {location_id}...")
         db.commit()
+        logger.debug(f"[update_schedules_for_location] Commit successful for loc {location_id}.")
         
-        # Return the newly created schedules
-        return new_schedules
+        # Fetch from DB to confirm what was actually saved
+        saved_schedules = db.query(models.LocationSchedule).filter(models.LocationSchedule.location_id == location_id).all()
+        logger.debug(f"[update_schedules_for_location] Fetched {len(saved_schedules)} schedules from DB post-commit for loc {location_id}.")
+        for s in saved_schedules:
+             logger.debug(f"  -> DB State: Day={s.day_of_week}, Start={s.start_time}, End={s.end_time}, Avail={s.is_available}, ID={s.id}")
+        
+        # Return the models added (note: IDs might not be populated correctly on the original list)
+        # It's safer to return the 'saved_schedules' fetched after commit.
+        return saved_schedules
     except SQLAlchemyError as e:
         db.rollback()
-        logger.error(f"Error updating schedules for location {location_id}: {e}")
+        logger.error(f"[update_schedules_for_location] SQLAlchemyError for location {location_id}: {e}")
         raise CRUDError("A database error occurred while updating schedules.")
-
-def update_schedule_for_day(db: Session, location_id: int, day_of_week: int, schedule_update: schemas.LocationScheduleCreate) -> models.LocationSchedule:
-    """Update or create a schedule for a specific day and location."""
-    try:
-        db_schedule = db.query(models.LocationSchedule).filter(
-            models.LocationSchedule.location_id == location_id,
-            models.LocationSchedule.day_of_week == day_of_week
-        ).first()
-
-        if db_schedule:
-            # Update existing schedule
-            for key, value in schedule_update.dict().items():
-                setattr(db_schedule, key, value)
-        else:
-            # Create new schedule
-            db_schedule = models.LocationSchedule(
-                **schedule_update.dict(),
-                location_id=location_id,
-                day_of_week=day_of_week
-            )
-            db.add(db_schedule)
-        
-        db.commit()
-        db.refresh(db_schedule)
-        return db_schedule
-    except SQLAlchemyError as e:
+    except Exception as e:
         db.rollback()
-        logger.error(f"Error updating schedule for location {location_id}, day {day_of_week}: {e}")
-        raise CRUDError("A database error occurred while updating the day schedule.")
+        logger.error(f"[update_schedules_for_location] Unexpected Error for location {location_id}: {e}")
+        raise CRUDError(f"An unexpected error occurred: {e}")
 
 def update_schedule_for_day(db: Session, location_id: int, day_of_week: int, schedule_update: schemas.LocationScheduleCreate) -> models.LocationSchedule:
     """Update or create a schedule for a specific day and location."""

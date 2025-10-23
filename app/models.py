@@ -2,7 +2,8 @@
 from datetime import datetime, time
 from sqlalchemy import (
     Column, Integer, String, DateTime, Time, ForeignKey, Text, Date,
-    Enum as SQLAlchemyEnum, Boolean, LargeBinary, JSON, Numeric, Index
+    Enum as SQLAlchemyEnum, Boolean, LargeBinary, JSON, Numeric, Index,
+    UniqueConstraint  # <-- Import added here
 )
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
@@ -510,6 +511,7 @@ class LocationSchedule(Base):
     __table_args__ = (
         Index('idx_schedule_location_day', 'location_id', 'day_of_week'),
         Index('idx_schedule_available', 'is_available'),
+        UniqueConstraint('location_id', 'day_of_week', name='uq_location_day')  # Ensure only one entry per day per location
     )
 
     id = Column(Integer, primary_key=True, index=True)

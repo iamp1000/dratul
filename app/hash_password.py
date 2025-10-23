@@ -12,8 +12,8 @@ def create_initial_data():
     try:
         logger = logging.getLogger(__name__)
         locations_to_create = [
-            schemas.LocationCreate(name="Home Clinic", address="123 Home St", timezone="UTC"),
-            schemas.LocationCreate(name="Hospital", address="456 Hospital Ave", timezone="UTC")
+            LocationCreate(name="Home Clinic", address="123 Home St", timezone="UTC"),
+            LocationCreate(name="Hospital", address="456 Hospital Ave", timezone="UTC")
         ]
         for loc_data in locations_to_create:
             location = crud.get_location_by_name(db, loc_data.name)

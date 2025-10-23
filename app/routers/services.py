@@ -1,4 +1,4 @@
-from fastapi import APIRouter
+from fastapi import APIRouter, Query, HTTPException
 from ..services.calendar_service import GoogleCalendarService
 from ..services.email_service import email_service
 from ..services.whatsapp_service import WhatsAppService
@@ -35,3 +35,28 @@ def services_status():
         "email": email_status,
         "calendar": calendar_status,
     }
+
+
+@router.get("/google-calendar/authorize-url")
+def get_google_calendar_authorize_url():
+    """
+    Get the URL to authorize the application with Google Calendar.
+    """
+    calendar = GoogleCalendarService()
+    url = calendar.get_authorization_url()
+    if not url:
+        raise HTTPException(status_code=500, detail="Could not generate Google Calendar authorization URL. Check server logs and credentials file.")
+    return {"authorization_url": url}
+
+
+@router.post("/google-calendar/exchange-token")
+def exchange_google_calendar_token(code: str = Query(..., description="The authorization code from Google")):
+    """
+    Exchange the authorization code for an access token and save it.
+    """
+    calendar = GoogleCalendarService()
+    success = calendar.exchange_code_for_token(code)
+    if not success:
+        raise HTTPException(status_code=400, detail="Failed to exchange authorization code for token. The code may be invalid or expired.")
+    return {"message": "Google Calendar authorized successfully. Please restart the server."}
+

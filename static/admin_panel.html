@@ -1,6 +1,5 @@
 <!DOCTYPE html>
 <html lang="en">
-
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -280,86 +279,198 @@
             background: #0B4D6B;
         }
 
-        /* Modern input styling shared across inputs, selects, textareas */
-        .form-input-themed {
-            width: 100%;
-            padding: 12px 14px;
-            background: #F9FAFB;
-            /* gray-50 */
-            border: 1px solid #E5E7EB;
-            /* gray-200 */
+        /* Custom Select Styles */
+        .custom-select {
+            background: #ffffff url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e") no-repeat right 12px center/16px 16px;
+            border: 2px solid #e5e7eb;
             border-radius: 12px;
-            color: #0B4D6B;
-            /* medical-dark-ish text */
+            padding: 12px 40px 12px 16px;
+            font-size: 14px;
             font-family: 'Inter', sans-serif;
-            transition: box-shadow .2s ease, border-color .2s ease, background-color .2s ease;
-            outline: none;
-        }
-
-        .form-input-themed::placeholder {
-            color: #94A3B8;
-        }
-
-        .form-input-themed:focus {
-            background: #ffffff;
-            border-color: #2196F3;
-            /* medical-accent */
-            box-shadow: 0 0 0 3px rgba(33, 150, 243, 0.18);
-        }
-
-        /* Date & time pickers: reduce native chrome look and unify */
-        input[type="date"].form-input-themed,
-        input[type="time"].form-input-themed,
-        input[type="datetime-local"].form-input-themed {
+            transition: all 0.3s ease;
+            width: 100%;
+            color: #374151;
             appearance: none;
-            -webkit-appearance: none;
-            color-scheme: light;
-            padding-right: 36px;
-            /* room for picker icon */
         }
 
-        input[type="date"].form-input-themed::-webkit-calendar-picker-indicator,
-        input[type="time"].form-input-themed::-webkit-calendar-picker-indicator,
-        input[type="datetime-local"].form-input-themed::-webkit-calendar-picker-indicator {
-            cursor: pointer;
-            filter: invert(34%) sepia(48%) saturate(404%) hue-rotate(179deg) brightness(96%) contrast(95%);
-            opacity: .8;
+        .custom-select:focus {
+            outline: none;
+            border-color: #2196F3;
+            box-shadow: 0 0 0 3px rgba(33, 150, 243, 0.1);
+            background-color: #fafbfc;
         }
 
-        input[type="date"].form-input-themed:hover::-webkit-calendar-picker-indicator,
-        input[type="time"].form-input-themed:hover::-webkit-calendar-picker-indicator,
-        input[type="datetime-local"].form-input-themed:hover::-webkit-calendar-picker-indicator {
-            opacity: 1;
+        .custom-select:hover {
+            border-color: #d1d5db;
         }
 
-        /* Selects */
-        select.form-input-themed {
-            background-image: linear-gradient(45deg, transparent 50%, #64748B 50%), linear-gradient(135deg, #64748B 50%, transparent 50%);
-            background-position: calc(100% - 18px) calc(1em + 2px), calc(100% - 13px) calc(1em + 2px);
-            background-size: 5px 5px, 5px 5px;
-            background-repeat: no-repeat;
-        }
-
-        select.form-input-themed::-ms-expand {
-            display: none;
-        }
-
-        /* Textareas */
-        textarea.form-input-themed {
-            min-height: 110px;
+        /* Custom Textarea Styles */
+        .custom-textarea {
+            background: #ffffff;
+            border: 2px solid #e5e7eb;
+            border-radius: 12px;
+            padding: 12px 16px;
+            font-size: 14px;
+            font-family: 'Inter', sans-serif;
+            transition: all 0.3s ease;
+            width: 100%;
+            color: #374151;
             resize: vertical;
-            line-height: 1.6;
+            min-height: 100px;
         }
 
-        textarea.form-input-themed::-webkit-scrollbar {
-            width: 8px;
+        .custom-textarea:focus {
+            outline: none;
+            border-color: #2196F3;
+            box-shadow: 0 0 0 3px rgba(33, 150, 243, 0.1);
+            background: #fafbfc;
         }
 
-        textarea.form-input-themed::-webkit-scrollbar-thumb {
-            background: #93C5FD;
-            border-radius: 8px;
+        .custom-textarea:hover {
+            border-color: #d1d5db;
+        }
+
+        .custom-textarea::placeholder {
+            color: #9ca3af;
+            font-size: 14px;
+        }
+
+        /* Custom Date/Time Input Styles */
+        .custom-datetime {
+            background: #ffffff;
+            border: 2px solid #e5e7eb;
+            border-radius: 12px;
+            padding: 12px 16px;
+            font-size: 14px;
+            font-family: 'Inter', sans-serif;
+            transition: all 0.3s ease;
+            width: 100%;
+            color: #374151;
+        }
+
+        .custom-datetime:focus {
+            outline: none;
+            border-color: #2196F3;
+            box-shadow: 0 0 0 3px rgba(33, 150, 243, 0.1);
+            background: #fafbfc;
+        }
+
+        .custom-datetime:hover {
+            border-color: #d1d5db;
+        }
+
+        /* Custom Checkbox/Radio Styles */
+        .custom-checkbox {
+            width: 18px;
+            height: 18px;
+            border: 2px solid #e5e7eb;
+            border-radius: 4px;
+            background: #ffffff;
+            position: relative;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .custom-checkbox:checked {
+            background: #2196F3;
+            border-color: #2196F3;
+        }
+
+        .custom-checkbox:checked::after {
+            content: '✓';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            color: white;
+            font-size: 12px;
+            font-weight: bold;
+        }
+
+        .custom-checkbox:focus {
+            outline: none;
+            box-shadow: 0 0 0 3px rgba(33, 150, 243, 0.1);
+        }
+
+        /* File Input Styles */
+        .custom-file {
+            position: relative;
+            display: inline-block;
+            cursor: pointer;
+            width: 100%;
+        }
+
+        .custom-file input[type=file] {
+            position: absolute;
+            opacity: 0;
+            width: 100%;
+            height: 100%;
+            cursor: pointer;
+        }
+
+        .custom-file-label {
+            display: flex;
+            align-items: center;
+            padding: 12px 16px;
+            background: #ffffff;
+            border: 2px dashed #e5e7eb;
+            border-radius: 12px;
+            font-size: 14px;
+            color: #6b7280;
+            transition: all 0.3s ease;
+            font-family: 'Inter', sans-serif;
+        }
+
+        .custom-file:hover .custom-file-label {
+            border-color: #2196F3;
+            color: #2196F3;
+        }
+
+        .custom-file input[type=file]:focus + .custom-file-label {
+            border-color: #2196F3;
+            box-shadow: 0 0 0 3px rgba(33, 150, 243, 0.1);
+        }
+
+        /* Label Styles */
+        .custom-label {
+            display: block;
+            font-size: 14px;
+            font-weight: 500;
+            color: #374151;
+            margin-bottom: 6px;
+            font-family: 'Inter', sans-serif;
+        }
+
+        .custom-label.required::after {
+            content: '*';
+            color: #ef4444;
+            margin-left: 4px;
+        }
+
+        /* Error State */
+        .custom-input.error,
+        .custom-select.error,
+        .custom-textarea.error,
+        .custom-datetime.error {
+            border-color: #ef4444;
+            background: #fef2f2;
+        }
+
+        .custom-input.error:focus,
+        .custom-select.error:focus,
+        .custom-textarea.error:focus,
+        .custom-datetime.error:focus {
+            box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.1);
+        }
+
+        .error-message {
+            color: #ef4444;
+            font-size: 12px;
+            margin-top: 4px;
+            font-family: 'Inter', sans-serif;
         }
     </style>
+
 </head>
 
 <body>
@@ -1127,7 +1238,7 @@
                 const initPickers = () => {
                     if (window.flatpickr) {
                         window.flatpickr("input[type='date'].form-input-themed", { dateFormat: "Y-m-d", allowInput: true });
-                        window.flatpickr("input[type='time'].form-input-themed", { enableTime: true, noCalendar: true, dateFormat: "h:i K", minuteIncrement: 5, allowInput: true });
+                                                window.flatpickr("input[type='time'].form-input-themed", { enableTime: true, noCalendar: true, dateFormat: "H:i", minuteIncrement: 5, allowInput: true });
                         window.flatpickr("input[type='datetime-local'].form-input-themed", { enableTime: true, dateFormat: "Y-m-d H:i", allowInput: true });
                     }
                 };
@@ -1175,7 +1286,15 @@
             const handleSave = async (updatedSchedules) => {
                 try {
                     for (const locationId in updatedSchedules) {
-                        const schedulePayload = Object.values(updatedSchedules[locationId]).map(daySchedule => ({ ...daySchedule, location_id: parseInt(locationId) }));
+                        const schedulePayload = Object.values(updatedSchedules[locationId]).map(daySchedule => ({
+                             ...daySchedule, 
+                             location_id: parseInt(locationId), 
+                             // Ensure times are strings in HH:MM:SS format before sending
+                             start_time: typeof daySchedule.start_time === 'string' && daySchedule.start_time.length === 5 ? `${daySchedule.start_time}:00` : daySchedule.start_time,
+                             end_time: typeof daySchedule.end_time === 'string' && daySchedule.end_time.length === 5 ? `${daySchedule.end_time}:00` : daySchedule.end_time
+                        })); 
+                        // Log the exact payload before sending
+                        console.log(`Payload for Location ID ${locationId}:`, JSON.stringify(schedulePayload, null, 2));
                         await api(`/api/v1/schedules/by-location/${locationId}`, {
                             method: 'POST',
                             body: JSON.stringify(schedulePayload)
@@ -1247,33 +1366,90 @@
 
         // Schedule Editor Component (Updated for Multi-Location Weekly Edit)
         const ScheduleEditor = ({ schedules, locations, onSave, onClose }) => {
-            const [localSchedules, setLocalSchedules] = React.useState(JSON.parse(JSON.stringify(schedules))); // Deep copy
+            const [localSchedules, setLocalSchedules] = React.useState({}); // Initialize with empty object
+
+            React.useEffect(() => {
+                // When the schedules prop updates (from API fetch), update the local state.
+                // We do a deep copy to prevent mutating the prop.
+                // This logic NO LONGER fills in missing days or applies defaults.
+                // What we get from the API is what we show.
+                if (schedules && Object.keys(schedules).length > 0) {
+                    console.log("useEffect: Setting localSchedules from prop:", JSON.stringify(schedules, null, 2));
+                    // Create a deep copy and ensure both location keys exist
+                    const newLocalSchedules = JSON.parse(JSON.stringify(schedules));
+                    if (!newLocalSchedules[1]) newLocalSchedules[1] = {};
+                    if (!newLocalSchedules[2]) newLocalSchedules[2] = {};
+                    setLocalSchedules(newLocalSchedules);
+                } else {
+                    console.log("useEffect: Schedules prop is empty, setting empty local state.");
+                    setLocalSchedules({ 1: {}, 2: {} });
+                }
+            }, [schedules]); // Dependency array ensures this runs when schedules prop changes
+
             const [activeLocationId, setActiveLocationId] = React.useState(locations[0]?.id || 1);
 
             const handleTimeChange = (locationId, dayIndex, field, value) => {
-                setLocalSchedules(prev => ({
-                    ...prev,
-                    [locationId]: {
-                        ...prev[locationId],
-                        [dayIndex]: {
-                            ...(prev[locationId][dayIndex] || { day_of_week: dayIndex, start_time: '09:00:00', end_time: '17:00:00', is_available: false }),
-                            [field]: value
+                console.log(`handleTimeChange: locId=${locationId}, day=${dayIndex}, field=${field}, value=${value}`); // Log the exact input
+                // Pass the raw value directly from the input
+                setLocalSchedules(prev => {
+                    // Get the current day's data, or create a new default object if it doesn't exist
+                    const currentDayData = prev[locationId]?.[dayIndex] || {
+                        day_of_week: dayIndex,
+                        start_time: '09:00:00',
+                        end_time: '17:00:00',
+                        is_available: false // Assume unavailable until checkbox is ticked
+                    };
+
+                    const newState = {
+                        ...prev,
+                        [locationId]: {
+                            ...prev[locationId],
+                            [dayIndex]: {
+                                ...currentDayData,
+                                [field]: value // Set the new time
+                            }
                         }
+                    };
+                    
+                    // Log the specific day being changed for location 2
+                    if (locationId == 2) {
+                        console.log(`State_After_Time_Change (Loc 2, Day ${dayIndex}):`, JSON.stringify(newState[2][dayIndex], null, 2));
                     }
-                }));
+                    return newState;
+                });
             };
 
             const handleAvailabilityChange = (locationId, dayIndex, isAvailable) => {
-                setLocalSchedules(prev => ({
-                    ...prev,
-                    [locationId]: {
-                        ...prev[locationId],
-                        [dayIndex]: {
-                            ...(prev[locationId][dayIndex] || { day_of_week: dayIndex, start_time: '09:00:00', end_time: '17:00:00' }),
-                            is_available: isAvailable
-                        }
-                    }
-                }));
+            setLocalSchedules(prev => {
+            const newSchedules = JSON.parse(JSON.stringify(prev)); // Deep copy to prevent mutation
+            const currentLocationSchedule = newSchedules[locationId];
+
+            // Ensure the day object exists
+            if (!currentLocationSchedule[dayIndex]) {
+            currentLocationSchedule[dayIndex] = { 
+                     day_of_week: dayIndex, 
+                             start_time: '09:00:00', 
+                     end_time: '17:00:00', 
+                     is_available: false 
+                         };
+            }
+
+            // Update the availability for the target day
+                    currentLocationSchedule[dayIndex].is_available = isAvailable;
+
+            // If marking as available, ONLY set default times if they are currently missing.
+            // DO NOT copy from other days, as this overwrites user's specific changes.
+            if (isAvailable) {
+            if (!currentLocationSchedule[dayIndex].start_time) {
+            currentLocationSchedule[dayIndex].start_time = '09:00:00';
+            }
+            if (!currentLocationSchedule[dayIndex].end_time) {
+            currentLocationSchedule[dayIndex].end_time = '17:00:00';
+            }
+            }
+
+                    return newSchedules; // Return the updated state object
+            });
             };
 
             const activeSchedule = localSchedules[activeLocationId] || {};
@@ -1294,7 +1470,8 @@
 
                     {[...Array(7).keys()].map(dayIndex => {
                         const dayName = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'][dayIndex];
-                        const dayData = activeSchedule[dayIndex] || { start_time: '09:00:00', end_time: '17:00:00', is_available: false };
+                        // Don't set defaults here, just get the data or an empty object
+                        const dayData = activeSchedule[dayIndex] || {}; 
 
                         return (
                             <div key={dayIndex} className="grid grid-cols-4 gap-4 items-center p-3 border-b">
@@ -1303,27 +1480,29 @@
                                     <label className="block text-xs font-medium text-medical-gray mb-1">Start Time</label>
                                     <input
                                         type="time"
-                                        value={dayData.start_time}
+                                        // Use optional chaining and default to empty string
+                                        value={dayData?.start_time?.substring(0, 5) || ''}
                                         onChange={(e) => handleTimeChange(activeLocationId, dayIndex, 'start_time', e.target.value)}
                                         className="form-input-themed"
-                                        disabled={!dayData.is_available}
+                                        disabled={!dayData?.is_available}
                                     />
                                 </div>
                                 <div>
                                     <label className="block text-xs font-medium text-medical-gray mb-1">End Time</label>
                                     <input
                                         type="time"
-                                        value={dayData.end_time}
+                                        // Use optional chaining and default to empty string
+                                        value={dayData?.end_time?.substring(0, 5) || ''}
                                         onChange={(e) => handleTimeChange(activeLocationId, dayIndex, 'end_time', e.target.value)}
                                         className="form-input-themed"
-                                        disabled={!dayData.is_available}
+                                        disabled={!dayData?.is_available}
                                     />
                                 </div>
                                 <div className="flex items-center justify-center">
                                     <label className="flex flex-wrap items-center gap-2 cursor-pointer">
                                         <input
                                             type="checkbox"
-                                            checked={dayData.is_available}
+                                            checked={!!dayData?.is_available} // Use optional chaining
                                             onChange={(e) => handleAvailabilityChange(activeLocationId, dayIndex, e.target.checked)}
                                             className="w-4 h-4 text-medical-accent rounded"
                                         />
@@ -1827,29 +2006,29 @@
                             </div>
                         </div>
                         <div id="presc-toolbar" className="ql-toolbar ql-snow rounded-t-2xl mt-3">
-                            <span class="ql-formats">
-                                <select class="ql-font"></select>
-                                <select class="ql-size"></select>
+                            <span className="ql-formats">
+                                <select className="ql-font"></select>
+                                <select className="ql-size"></select>
                             </span>
                             <span class="ql-formats">
-                                <button class="ql-bold"></button>
-                                <button class="ql-italic"></button>
-                                <button class="ql-underline"></button>
-                                <button class="ql-strike"></button>
+                                <button className="ql-bold"></button>
+                                <button className="ql-italic"></button>
+                                <button className="ql-underline"></button>
+                                <button className="ql-strike"></button>
                             </span>
                             <span class="ql-formats">
-                                <select class="ql-color"></select>
-                                <select class="ql-background"></select>
+                                <select className="ql-color"></select>
+                                <select className="ql-background"></select>
                             </span>
                             <span class="ql-formats">
-                                <button class="ql-list" value="ordered"></button>
-                                <button class="ql-list" value="bullet"></button>
-                                <button class="ql-indent" value="-1"></button>
-                                <button class="ql-indent" value="+1"></button>
-                                <select class="ql-align"></select>
+                                <button className="ql-list" value="ordered"></button>
+                                <button className="ql-list" value="bullet"></button>
+                                <button className="ql-indent" value="-1"></button>
+                                <button className="ql-indent" value="+1"></button>
+                                <select className="ql-align"></select>
                             </span>
                             <span class="ql-formats">
-                                <button class="ql-clean"></button>
+                                <button className="ql-clean"></button>
                             </span>
                         </div>
                     </div>
@@ -2570,7 +2749,7 @@
                             <input
                                 type="checkbox"
                                 defaultChecked={user?.mfa_enabled}
-                                className="w-4 h-4 text-medical-accent rounded focus:ring-medical-accent"
+                                className="custom-checkbox w-4 h-4 text-medical-accent rounded focus:ring-medical-accent"
                             />
                             <span>Enable MFA</span>
                         </label>
@@ -2616,8 +2795,8 @@
 
         // Edit Single Day Schedule Component
         const SingleDayScheduleEditor = ({ date, scheduleForDay, onClose, refreshSchedules }) => {
-            const [homeClinic, setHomeClinic] = React.useState(scheduleForDay.clinicSchedule || { start_time: '09:00', end_time: '17:00', is_available: false });
-            const [hospital, setHospital] = React.useState(scheduleForDay.hospitalSchedule || { start_time: '09:00', end_time: '17:00', is_available: false });
+            const [homeClinic, setHomeClinic] = React.useState(scheduleForDay.clinicSchedule || { start_time: '18:00', end_time: '20:00', is_available: false });
+            const [hospital, setHospital] = React.useState(scheduleForDay.hospitalSchedule || { start_time: '11:00', end_time: '13:30', is_available: false });
             const [error, setError] = React.useState('');
 
             const handleSave = async () => {
@@ -2896,11 +3075,11 @@
                         </div>
                         <div>
                             <label className="text-sm font-medium text-medical-gray">Start Date</label>
-                            <input type="date" name="startDate" value={filters.startDate} onChange={handleFilterChange} className="mt-1 form-input-themed" />
+                            <input type="date" name="startDate" value={filters.startDate} onChange={handleFilterChange} className="custom-datetime mt-1 form-input-themed" />
                         </div>
                         <div>
                             <label className="text-sm font-medium text-medical-gray">End Date</label>
-                            <input type="date" name="endDate" value={filters.endDate} onChange={handleFilterChange} className="mt-1 form-input-themed" />
+                            <input type="date" name="endDate" value={filters.endDate} onChange={handleFilterChange} className="custom-datetime mt-1 form-input-themed" />
                         </div>
                     </div>
 
@@ -2954,6 +3133,7 @@
 
         // Main App Component
         const App = () => {
+            const [isMobileMenuOpen, setIsMobileMenuOpen] = React.useState(false);
             const [user, setUser] = React.useState(() => {
                 const userData = sessionStorage.getItem('user');
                 return userData ? JSON.parse(userData) : null;
@@ -3022,7 +3202,7 @@
                             isMobileMenuOpen={isMobileMenuOpen}
                             setIsMobileMenuOpen={setIsMobileMenuOpen}
                         />
-                        <main className="flex-1 overflow-auto relative">
+                        <main className="flex-1 overflow-auto relative ml-0 md:ml-0">
                             <div className="md:hidden flex items-center justify-between p-4 bg-white/80 backdrop-blur-sm sticky top-0 z-30 shadow-sm">
                                 <button onClick={() => setIsMobileMenuOpen(true)} className="text-medical-dark">
                                     <i className="fas fa-bars text-xl"></i>
@@ -3176,7 +3356,7 @@
 
                                     <div className="border-b pb-3">
                                         <div className="font-medium mb-2">Prescription template</div>
-                                        <input type="file" accept="image/*,application/pdf" onChange={onTemplateUpload} className="w-full" />
+                                        <input type="file" accept="image/*,application/pdf" onChange={onTemplateUpload} className="custom-input " />
                                     </div>
 
                                     <div className="border-b pb-3">

@@ -7,6 +7,7 @@ import asyncio
 from google.oauth2.credentials import Credentials
 from google.oauth2.service_account import Credentials as ServiceAccountCredentials
 from google_auth_oauthlib.flow import Flow
+from google.auth.transport.requests import Request
 from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
 import logging
@@ -49,6 +50,8 @@ class GoogleCalendarService:
 
             # Try OAuth credentials (for user authorization)
             credentials_file = os.getenv("GOOGLE_CREDENTIALS_FILE", "credentials.json")
+            if not os.path.exists(credentials_file) and os.path.exists("calendar_credentials.json"):
+                credentials_file = "calendar_credentials.json"
             token_file = os.getenv("GOOGLE_TOKEN_FILE", "token.json")
 
             if os.path.exists(token_file):
@@ -59,7 +62,7 @@ class GoogleCalendarService:
                     logger.info("✅ Google Calendar OAuth - ENABLED")
                     return
                 elif credentials and credentials.expired and credentials.refresh_token:
-                    credentials.refresh()
+                    credentials.refresh(Request())
                     # Save refreshed credentials
                     with open(token_file, 'w') as token:
                         token.write(credentials.to_json())
@@ -78,6 +81,8 @@ class GoogleCalendarService:
         """Get OAuth authorization URL for first-time setup"""
         try:
             credentials_file = os.getenv("GOOGLE_CREDENTIALS_FILE", "credentials.json")
+            if not os.path.exists(credentials_file) and os.path.exists("calendar_credentials.json"):
+                credentials_file = "calendar_credentials.json"
             if not os.path.exists(credentials_file):
                 logger.error("Google credentials file not found")
                 return None
@@ -99,6 +104,8 @@ class GoogleCalendarService:
         """Exchange authorization code for access token"""
         try:
             credentials_file = os.getenv("GOOGLE_CREDENTIALS_FILE", "credentials.json")
+            if not os.path.exists(credentials_file) and os.path.exists("calendar_credentials.json"):
+                credentials_file = "calendar_credentials.json"
             token_file = os.getenv("GOOGLE_TOKEN_FILE", "token.json")
 
             flow = Flow.from_client_secrets_file(

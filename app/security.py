@@ -533,6 +533,15 @@ async def get_current_user(
     token: str = Depends(oauth2_scheme),
     db: Session = Depends(get_db)
 ) -> models.User:
+    security_logger.info(f"get_current_user called for path: {request.url.path}")
+    security_logger.info(f"Received token: {token[:30]}...") # Log first 30 chars for safety
+    security_logger.info(f"Request headers: {dict(request.headers)}")
+    security_logger.info(f"get_current_user called for path: {request.url.path}")
+    security_logger.info(f"Received token: {token[:30]}...") # Log first 30 chars for safety
+    security_logger.info(f"Request headers: {dict(request.headers)}")
+    security_logger.info(f"get_current_user called for path: {request.url.path}")
+    security_logger.info(f"Received token: {token[:30]}...") # Log first 30 chars for safety
+    security_logger.info(f"Request headers: {dict(request.headers)}")
     """Get current authenticated user with comprehensive security checks"""
 
     credentials_exception = HTTPException(
