@@ -505,6 +505,149 @@ def update_schedules_for_location(db: Session, location_id: int, schedules: List
     logger.debug(f"[update_schedules_for_location] START for loc {location_id}. Received {len(schedules)} schedule entries.")
     logger.debug(f"[update_schedules_for_location] Incoming data: {schedules}")
     try:
+        # --- OVERLAP VALIDATION --- START ---
+        logger.debug(f"[update_schedules_for_location] Checking for overlaps with other location...")
+        # Determine the other location's ID (assuming 1 and 2 are the only locations)
+        other_location_id = 2 if location_id == 1 else 1
+        other_schedules = get_schedules_for_location(db, other_location_id)
+        other_schedules_map = {s.day_of_week: s for s in other_schedules}
+        day_names_list = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
+
+        for new_day_schedule in schedules:
+            if not new_day_schedule.is_available:
+                continue # This day is off, no conflict possible
+
+            other_day_schedule = other_schedules_map.get(new_day_schedule.day_of_week)
+            
+            # Check if the other location is also available on this day
+            if other_day_schedule and other_day_schedule.is_available:
+                day_name_str = day_names_list[new_day_schedule.day_of_week]
+                
+                # Ensure times are valid time objects (Pydantic should handle this, but checking is safe)
+                if not isinstance(new_day_schedule.start_time, time) or not isinstance(new_day_schedule.end_time, time) or \
+                   not isinstance(other_day_schedule.start_time, time) or not isinstance(other_day_schedule.end_time, time):
+                    logger.warning(f"Skipping overlap check for {day_name_str} due to invalid time data.")
+                    continue # Skip check if data is corrupt
+
+                # Check for overlap: (StartA < EndB) and (EndA > StartB)
+                overlap = (new_day_schedule.start_time < other_day_schedule.end_time) and \
+                          (new_day_schedule.end_time > other_day_schedule.start_time)
+                
+                if overlap:
+                    logger.warning(f"Overlap detected for {day_name_str} between loc {location_id} and {other_location_id}")
+                    other_loc_name = "Hospital" if other_location_id == 2 else "Clinic"
+                    current_loc_name = "Clinic" if location_id == 1 else "Hospital"
+                    raise CRUDError(
+                        f"Schedule Conflict for {day_name_str}: The time {new_day_schedule.start_time.strftime('%H:%M')}-{new_day_schedule.end_time.strftime('%H:%M')} "
+                        f"at {current_loc_name} conflicts with the schedule {other_day_schedule.start_time.strftime('%H:%M')}-{other_day_schedule.end_time.strftime('%H:%M')} "
+                        f"at the {other_loc_name}."
+                    )
+        logger.debug("[update_schedules_for_location] No location overlaps found.")
+        # --- OVERLAP VALIDATION --- END ---
+
+        # --- OVERLAP VALIDATION --- START ---
+        logger.debug(f"[update_schedules_for_location] Checking for overlaps with other location...")
+        # Determine the other location's ID (assuming 1 and 2 are the only locations)
+        other_location_id = 2 if location_id == 1 else 1
+        other_schedules = get_schedules_for_location(db, other_location_id)
+        other_schedules_map = {s.day_of_week: s for s in other_schedules}
+        day_names_list = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
+
+        for new_day_schedule in schedules:
+            if not new_day_schedule.is_available:
+                continue # This day is off, no conflict possible
+
+            other_day_schedule = other_schedules_map.get(new_day_schedule.day_of_week)
+            
+            # Check if the other location is also available on this day
+            if other_day_schedule and other_day_schedule.is_available:
+                day_name_str = day_names_list[new_day_schedule.day_of_week]
+                
+                # Ensure times are valid time objects (Pydantic should handle this, but checking is safe)
+                if not isinstance(new_day_schedule.start_time, time) or not isinstance(new_day_schedule.end_time, time) or \
+                   not isinstance(other_day_schedule.start_time, time) or not isinstance(other_day_schedule.end_time, time):
+                    logger.warning(f"Skipping overlap check for {day_name_str} due to invalid time data.")
+                    continue # Skip check if data is corrupt
+
+                # Check for overlap: (StartA < EndB) and (EndA > StartB)
+                overlap = (new_day_schedule.start_time < other_day_schedule.end_time) and \
+                          (new_day_schedule.end_time > other_day_schedule.start_time)
+                
+                if overlap:
+                    logger.warning(f"Overlap detected for {day_name_str} between loc {location_id} and {other_location_id}")
+                    other_loc_name = "Hospital" if other_location_id == 2 else "Clinic"
+                    current_loc_name = "Clinic" if location_id == 1 else "Hospital"
+                    raise CRUDError(
+                        f"Schedule Conflict for {day_name_str}: The time {new_day_schedule.start_time.strftime('%H:%M')}-{new_day_schedule.end_time.strftime('%H:%M')} "
+                        f"at {current_loc_name} conflicts with the schedule {other_day_schedule.start_time.strftime('%H:%M')}-{other_day_schedule.end_time.strftime('%H:%M')} "
+                        f"at the {other_loc_name}."
+                    )
+        logger.debug("[update_schedules_for_location] No location overlaps found.")
+        # --- OVERLAP VALIDATION --- END ---
+
+        # --- VALIDATION --- START ---
+        logger.debug("[update_schedules_for_location] Validating max_appointments...")
+        today = date.today() # Dummy date for time calculations
+        day_names = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
+        for schedule_data in schedules:
+            day_name = day_names[schedule_data.day_of_week]
+            if schedule_data.is_available and schedule_data.max_appointments is not None and schedule_data.max_appointments > 0:
+                duration = schedule_data.appointment_duration
+                if duration is None or duration <= 0:
+                    # Use global default or fallback if per-day duration isn't set/valid
+                    interval_entry = get_system_config(db, "appointment_interval_minutes")
+                    duration = int(interval_entry.value) if interval_entry and str(interval_entry.value).isdigit() else 30
+                    logger.warning(f"[update_schedules_for_location] Invalid/missing duration for {day_name}, using fallback: {duration} min")
+                
+                if duration <= 0: # Still invalid after fallback
+                    raise CRUDError(f"Invalid appointment duration ({duration} mins) for {day_name}. Must be positive.")
+
+                try:
+                    logger.debug(f"Validating {day_name}: Start={schedule_data.start_time} (Type: {type(schedule_data.start_time)}), End={schedule_data.end_time} (Type: {type(schedule_data.end_time)}), Duration={duration}")
+
+                    # 1. Check for missing time values (Pydantic should convert, but a direct None check is safest)
+                    if not isinstance(schedule_data.start_time, time) or not isinstance(schedule_data.end_time, time):
+                        # This handles if the data is None or still a string (Pydantic failed parsing)
+                        raise CRUDError(f"Validation Error for {day_name}: Start Time ('{schedule_data.start_time}') and End Time ('{schedule_data.end_time}') are required and must be valid HH:MM format when 'Available' is checked.")
+
+                    logger.debug(f"Combining datetimes for {day_name}...")
+                    start_dt = datetime.combine(today, schedule_data.start_time)
+                    end_dt = datetime.combine(today, schedule_data.end_time)
+                    
+                    # 2. Calculate total minutes (time period)
+                    total_minutes = (end_dt - start_dt).total_seconds() / 60
+                    logger.debug(f"{day_name} total minutes: {total_minutes}")
+
+                    if total_minutes <= 0:
+                         logger.warning(f"{day_name} has invalid time range: {schedule_data.start_time} to {schedule_data.end_time}. Total minutes: {total_minutes}")
+                         raise CRUDError(f"Validation Error for {day_name}: End Time ({schedule_data.end_time.strftime('%H:%M')}) must be after Start Time ({schedule_data.start_time.strftime('%H:%M')}).")
+                    
+                    # 3. Check duration (time between appointments)
+                    if duration == 0:
+                        raise CRUDError(f"Validation Error for {day_name}: Appointment duration cannot be zero.")
+
+                    # 4. Calculate max appointments
+                    max_possible = int(total_minutes // duration)
+                    logger.debug(f"{day_name}: Max Possible={max_possible}, User Max={schedule_data.max_appointments}")
+
+                    # 5. Check user input against max
+                    if schedule_data.max_appointments > max_possible:
+                        time_period_hours = round(total_minutes / 60, 1)
+                        raise CRUDError(
+                            f"Max appointments ({schedule_data.max_appointments}) for {day_name} exceeds the possible {max_possible} slots. The {time_period_hours} hour period ({schedule_data.start_time.strftime('%H:%M')} - {schedule_data.end_time.strftime('%H:%M')}) with a {duration} min duration only allows {max_possible} appointments."
+                        )
+                
+                # Catch specific calculation errors
+                except (TypeError, ValueError) as calc_err: 
+                     logger.error(f"[update_schedules_for_location] Error calculating max appointments for {day_name} (Day {schedule_data.day_of_week}): {calc_err}", exc_info=True)
+                     raise CRUDError(f"Internal Error for {day_name}: Calculation failed. Ensure Start Time ('{schedule_data.start_time}') and End Time ('{schedule_data.end_time}') are both set and valid.")
+                # Re-raise our specific validation errors
+                except CRUDError: 
+                    raise
+                # Catch any other unexpected error
+                except Exception as e: 
+                     logger.error(f"[update_schedules_for_location] UNEXPECTED Error for {day_name}: {e}", exc_info=True)
+                     raise CRUDError(f"An unknown error occurred while validating {day_name}.")
         # Check count before delete
         count_before = db.query(models.LocationSchedule).filter(models.LocationSchedule.location_id == location_id).count()
         logger.debug(f"[update_schedules_for_location] Count before delete for loc {location_id}: {count_before}")
@@ -839,6 +982,14 @@ def create_unavailable_period(db: Session, period: schemas.UnavailablePeriodCrea
         logger.error(f"Error creating unavailable period: {e}")
         raise CRUDError("A database error occurred while creating the unavailable period.")
 
+def get_unavailable_period_by_id(db: Session, period_id: int) -> Optional[models.UnavailablePeriod]:
+    """Get a single unavailable period by its ID."""
+    try:
+        return db.query(models.UnavailablePeriod).filter(models.UnavailablePeriod.id == period_id).first()
+    except SQLAlchemyError as e:
+        logger.error(f"Error fetching unavailable period {period_id}: {e}")
+        raise CRUDError("A database error occurred while fetching the unavailable period.")
+
 def get_unavailable_periods(db: Session, location_id: int, start_date: date, end_date: date) -> List[models.UnavailablePeriod]:
     """
     Retrieve unavailable periods for a given location and date range.
@@ -856,6 +1007,43 @@ def get_unavailable_periods(db: Session, location_id: int, start_date: date, end
         logger.error(f"Error fetching unavailable periods: {e}")
         raise CRUDError("A database error occurred while fetching unavailable periods.")
 
+def update_unavailable_period(db: Session, period_id: int, period_update: schemas.UnavailablePeriodUpdate) -> Optional[models.UnavailablePeriod]:
+    """
+    Update an existing unavailable period.
+    """
+    try:
+        db_period = get_unavailable_period_by_id(db, period_id)
+        if not db_period:
+            return None
+
+        update_data = period_update.dict(exclude_unset=True)
+        for key, value in update_data.items():
+            setattr(db_period, key, value)
+        
+        db.commit()
+        db.refresh(db_period)
+        return db_period
+    except SQLAlchemyError as e:
+        db.rollback()
+        logger.error(f"Error updating unavailable period {period_id}: {e}")
+        raise CRUDError("A database error occurred while updating the unavailable period.")
+
+def delete_unavailable_period(db: Session, period_id: int) -> bool:
+    """
+    Delete an unavailable period.
+    """
+    try:
+        db_period = get_unavailable_period_by_id(db, period_id)
+        if not db_period:
+            return False
+        
+        db.delete(db_period)
+        db.commit()
+        return True
+    except SQLAlchemyError as e:
+        db.rollback()
+        logger.error(f"Error deleting unavailable period {period_id}: {e}")
+        raise CRUDError("A database error occurred while deleting the unavailable period.")
 
 # ==================== PRESCRIPTION CRUD OPERATIONS (NEW) ====================
 
@@ -918,6 +1106,120 @@ def get_remarks_for_patient(db: Session, patient_id: int) -> List[models.Remark]
     except SQLAlchemyError as e:
         logger.error(f"Error fetching remarks for patient {patient_id}: {e}")
         raise CRUDError("A database error occurred while fetching remarks.")
+
+
+# ==================== EMR / CONSULTATION CRUD OPERATIONS (NEW) ====================
+
+def create_consultation(db: Session, consultation: schemas.ConsultationCreate, user_id: int) -> models.Consultation:
+    """Create a new consultation record, including nested vitals, diagnoses, and medications."""
+    try:
+        # Create the main consultation record
+        consultation_data = consultation.dict(exclude={'vitals', 'diagnoses', 'medications'})
+        db_consultation = models.Consultation(**consultation_data, user_id=user_id)
+        db.add(db_consultation)
+        db.flush() # Flush to get the consultation ID before adding related items
+
+        # Create Vitals if provided
+        if consultation.vitals:
+            # Ensure consultation_id is added before creating the model
+            vitals_data = consultation.vitals.dict()
+            vitals_data['consultation_id'] = db_consultation.id
+            db_vitals = models.Vitals(**vitals_data)
+            db.add(db_vitals)
+
+        # Create Diagnoses
+        for diagnosis in consultation.diagnoses:
+            db_diagnosis = models.ConsultationDiagnosis(**diagnosis.dict(), consultation_id=db_consultation.id)
+            db.add(db_diagnosis)
+
+        # Create Medications
+        for medication in consultation.medications:
+            db_medication = models.ConsultationMedication(**medication.dict(), consultation_id=db_consultation.id)
+            db.add(db_medication)
+
+        # Update patient's last visit date
+        db.query(models.Patient).filter(models.Patient.id == consultation.patient_id).update({'last_visit_date': datetime.utcnow()})
+
+        db.commit()
+        # After commit, relationships might need explicit loading depending on configuration
+        # Let's reload the object with relationships
+        db.refresh(db_consultation)
+        # Explicitly load relationships if refresh doesn't automatically do it
+        db_consultation = get_consultation(db, db_consultation.id)
+
+        logger.info(f"Created consultation {db_consultation.id} for patient {db_consultation.patient_id} by user {user_id}")
+        return db_consultation
+    except IntegrityError as e:
+        db.rollback()
+        logger.error(f"Database integrity error on consultation creation: {e}")
+        raise CRUDError("Could not create consultation due to a database integrity issue (e.g., patient not found).")
+    except SQLAlchemyError as e:
+        db.rollback()
+        logger.error(f"Database error during consultation creation: {e}")
+        raise CRUDError("A database error occurred while creating the consultation.")
+
+def get_consultation(db: Session, consultation_id: int) -> Optional[models.Consultation]:
+    """Get a single consultation by ID, including related data."""
+    try:
+        return db.query(models.Consultation).options(
+            joinedload(models.Consultation.vitals),
+            joinedload(models.Consultation.diagnoses),
+            joinedload(models.Consultation.medications),
+            joinedload(models.Consultation.patient),
+            joinedload(models.Consultation.user)
+        ).filter(models.Consultation.id == consultation_id).first()
+    except SQLAlchemyError as e:
+        logger.error(f"Error fetching consultation {consultation_id}: {e}")
+        raise CRUDError("A database error occurred while fetching the consultation.")
+
+def get_consultations_for_patient(db: Session, patient_id: int, skip: int = 0, limit: int = 20) -> List[models.Consultation]:
+    """Get all consultations for a specific patient, ordered by date descending."""
+    try:
+        return db.query(models.Consultation).options(
+            joinedload(models.Consultation.vitals),
+            joinedload(models.Consultation.diagnoses),
+            joinedload(models.Consultation.medications),
+            joinedload(models.Consultation.user) # Load user who performed consultation
+        ).filter(models.Consultation.patient_id == patient_id).order_by(models.Consultation.consultation_date.desc()).offset(skip).limit(limit).all()
+    except SQLAlchemyError as e:
+        logger.error(f"Error fetching consultations for patient {patient_id}: {e}")
+        raise CRUDError("A database error occurred while fetching consultations.")
+
+# --- Patient Menstrual History CRUD ---
+
+def get_patient_menstrual_history(db: Session, patient_id: int) -> Optional[models.PatientMenstrualHistory]:
+    """Get menstrual history for a patient."""
+    try:
+        return db.query(models.PatientMenstrualHistory).filter(models.PatientMenstrualHistory.patient_id == patient_id).first()
+    except SQLAlchemyError as e:
+        logger.error(f"Error fetching menstrual history for patient {patient_id}: {e}")
+        raise CRUDError("Database error fetching menstrual history.")
+
+def create_or_update_patient_menstrual_history(db: Session, patient_id: int, history_data: schemas.PatientMenstrualHistoryCreate) -> models.PatientMenstrualHistory:
+    """Create or update menstrual history for a patient."""
+    try:
+        db_history = get_patient_menstrual_history(db, patient_id)
+        if db_history:
+            # Update
+            update_data = history_data.dict(exclude_unset=True)
+            # Ensure patient_id isn't accidentally changed if included in update_data
+            update_data.pop('patient_id', None)
+            for key, value in update_data.items():
+                setattr(db_history, key, value)
+        else:
+            # Create
+            # Ensure patient_id is set correctly for creation
+            create_data = history_data.dict()
+            create_data['patient_id'] = patient_id # Explicitly set patient_id
+            db_history = models.PatientMenstrualHistory(**create_data)
+            db.add(db_history)
+        db.commit()
+        db.refresh(db_history)
+        return db_history
+    except SQLAlchemyError as e:
+        db.rollback()
+        logger.error(f"Error saving menstrual history for patient {patient_id}: {e}")
+        raise CRUDError("Database error saving menstrual history.")
 
 
 # ==================== AUDIT LOG CRUD OPERATIONS (NEW) ====================
@@ -1018,12 +1320,17 @@ def get_appointments(db: Session, skip: int = 0, limit: int = 100, **kwargs) -> 
         logger.error(f"Error fetching appointments: {str(e)}")
         raise CRUDError(f"Database error: {str(e)}")
 
-def get_appointments_by_date_range(db: Session, start_date: datetime, end_date: datetime) -> List[models.Appointment]:
+def get_appointments_by_date_range(db: Session, start_date: datetime, end_date: datetime, location_id: Optional[int] = None) -> List[models.Appointment]:
     try:
-        return db.query(models.Appointment).filter(
+        # --- START EDIT: Add location_id filter ---
+        query = db.query(models.Appointment).options(joinedload(models.Appointment.patient)).filter(
             models.Appointment.start_time >= start_date,
             models.Appointment.end_time <= end_date
-        ).order_by(models.Appointment.start_time.asc()).all()
+        )
+        if location_id is not None:
+            query = query.filter(models.Appointment.location_id == location_id)
+        # --- END EDIT ---
+        return query.order_by(models.Appointment.start_time.asc()).all()
     except SQLAlchemyError as e:
         logger.error(f"Error fetching appointments by range: {e}")
         raise CRUDError("A database error occurred while fetching appointments.")

@@ -1,4 +1,32 @@
-# Node.js
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Distribution / packaging
+build/
+dist/
+*.egg-info/
+
+# Virtual environments
+.venv/
+env/
+
+# Local environment variables and secrets
+.env
+config.json
+
+# Dataset and local uploads (ignore root dataset/ and all contents)
+/dataset/
+/dataset/**
+patient_uploads/
+
+# Logs
+*.log
+
+# OS files
+.DS_Store
+Thumbs.db# Node.js
 dr-atul/node_modules/
 
 # Python

@@ -372,12 +372,17 @@ class LocationScheduleBase(BaseSchema):
     start_time: time
     end_time: time
     is_available: bool = True
+    appointment_duration: Optional[int] = Field(None, ge=5, le=60) # Duration in minutes (e.g., 5-60)
+    max_appointments: Optional[int] = Field(None, ge=0) # Max appointments for this day (0 or None means no limit)
 
 class LocationScheduleCreate(LocationScheduleBase):
     pass
 
 class LocationScheduleResponse(LocationScheduleBase):
     id: int
+    # Explicitly include inherited fields for clarity in response
+    appointment_duration: Optional[int] = None 
+    max_appointments: Optional[int] = None
 
 # --- Unavailable Period Schemas ---
 class UnavailablePeriodBase(BaseSchema):
@@ -388,6 +393,11 @@ class UnavailablePeriodBase(BaseSchema):
 
 class UnavailablePeriodCreate(UnavailablePeriodBase):
     pass
+
+class UnavailablePeriodUpdate(BaseSchema):
+    start_datetime: Optional[datetime] = None
+    end_datetime: Optional[datetime] = None
+    reason: Optional[str] = Field(None, max_length=255)
 
 class UnavailablePeriodResponse(UnavailablePeriodBase):
     id: int
@@ -425,3 +435,173 @@ class NotificationResponse(BaseSchema):
     channel: str
     status: str
     created_at: datetime
+
+# --- EMR / Consultation Schemas ---
+
+# --- Vitals ---
+class VitalsBase(BaseSchema):
+    bp_systolic: Optional[int] = None
+    bp_diastolic: Optional[int] = None
+    pulse: Optional[int] = None
+    height: Optional[float] = None
+    weight: Optional[float] = None
+    bmi: Optional[float] = None
+    waist: Optional[float] = None
+    hip: Optional[float] = None
+    temperature: Optional[float] = None
+    spo2: Optional[int] = None
+    # OB/GYN specific
+    lmp: Optional[date] = None
+    edd: Optional[date] = None
+    gestational_age_weeks: Optional[int] = None
+    gestational_age_days: Optional[int] = None
+
+class VitalsCreate(VitalsBase):
+    # All fields optional during creation via Consultation
+    pass
+
+class VitalsUpdate(BaseSchema): # Not inheriting from VitalsBase to make all fields optional
+    bp_systolic: Optional[int] = None
+    bp_diastolic: Optional[int] = None
+    pulse: Optional[int] = None
+    height: Optional[float] = None
+    weight: Optional[float] = None
+    bmi: Optional[float] = None
+    waist: Optional[float] = None
+    hip: Optional[float] = None
+    temperature: Optional[float] = None
+    spo2: Optional[int] = None
+    lmp: Optional[date] = None
+    edd: Optional[date] = None
+    gestational_age_weeks: Optional[int] = None
+    gestational_age_days: Optional[int] = None
+
+class VitalsResponse(VitalsBase):
+    id: int
+    consultation_id: int
+
+# --- Consultation Diagnosis ---
+class ConsultationDiagnosisBase(BaseSchema):
+    diagnosis_name: str
+
+class ConsultationDiagnosisCreate(ConsultationDiagnosisBase):
+    pass
+
+class ConsultationDiagnosisUpdate(BaseSchema):
+    diagnosis_name: Optional[str] = None
+
+class ConsultationDiagnosisResponse(ConsultationDiagnosisBase):
+    id: int
+    consultation_id: int
+
+# --- Consultation Medication ---
+class ConsultationMedicationBase(BaseSchema):
+    type: Optional[str] = Field(None, max_length=10) # e.g., TAB, INJ
+    medicine_name: str = Field(..., max_length=255)
+    dosage: Optional[str] = Field(None, max_length=50)
+    when: Optional[str] = Field(None, max_length=50) # e.g., Before Food
+    frequency: Optional[str] = Field(None, max_length=50) # e.g., daily
+    duration: Optional[str] = Field(None, max_length=50) # e.g., 20 days
+    notes: Optional[str] = None
+
+class ConsultationMedicationCreate(ConsultationMedicationBase):
+    pass
+
+class ConsultationMedicationUpdate(BaseSchema):
+    type: Optional[str] = Field(None, max_length=10)
+    medicine_name: Optional[str] = Field(None, max_length=255)
+    dosage: Optional[str] = Field(None, max_length=50)
+    when: Optional[str] = Field(None, max_length=50)
+    frequency: Optional[str] = Field(None, max_length=50)
+    duration: Optional[str] = Field(None, max_length=50)
+    notes: Optional[str] = None
+
+class ConsultationMedicationResponse(ConsultationMedicationBase):
+    id: int
+    consultation_id: int
+
+# --- Patient Menstrual History --- (Links to Patient, not Consultation)
+class PatientMenstrualHistoryBase(BaseSchema):
+    age_at_menarche: Optional[int] = None
+    lmp: Optional[date] = None
+    regularity: Optional[str] = Field(None, max_length=50) # e.g., Regular, Irregular
+    duration_of_bleeding: Optional[str] = Field(None, max_length=50)
+    period_of_cycle: Optional[str] = Field(None, max_length=50)
+    details_of_issues: Optional[str] = None
+
+class PatientMenstrualHistoryCreate(PatientMenstrualHistoryBase):
+    patient_id: int # Required on creation
+
+class PatientMenstrualHistoryUpdate(BaseSchema):
+    age_at_menarche: Optional[int] = None
+    lmp: Optional[date] = None
+    regularity: Optional[str] = Field(None, max_length=50)
+    duration_of_bleeding: Optional[str] = Field(None, max_length=50)
+    period_of_cycle: Optional[str] = Field(None, max_length=50)
+    details_of_issues: Optional[str] = None
+
+class PatientMenstrualHistoryResponse(PatientMenstrualHistoryBase):
+    id: int
+    patient_id: int
+
+# --- Consultation (Main EMR Record) ---
+class ConsultationBase(BaseSchema):
+    patient_id: int
+    appointment_id: Optional[int] = None # Link back to the original appointment
+    consultation_date: datetime = Field(default_factory=datetime.utcnow)
+    quick_notes: Optional[str] = None # Quill Delta JSON stored as string or JSONB
+    complaints: Optional[str] = None
+    systemic_examination: Optional[str] = None # Quill Delta JSON stored as string or JSONB
+    advice: Optional[str] = None # Quill Delta JSON stored as string or JSONB
+    # Follow Up
+    next_visit_date: Optional[date] = None
+    next_visit_instructions: Optional[str] = None # e.g., "3 Months"
+    # Referrals
+    referral_doctor_name: Optional[str] = Field(None, max_length=100)
+    referral_speciality: Optional[str] = Field(None, max_length=100)
+    referral_phone: Optional[str] = Field(None, max_length=20)
+    referral_email: Optional[EmailStr] = None
+    # Investigations
+    tests_requested: Optional[str] = None
+    investigations_notes: Optional[str] = None # Renamed from 'Investigations'
+    usg_findings: Optional[str] = None # Quill Delta JSON stored as string or JSONB
+    lab_tests_imaging: Optional[str] = None # Quill Delta JSON stored as string or JSONB
+
+class ConsultationCreate(ConsultationBase):
+    vitals: Optional[VitalsCreate] = None
+    diagnoses: List[ConsultationDiagnosisCreate] = []
+    medications: List[ConsultationMedicationCreate] = []
+
+class ConsultationUpdate(BaseSchema):
+    consultation_date: Optional[datetime] = None
+    quick_notes: Optional[str] = None
+    complaints: Optional[str] = None
+    systemic_examination: Optional[str] = None
+    advice: Optional[str] = None
+    next_visit_date: Optional[date] = None
+    next_visit_instructions: Optional[str] = None
+    referral_doctor_name: Optional[str] = Field(None, max_length=100)
+    referral_speciality: Optional[str] = Field(None, max_length=100)
+    referral_phone: Optional[str] = Field(None, max_length=20)
+    referral_email: Optional[EmailStr] = None
+    tests_requested: Optional[str] = None
+    investigations_notes: Optional[str] = None
+    usg_findings: Optional[str] = None
+    lab_tests_imaging: Optional[str] = None
+    # Nested Updates
+    vitals: Optional[VitalsUpdate] = None
+    # Note: Updating lists like diagnoses/medications typically involves replacing the whole list
+    # or specific CRUD operations on list items, which requires more complex API design.
+    # For simplicity, we might only allow updating the main fields here.
+
+class ConsultationResponse(ConsultationBase):
+    id: int
+    user_id: int # Who conducted the consultation
+    created_at: datetime
+    updated_at: Optional[datetime]
+    # Nested Responses
+    vitals: Optional[VitalsResponse] = None
+    diagnoses: List[ConsultationDiagnosisResponse] = []
+    medications: List[ConsultationMedicationResponse] = []
+    patient: PatientResponse
+    user: UserResponse

@@ -4,7 +4,7 @@
 from fastapi import APIRouter, Depends, HTTPException, Request, BackgroundTasks, status
 from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
-from typing import List
+from typing import List, Optional
 from datetime import datetime, date
 
 from app import crud, schemas, models, security
@@ -41,12 +41,14 @@ async def create_new_appointment(
 def read_appointments(
     start_date: date,
     end_date: date,
+    location_id: Optional[int] = None, # <-- EDIT: Add optional location_id
     db: Session = Depends(get_db)
 ):
     """Retrieve appointments within a date range."""
     start_datetime = datetime.combine(start_date, datetime.min.time())
     end_datetime = datetime.combine(end_date, datetime.max.time())
-    return crud.get_appointments_by_date_range(db, start_date=start_datetime, end_date=end_datetime)
+    # --- EDIT: Pass location_id to CRUD function ---
+    return crud.get_appointments_by_date_range(db, start_date=start_datetime, end_date=end_datetime, location_id=location_id)
 
 @router.put("/appointments/{appointment_id}", response_model=schemas.AppointmentResponse)
 async def update_appointment_endpoint(

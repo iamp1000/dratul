@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -13,7 +14,8 @@
         rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link href="https://cdn.quilljs.com/1.3.7/quill.snow.css" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/themes/material_blue.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
+    <link rel="stylesheet" type="text/css" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/themes/material_blue.css">
     <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
     <script>
         tailwind.config = {
@@ -426,7 +428,7 @@
             color: #2196F3;
         }
 
-        .custom-file input[type=file]:focus + .custom-file-label {
+        .custom-file input[type=file]:focus+.custom-file-label {
             border-color: #2196F3;
             box-shadow: 0 0 0 3px rgba(33, 150, 243, 0.1);
         }
@@ -507,12 +509,42 @@
                 let data = null;
                 try { data = text ? JSON.parse(text) : null; } catch { }
                 if (!res.ok) {
-                    const msg = (data && (data.detail || data.message)) || text || 'Request failed';
-                    throw new Error(msg);
+                    // --- START EDIT ---
+                    // Handle different error structures (FastAPI object, FastAPI list, or plain text)
+                    let errorString = 'Request failed';
+                    if (data) {
+                        if (Array.isArray(data)) {
+                            // It's a list of errors (e.g., Pydantic validation)
+                            // We must safely handle err.msg, which could be an object
+                            errorString = data.map(err => {
+                                const loc = err.loc?.join('->') || 'error';
+                                const msg = (typeof err.msg === 'string') ? err.msg : JSON.stringify(err.msg);
+                                return `${loc}: ${msg}`;
+                            }).join(', ');
+                        } else if (data.detail) {
+                            // It's a standard FastAPI HTTPException
+                            errorString = data.detail;
+                        } else if (data.message) {
+                            // It's a custom error object
+                            errorString = data.message;
+                        } else {
+                            // It's some other JSON object
+                            errorString = JSON.stringify(data);
+                        }
+                    } else {
+                        // It's not JSON, just use the raw text
+                        errorString = text;
+                    }
+                    throw new Error(errorString);
+                    // --- END EDIT ---
                 }
                 return data;
             } catch (error) {
-                console.error('API Error:', error);
+                // --- START EDIT ---
+                // This will now log the *real* error message we just constructed
+                console.error('API Error (parsed):', error.message);
+                console.error('Full Error Object:', error);
+                // --- END EDIT ---
                 throw error;
             }
         };
@@ -570,6 +602,23 @@
             const [error, setError] = React.useState('');
             const [successMessage, setSuccessMessage] = React.useState('');
 
+            React.useEffect(() => {
+                // Manually initialize Flatpickr for this modal's input
+                if (window.flatpickr) {
+                    window.flatpickr("#emergency-block-date-picker", {
+                        dateFormat: "Y-m-d",
+                        allowInput: true,
+                        defaultDate: blockDate,
+                        // This is the crucial part:
+                        // We use Flatpickr's onChange to trigger React's state setter.
+                        onChange: function (selectedDates, dateStr, instance) {
+                            setBlockDate(dateStr);
+                        }
+                    });
+                }
+                // We don't need a cleanup function as the modal is destroyed on close.
+            }, []); // Empty dependency array, so it runs once when the modal mounts.
+
             const handleSubmit = async () => {
                 setError('');
                 setSuccessMessage('');
@@ -592,15 +641,21 @@
                     // Optionally close modal after a delay
                     setTimeout(() => onClose(), 3000);
                 } catch (err) {
-                    const errorData = await err.json?.();
-                    setError(errorData?.detail || 'An unexpected error occurred.');
-                    console.error('Emergency block error:', err);
+                    // The 'api' utility throws an Error object. Its message *is* the error detail.
+                    setError(err.message || 'An unexpected error occurred.');
+                    console.error('Emergency block error:', err.message);
                 }
             };
 
             return (
                 <div className="space-y-6">
-                    {error && <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded-lg">{error}</div>}
+                    {/* --- EDIT: Display single error string --- */}
+                    {error && (
+                        <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded-lg mb-4">
+                            <p className="font-bold">Error:</p>
+                            <p>{error}</p>
+                        </div>
+                    )}
                     {successMessage && <div className="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded-lg">{successMessage}</div>}
                     <div>
                         <label className="block text-sm font-medium text-medical-gray mb-2">Emergency Block</label>
@@ -608,7 +663,7 @@
                     </div>
                     <div>
                         <label className="block text-sm font-medium text-medical-gray mb-2">Date to Block</label>
-                        <input type="date" value={blockDate} onChange={(e) => setBlockDate(e.target.value)} className="form-input-themed" />
+                        <input type="date" id="emergency-block-date-picker" value={blockDate} onChange={(e) => setBlockDate(e.target.value)} className="form-input-themed" />
                     </div>
                     <div>
                         <label className="block text-sm font-medium text-medical-gray mb-2">Reason for Emergency</label>
@@ -631,7 +686,8 @@
                 { id: 'appointments', label: 'Appointments', icon: 'fas fa-calendar-alt' },
                 { id: 'schedule', label: 'Doctor Schedule', icon: 'fas fa-clock' },
                 { id: 'patients', label: 'Patients', icon: 'fas fa-users' },
-                { id: 'prescriptions', label: 'Prescriptions', icon: 'fas fa-prescription' },
+                // { id: 'prescriptions', label: 'Prescriptions', icon: 'fas fa-prescription' }, // Removed - Replaced by Consultation EMR
+                { id: 'consultation', label: 'Consultation', icon: 'fas fa-notes-medical' }, // Added new EMR/Consultation view
                 { id: 'users', label: 'Users', icon: 'fas fa-user-cog', adminOnly: true },
                 { id: 'logs', label: 'Audit Logs', icon: 'fas fa-clipboard-list', adminOnly: true }
             ];
@@ -788,7 +844,7 @@
                         <div className="medical-card p-6 rounded-2xl">
                             <h3 className="text-lg font-bold text-medical-dark mb-4 font-primary">Quick Actions</h3>
                             <div className="space-y-3">
-                                <button onClick={() => openModal('Create New Appointment', <AppointmentEditor onClose={closeModal} />)} className="medical-button w-full p-3 text-white rounded-xl font-secondary flex items-center justify-center space-x-2 relative z-10">
+                                <button onClick={() => openModal('Create New Appointment', <AppointmentEditor onClose={closeModal} user={user} />)} className="medical-button w-full p-3 text-white rounded-xl font-secondary flex items-center justify-center space-x-2 relative z-10">
                                     <i className="fas fa-plus"></i>
                                     <span>New Appointment</span>
                                 </button>
@@ -796,10 +852,11 @@
                                     <i className="fas fa-user-plus"></i>
                                     <span>Add Patient</span>
                                 </button>
+                                {/* Removed New Prescription button - EMR will handle this
                                 <button onClick={() => openModal('Create New Prescription', <PrescriptionEditor onClose={closeModal} />)} className="medical-button w-full p-3 text-white rounded-xl font-secondary flex items-center justify-center space-x-2 relative z-10">
                                     <i className="fas fa-prescription"></i>
                                     <span>New Prescription</span>
-                                </button>
+                                </button> */}
                             </div>
                         </div>
 
@@ -914,7 +971,7 @@
             const navigateMonth = (direction) => {
                 const newDate = new Date(currentDate);
                 newDate.setMonth(currentDate.getMonth() + direction);
-                setCurrentDate(newDate);
+                setCurrentDate(newDate); // This now calls the prop handler from DoctorSchedule
             };
 
             return (
@@ -952,7 +1009,8 @@
         };
 
         // Appointments Component
-        const Appointments = () => {
+        // Appointments Component
+        const Appointments = ({ openModal, closeModal, user }) => { // <-- Add user prop
             const [appointments, setAppointments] = React.useState([]);
             const [loading, setLoading] = React.useState(true);
             const [selectedAppointment, setSelectedAppointment] = React.useState(null);
@@ -962,10 +1020,28 @@
             React.useEffect(() => {
                 const fetchAppointments = async () => {
                     try {
-                        const data = await api('/api/v1/appointments');
+                        // --- START EDIT: Fix 422 Error ---
+                        // The API requires a start_date and end_date.
+                        // We will default to the current month for now.
+                        const today = new Date();
+                        const firstDay = new Date(today.getFullYear(), today.getMonth(), 1);
+                        const lastDay = new Date(today.getFullYear(), today.getMonth() + 1, 0); // Day 0 of next month is last day of current
+
+                        // Helper to format date as YYYY-MM-DD
+                        const toISODate = (d) => d.toISOString().split('T')[0];
+
+                        const startDate = toISODate(firstDay);
+                        const endDate = toISODate(lastDay);
+
+                        const data = await api(`/api/v1/appointments?start_date=${startDate}&end_date=${endDate}`);
+                        // --- END EDIT ---
                         setAppointments(Array.isArray(data) ? data : data.appointments || []);
                     } catch (error) {
-                        console.error('Error fetching appointments:', error);
+                        // --- START EDIT ---
+                        console.error("--- FAILED TO FETCH APPOINTMENTS ---");
+                        console.error("The API returned an error:", error.message);
+                        console.error("Full error object:", error);
+                        // --- END EDIT ---
                     } finally {
                         setLoading(false);
                     }
@@ -989,7 +1065,7 @@
                 <div className="space-y-8">
                     <div className="flex items-center justify-between">
                         <h2 className="text-lg sm:text-xl lg:text-2xl font-bold text-medical-dark font-primary">Appointments</h2>
-                        <button className="medical-button px-6 py-3 text-white rounded-xl font-secondary flex flex-wrap items-center gap-2 relative z-10">
+                        <button onClick={() => openModal('Create New Appointment', <AppointmentEditor onClose={closeModal} user={user} />)} className="medical-button px-6 py-3 text-white rounded-xl font-secondary flex flex-wrap items-center gap-2 relative z-10">
                             <i className="fas fa-plus"></i>
                             <span>New Appointment</span>
                         </button>
@@ -1141,11 +1217,36 @@
         );
 
         // Schedule Calendar Component (Updated for Unified View)
-        const ScheduleCalendar = ({ homeClinicSchedule, hospitalSchedule, onDateClick }) => {
-            const [currentDate, setCurrentDate] = React.useState(new Date());
+        const ScheduleCalendar = ({ homeClinicSchedule, hospitalSchedule, onDateClick, currentDate, setCurrentDate, unavailablePeriods }) => {
+            // const [currentDate, setCurrentDate] = React.useState(new Date()); // State lifted to DoctorSchedule
 
             const getDaysInMonth = (date) => new Date(date.getFullYear(), date.getMonth() + 1, 0).getDate();
             const getFirstDayOfMonth = (date) => new Date(date.getFullYear(), date.getMonth(), 1).getDay();
+
+            // Helper function to check if a specific date is blocked
+            const isDateBlocked = (date, locationId) => {
+                if (!unavailablePeriods || !unavailablePeriods[locationId]) {
+                    return null; // Data not loaded
+                }
+
+                // Compare dates by ignoring timezones.
+                const checkDate = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+
+                for (const period of unavailablePeriods[locationId]) {
+                    // start_datetime and end_datetime are ISO strings
+                    const periodStartDate = new Date(period.start_datetime);
+                    const periodEndDate = new Date(period.end_datetime);
+
+                    // Set time to 0 to compare dates only
+                    const startDateOnly = new Date(periodStartDate.getFullYear(), periodStartDate.getMonth(), periodStartDate.getDate());
+                    const endDateOnly = new Date(periodEndDate.getFullYear(), periodEndDate.getMonth(), periodEndDate.getDate());
+
+                    if (checkDate >= startDateOnly && checkDate <= endDateOnly) {
+                        return period; // Return the period object (it might have the reason)
+                    }
+                }
+                return null; // Not blocked
+            };
 
             const getScheduleForDate = (date, schedule) => {
                 if (!schedule) return null;
@@ -1168,6 +1269,9 @@
                     const hospitalScheduleData = getScheduleForDate(date, hospitalSchedule);
                     const isToday = date.toDateString() === new Date().toDateString();
 
+                    const clinicBlock = isDateBlocked(date, 1);
+                    const hospitalBlock = isDateBlocked(date, 2);
+
                     days.push(
                         <div
                             key={day}
@@ -1176,12 +1280,21 @@
                         >
                             <div className={`font-semibold mb-1 ${isToday ? 'text-medical-accent' : 'text-medical-dark'}`}>{day}</div>
                             <div className="text-xs space-y-1">
-                                {clinicSchedule && clinicSchedule.is_available ? (
+                                {clinicBlock ? (
+                                    <div className="text-red-600 font-bold p-1 bg-red-100 rounded">
+                                        <strong>C:</strong> BLOCKED
+                                    </div>
+                                ) : clinicSchedule && clinicSchedule.is_available ? (
                                     <div className="text-blue-600"><strong>C:</strong> {clinicSchedule.start_time.substring(0, 5)} - {clinicSchedule.end_time.substring(0, 5)}</div>
                                 ) : (
                                     <div className="text-gray-400"><strong>C:</strong> Off</div>
                                 )}
-                                {hospitalScheduleData && hospitalScheduleData.is_available ? (
+
+                                {hospitalBlock ? (
+                                    <div className="text-red-600 font-bold p-1 bg-red-100 rounded mt-1">
+                                        <strong>H:</strong> BLOCKED
+                                    </div>
+                                ) : hospitalScheduleData && hospitalScheduleData.is_available ? (
                                     <div className="text-green-700"><strong>H:</strong> {hospitalScheduleData.start_time.substring(0, 5)} - {hospitalScheduleData.end_time.substring(0, 5)}</div>
                                 ) : (
                                     <div className="text-gray-400"><strong>H:</strong> Off</div>
@@ -1232,13 +1345,15 @@
             const [showModal, setShowModal] = React.useState(false);
             const [modalContent, setModalContent] = React.useState(null);
             const [isMobileMenuOpen, setIsMobileMenuOpen] = React.useState(false);
+            const [currentDate, setCurrentDate] = React.useState(new Date()); // State for calendar month
+            const [unavailablePeriods, setUnavailablePeriods] = React.useState({ 1: [], 2: [] }); // State for blocked days
 
             // Enhance native date/time inputs with Flatpickr for consistent styling
             React.useEffect(() => {
                 const initPickers = () => {
                     if (window.flatpickr) {
-                        window.flatpickr("input[type='date'].form-input-themed", { dateFormat: "Y-m-d", allowInput: true });
-                                                window.flatpickr("input[type='time'].form-input-themed", { enableTime: true, noCalendar: true, dateFormat: "H:i", minuteIncrement: 5, allowInput: true });
+                        // window.flatpickr("input[type='date'].form-input-themed", { dateFormat: "Y-m-d", allowInput: true }); // Removed: This breaks React state. Components must init their own pickers.
+                        // window.flatpickr("input[type='time'].form-input-themed", { enableTime: true, noCalendar: true, dateFormat: "H:i", minuteIncrement: 5, allowInput: true }); // Commented out to test native time input
                         window.flatpickr("input[type='datetime-local'].form-input-themed", { enableTime: true, dateFormat: "Y-m-d H:i", allowInput: true });
                     }
                 };
@@ -1283,16 +1398,45 @@
                 fetchSchedulesAndLocations();
             }, []);
 
+            // New effect to fetch unavailable periods when the month changes
+            React.useEffect(() => {
+                const fetchUnavailablePeriods = async () => {
+                    const firstDay = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1);
+                    const lastDay = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0);
+
+                    const toISODate = (d) => d.toISOString().split('T')[0];
+                    const startDate = toISODate(firstDay);
+                    const endDate = toISODate(lastDay);
+
+                    try {
+                        const [clinicPeriods, hospitalPeriods] = await Promise.all([
+                            api(`/api/v1/unavailable-periods/1?start_date=${startDate}&end_date=${endDate}`),
+                            api(`/api/v1/unavailable-periods/2?start_date=${startDate}&end_date=${endDate}`)
+                        ]);
+
+                        setUnavailablePeriods({
+                            1: Array.isArray(clinicPeriods) ? clinicPeriods : [],
+                            2: Array.isArray(hospitalPeriods) ? hospitalPeriods : []
+                        });
+                    } catch (error) {
+                        console.error("Error fetching unavailable periods:", error);
+                        setUnavailablePeriods({ 1: [], 2: [] }); // Reset on error
+                    }
+                };
+
+                fetchUnavailablePeriods();
+            }, [currentDate]); // This effect re-runs when the month (currentDate) changes
+
             const handleSave = async (updatedSchedules) => {
                 try {
                     for (const locationId in updatedSchedules) {
                         const schedulePayload = Object.values(updatedSchedules[locationId]).map(daySchedule => ({
-                             ...daySchedule, 
-                             location_id: parseInt(locationId), 
-                             // Ensure times are strings in HH:MM:SS format before sending
-                             start_time: typeof daySchedule.start_time === 'string' && daySchedule.start_time.length === 5 ? `${daySchedule.start_time}:00` : daySchedule.start_time,
-                             end_time: typeof daySchedule.end_time === 'string' && daySchedule.end_time.length === 5 ? `${daySchedule.end_time}:00` : daySchedule.end_time
-                        })); 
+                            ...daySchedule,
+                            location_id: parseInt(locationId),
+                            // Ensure times are strings in HH:MM:SS format before sending
+                            start_time: typeof daySchedule.start_time === 'string' && daySchedule.start_time.length === 5 ? `${daySchedule.start_time}:00` : daySchedule.start_time,
+                            end_time: typeof daySchedule.end_time === 'string' && daySchedule.end_time.length === 5 ? `${daySchedule.end_time}:00` : daySchedule.end_time
+                        }));
                         // Log the exact payload before sending
                         console.log(`Payload for Location ID ${locationId}:`, JSON.stringify(schedulePayload, null, 2));
                         await api(`/api/v1/schedules/by-location/${locationId}`, {
@@ -1308,9 +1452,49 @@
                 }
             };
 
+            const handleModalCloseAndRefresh = () => {
+                setShowModal(false);
+                // Trigger the useEffect for unavailable periods to re-fetch by creating a new Date object
+                setCurrentDate(new Date(currentDate.getTime()));
+                // Also refresh weekly schedules just in case (though not strictly necessary for this bug)
+                fetchSchedulesAndLocations();
+            };
+
             const handleDateClick = (date, scheduleForDay) => {
                 setModalTitle(`Edit Day: ${date.toLocaleDateString()}`);
-                setModalContent(<DayEditorModal date={date} scheduleForDay={scheduleForDay} onClose={() => setShowModal(false)} refreshSchedules={fetchSchedulesAndLocations} />);
+
+                // Helper to find a block that contains the clicked date
+                const findBlockForDate = (periods, clickedDate) => {
+                    if (!periods) return null;
+                    const checkDate = new Date(clickedDate.getFullYear(), clickedDate.getMonth(), clickedDate.getDate());
+
+                    for (const period of periods) {
+                        const periodStartDate = new Date(period.start_datetime);
+                        const periodEndDate = new Date(period.end_datetime);
+                        const startDateOnly = new Date(periodStartDate.getFullYear(), periodStartDate.getMonth(), periodStartDate.getDate());
+                        const endDateOnly = new Date(periodEndDate.getFullYear(), periodEndDate.getMonth(), periodEndDate.getDate());
+
+                        if (checkDate >= startDateOnly && checkDate <= endDateOnly) {
+                            return period; // Found a matching block
+                        }
+                    }
+                    return null;
+                };
+
+                // Find existing blocks for the clicked date
+                const existingClinicBlock = findBlockForDate(unavailablePeriods[1], date);
+                const existingHospitalBlock = findBlockForDate(unavailablePeriods[2], date);
+
+                setModalContent(
+                    <DayEditorModal
+                        date={date}
+                        scheduleForDay={scheduleForDay}
+                        onClose={handleModalCloseAndRefresh}
+                        refreshSchedules={fetchSchedulesAndLocations}
+                        existingClinicBlock={existingClinicBlock}
+                        existingHospitalBlock={existingHospitalBlock}
+                    />
+                );
                 setShowModal(true);
             };
 
@@ -1324,7 +1508,7 @@
                             <button
                                 onClick={() => {
                                     setModalTitle('Emergency Day Block');
-                                    setModalContent(<EmergencyBlockModal onClose={() => setShowModal(false)} />);
+                                    setModalContent(<EmergencyBlockModal onClose={handleModalCloseAndRefresh} />);
                                     setShowModal(true);
                                 }}
                                 className="bg-red-600 hover:bg-red-700 px-6 py-3 text-white rounded-xl font-secondary flex flex-wrap items-center gap-2 relative z-10 transition-all duration-300 transform hover:scale-105"
@@ -1335,7 +1519,7 @@
                             <button
                                 onClick={() => {
                                     setModalTitle('Edit Weekly Schedule');
-                                    setModalContent(<ScheduleEditor schedules={schedules} locations={locations} onSave={handleSave} onClose={() => setShowModal(false)} />);
+                                    setModalContent(<ScheduleEditor schedules={schedules} locations={locations} onSaveSuccess={fetchSchedulesAndLocations} onClose={handleModalCloseAndRefresh} />); // Pass refresh func as onSaveSuccess
                                     setShowModal(true);
                                 }}
                                 className="medical-button px-6 py-3 text-white rounded-xl font-secondary flex flex-wrap items-center gap-2 relative z-10"
@@ -1350,11 +1534,14 @@
                         homeClinicSchedule={schedules[1]}
                         hospitalSchedule={schedules[2]}
                         onDateClick={handleDateClick}
+                        currentDate={currentDate}
+                        setCurrentDate={setCurrentDate}
+                        unavailablePeriods={unavailablePeriods}
                     />
 
                     <Modal
                         isOpen={showModal}
-                        onClose={() => setShowModal(false)}
+                        onClose={handleModalCloseAndRefresh}
                         title={modalTitle}
                         width="max-w-4xl"
                     >
@@ -1365,8 +1552,12 @@
         };
 
         // Schedule Editor Component (Updated for Multi-Location Weekly Edit)
-        const ScheduleEditor = ({ schedules, locations, onSave, onClose }) => {
+        // Schedule Editor Component (Updated for Multi-Location Weekly Edit)
+        const ScheduleEditor = ({ schedules, locations, onSaveSuccess, onClose }) => { // Renamed onSave to onSaveSuccess
             const [localSchedules, setLocalSchedules] = React.useState({}); // Initialize with empty object
+            const scheduleContainerRef = React.useRef(null); // Ref for the container
+            const [saveError, setSaveError] = React.useState(''); // State for saving error message
+            const [isSaving, setIsSaving] = React.useState(false); // State for loading indicator
 
             React.useEffect(() => {
                 // When the schedules prop updates (from API fetch), update the local state.
@@ -1388,74 +1579,168 @@
 
             const [activeLocationId, setActiveLocationId] = React.useState(locations[0]?.id || 1);
 
+            // RESTORED: Standard React state handler for time changes
             const handleTimeChange = (locationId, dayIndex, field, value) => {
                 console.log(`handleTimeChange: locId=${locationId}, day=${dayIndex}, field=${field}, value=${value}`); // Log the exact input
-                // Pass the raw value directly from the input
+                setSaveError(''); // Clear error on change
                 setLocalSchedules(prev => {
-                    // Get the current day's data, or create a new default object if it doesn't exist
-                    const currentDayData = prev[locationId]?.[dayIndex] || {
+                    const newState = JSON.parse(JSON.stringify(prev));
+                    if (!newState[locationId]) {
+                        newState[locationId] = {};
+                    }
+                    const currentDayData = newState[locationId][dayIndex] || {
                         day_of_week: dayIndex,
                         start_time: '09:00:00',
                         end_time: '17:00:00',
-                        is_available: false // Assume unavailable until checkbox is ticked
+                        is_available: false,
+                        appointment_duration: 30,
+                        max_appointments: null
                     };
+                    currentDayData[field] = value;
+                    newState[locationId][dayIndex] = currentDayData;
+                    return newState;
+                });
+            };
 
-                    const newState = {
-                        ...prev,
-                        [locationId]: {
-                            ...prev[locationId],
-                            [dayIndex]: {
-                                ...currentDayData,
-                                [field]: value // Set the new time
-                            }
-                        }
+            // Generic handler for numeric inputs (duration, max appointments)
+            // Generic handler for numeric inputs (duration, max appointments)
+            const handleNumericChange = (locationId, dayIndex, field, value) => {
+                setSaveError(''); // Clear error on change
+                const numValue = value === '' ? null : parseInt(value, 10); // Allow empty string to become null, otherwise parse as integer
+                // Prevent negative numbers
+                const finalValue = (numValue !== null && !isNaN(numValue) && numValue >= 0) ? numValue : null;
+
+                console.log(`handleNumericChange: locId=${locationId}, day=${dayIndex}, field=${field}, value=${finalValue}`);
+                setLocalSchedules(prev => {
+                    const newState = JSON.parse(JSON.stringify(prev));
+                    if (!newState[locationId]) newState[locationId] = {};
+                    const currentDayData = newState[locationId][dayIndex] || {
+                        day_of_week: dayIndex,
+                        start_time: '09:00:00',
+                        end_time: '17:00:00',
+                        is_available: false,
+                        appointment_duration: 30, // Default duration
+                        max_appointments: null // Default no limit
                     };
-                    
-                    // Log the specific day being changed for location 2
-                    if (locationId == 2) {
-                        console.log(`State_After_Time_Change (Loc 2, Day ${dayIndex}):`, JSON.stringify(newState[2][dayIndex], null, 2));
-                    }
+                    currentDayData[field] = finalValue;
+                    newState[locationId][dayIndex] = currentDayData;
                     return newState;
                 });
             };
 
             const handleAvailabilityChange = (locationId, dayIndex, isAvailable) => {
-            setLocalSchedules(prev => {
-            const newSchedules = JSON.parse(JSON.stringify(prev)); // Deep copy to prevent mutation
-            const currentLocationSchedule = newSchedules[locationId];
+                setSaveError(''); // Clear error on change
+                setLocalSchedules(prev => {
+                    // 1. Find a template day to copy from
+                    let defaults = {
+                        start_time: '09:00:00',
+                        end_time: '17:00:00',
+                        appointment_duration: 30,
+                        max_appointments: null
+                    };
 
-            // Ensure the day object exists
-            if (!currentLocationSchedule[dayIndex]) {
-            currentLocationSchedule[dayIndex] = { 
-                     day_of_week: dayIndex, 
-                             start_time: '09:00:00', 
-                     end_time: '17:00:00', 
-                     is_available: false 
-                         };
-            }
+                    if (prev[locationId]) {
+                        // Find the first available day that ISN'T the one we are currently clicking
+                        const otherAvailableDays = Object.values(prev[locationId]).filter(day => day.is_available && day.day_of_week !== dayIndex);
+                        if (otherAvailableDays.length > 0) {
+                            defaults.start_time = otherAvailableDays[0].start_time;
+                            defaults.end_time = otherAvailableDays[0].end_time;
+                            defaults.appointment_duration = otherAvailableDays[0].appointment_duration;
+                            defaults.max_appointments = otherAvailableDays[0].max_appointments;
+                        }
+                    }
 
-            // Update the availability for the target day
-                    currentLocationSchedule[dayIndex].is_available = isAvailable;
+                    // 2. Create new state
+                    const newSchedules = JSON.parse(JSON.stringify(prev));
+                    const currentLocationSchedule = newSchedules[locationId];
 
-            // If marking as available, ONLY set default times if they are currently missing.
-            // DO NOT copy from other days, as this overwrites user's specific changes.
-            if (isAvailable) {
-            if (!currentLocationSchedule[dayIndex].start_time) {
-            currentLocationSchedule[dayIndex].start_time = '09:00:00';
-            }
-            if (!currentLocationSchedule[dayIndex].end_time) {
-            currentLocationSchedule[dayIndex].end_time = '17:00:00';
-            }
-            }
+                    // 3. Ensure the day object exists
+                    if (!currentLocationSchedule[dayIndex]) {
+                        currentLocationSchedule[dayIndex] = {
+                            day_of_week: dayIndex,
+                            ...defaults, // Apply defaults
+                            is_available: isAvailable // Set initial availability
+                        };
+                    } else {
+                        // 4. Set availability on existing day
+                        currentLocationSchedule[dayIndex].is_available = isAvailable;
+                    }
+
+                    // 5. If we just checked the box, apply the defaults to overwrite whatever was there
+                    if (isAvailable) {
+                        currentLocationSchedule[dayIndex].start_time = defaults.start_time;
+                        currentLocationSchedule[dayIndex].end_time = defaults.end_time;
+                        currentLocationSchedule[dayIndex].appointment_duration = defaults.appointment_duration;
+                        currentLocationSchedule[dayIndex].max_appointments = defaults.max_appointments;
+                    }
 
                     return newSchedules; // Return the updated state object
-            });
+                });
             };
 
             const activeSchedule = localSchedules[activeLocationId] || {};
 
+            // REMOVED: Flatpickr useEffect. It conflicts with React's state management.
+
+            // DEBUG: Log state on every render
+            console.log("[ScheduleEditor Render] localSchedules:", JSON.stringify(localSchedules, null, 2));
+
+            // Save handler specific to this component
+            const handleSaveClick = async () => {
+                setIsSaving(true);
+                setSaveError('');
+                try {
+                    for (const locationId in localSchedules) {
+                        const schedulePayload = Object.values(localSchedules[locationId]).map(daySchedule => ({
+                            ...daySchedule,
+                            location_id: parseInt(locationId),
+                            // Ensure times are strings in HH:MM:SS format before sending
+                            start_time: typeof daySchedule.start_time === 'string' && daySchedule.start_time.length === 5 ? `${daySchedule.start_time}:00` : daySchedule.start_time,
+                            end_time: typeof daySchedule.end_time === 'string' && daySchedule.end_time.length === 5 ? `${daySchedule.end_time}:00` : daySchedule.end_time
+                        }));
+                        console.log(`Payload for Location ID ${locationId}:`, JSON.stringify(schedulePayload, null, 2));
+                        await api(`/api/v1/schedules/by-location/${locationId}`, {
+                            method: 'POST',
+                            body: JSON.stringify(schedulePayload)
+                        });
+                    }
+                    setIsSaving(false);
+                    if (onSaveSuccess) onSaveSuccess(); // Call parent's success handler (e.g., to refresh data)
+                    onClose(); // Close the modal
+                } catch (error) {
+                    console.error("Error saving schedules:", error);
+                    // Try to get detail message from FastAPI HTTP Exception
+                    let errorMessage = 'An unexpected error occurred while saving.';
+                    try {
+                        // Check if it's a Fetch API Response error
+                        if (error instanceof Error && error.message.includes('HTTP status code')) {
+                            errorMessage = error.message; // Use the basic fetch error
+                        } else if (typeof error.json === 'function') { // Check if it has a json method (likely Fetch error)
+                            const errorData = await error.json();
+                            if (errorData && errorData.detail) {
+                                errorMessage = errorData.detail;
+                            }
+                        } else if (error.message) { // Fallback to basic error message
+                            errorMessage = error.message;
+                        }
+                    } catch (parseError) {
+                        // Ignore if parsing the error fails
+                        console.error("Could not parse error details:", parseError);
+                    }
+                    setSaveError(errorMessage); // Display error in the modal
+                    setIsSaving(false);
+                }
+            };
+
             return (
                 <div className="space-y-6">
+                    {/* Display Save Error Message */}
+                    {saveError && (
+                        <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded-lg mb-4">
+                            <p className="font-bold">Save Failed:</p>
+                            <p className="text-sm">{saveError}</p>
+                        </div>
+                    )}
                     <div className="flex space-x-1 bg-gray-100 p-1 rounded-xl">
                         {locations.map(loc => (
                             <button
@@ -1471,16 +1756,15 @@
                     {[...Array(7).keys()].map(dayIndex => {
                         const dayName = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'][dayIndex];
                         // Don't set defaults here, just get the data or an empty object
-                        const dayData = activeSchedule[dayIndex] || {}; 
+                        const dayData = activeSchedule[dayIndex] || {};
 
                         return (
-                            <div key={dayIndex} className="grid grid-cols-4 gap-4 items-center p-3 border-b">
+                            <div key={dayIndex} className="grid grid-cols-6 gap-4 items-center p-3 border-b">
                                 <h4 className="font-semibold text-medical-dark">{dayName}</h4>
                                 <div>
                                     <label className="block text-xs font-medium text-medical-gray mb-1">Start Time</label>
                                     <input
                                         type="time"
-                                        // Use optional chaining and default to empty string
                                         value={dayData?.start_time?.substring(0, 5) || ''}
                                         onChange={(e) => handleTimeChange(activeLocationId, dayIndex, 'start_time', e.target.value)}
                                         className="form-input-themed"
@@ -1491,7 +1775,6 @@
                                     <label className="block text-xs font-medium text-medical-gray mb-1">End Time</label>
                                     <input
                                         type="time"
-                                        // Use optional chaining and default to empty string
                                         value={dayData?.end_time?.substring(0, 5) || ''}
                                         onChange={(e) => handleTimeChange(activeLocationId, dayIndex, 'end_time', e.target.value)}
                                         className="form-input-themed"
@@ -1509,16 +1792,44 @@
                                         <span>Available</span>
                                     </label>
                                 </div>
+                                {/* --- NEW INPUTS --- */}
+                                <div>
+                                    <label className="block text-xs font-medium text-medical-gray mb-1">Duration (min)</label>
+                                    <input
+                                        type="number"
+                                        value={dayData?.appointment_duration ?? ''} // Default to empty string if null/undefined
+                                        onChange={(e) => handleNumericChange(activeLocationId, dayIndex, 'appointment_duration', e.target.value)}
+                                        className="form-input-themed w-20" // Smaller width
+                                        min="5"
+                                        max="60"
+                                        step="5"
+                                        placeholder="e.g., 30"
+                                        disabled={!dayData?.is_available}
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-xs font-medium text-medical-gray mb-1">Max Appts</label>
+                                    <input
+                                        type="number"
+                                        value={dayData?.max_appointments ?? ''} // Default to empty string if null/undefined
+                                        onChange={(e) => handleNumericChange(activeLocationId, dayIndex, 'max_appointments', e.target.value)}
+                                        className="form-input-themed w-20" // Smaller width
+                                        min="0"
+                                        placeholder="None" // Indicate no limit when empty
+                                        disabled={!dayData?.is_available}
+                                    />
+                                </div>
+                                {/* --- END NEW INPUTS --- */}
                             </div>
                         )
                     })}
 
                     <div className="flex justify-end space-x-3">
-                        <button onClick={onClose} className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300">
+                        <button onClick={onClose} className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300" disabled={isSaving}>
                             Cancel
                         </button>
-                        <button onClick={() => onSave(localSchedules)} className="medical-button px-4 py-2 text-white rounded-lg relative z-10">
-                            Save Schedule
+                        <button onClick={handleSaveClick} className="medical-button px-4 py-2 text-white rounded-lg relative z-10" disabled={isSaving}>
+                            {isSaving ? 'Saving...' : 'Save Schedule'}
                         </button>
                     </div>
                 </div>
@@ -1921,7 +2232,8 @@
             );
         };
 
-        // Prescriptions Component
+        // Prescriptions Component (DELETED - Replaced by Consultation EMR)
+        /*
         const Prescriptions = () => {
             const [templatePath, setTemplatePath] = React.useState(null);
             const [patientId, setPatientId] = React.useState('');
@@ -2080,6 +2392,946 @@
                             </div>
                         </div>
                     </div>
+                </div>
+            );
+        };
+        */
+
+        // NEW Vitals Form Component
+        const VitalsForm = ({ vitalsData, setVitalsData }) => {
+
+            const handleInputChange = (e) => {
+                const { name, value } = e.target;
+                const newData = { ...vitalsData, [name]: value };
+
+                // Auto-calculate BMI
+                if ((name === 'weight' || name === 'height') && newData.weight && newData.height) {
+                    const weightKg = parseFloat(newData.weight);
+                    const heightCm = parseFloat(newData.height);
+                    if (weightKg > 0 && heightCm > 0) {
+                        const heightM = heightCm / 100;
+                        newData.bmi = (weightKg / (heightM * heightM)).toFixed(2);
+                    } else {
+                        newData.bmi = '';
+                    }
+                }
+                setVitalsData(newData);
+            };
+
+            const handleDateChange = (name, dateStr) => {
+                setVitalsData(prev => ({ ...prev, [name]: dateStr }));
+            };
+
+            // Initialize Flatpickr for date inputs within this component
+            React.useEffect(() => {
+                if (window.flatpickr) {
+                    window.flatpickr(".vitals-date-picker", {
+                        dateFormat: "Y-m-d",
+                        allowInput: true,
+                        onChange: function (selectedDates, dateStr, instance) {
+                            // Find the input element associated with this Flatpickr instance
+                            const inputElement = instance.element;
+                            if (inputElement && inputElement.name) {
+                                handleDateChange(inputElement.name, dateStr);
+                            }
+                        }
+                    });
+                }
+            }, []);
+
+            return (
+                <div className="medical-card p-6 rounded-2xl">
+                    <h3 className="text-lg font-semibold text-medical-dark mb-4 border-b pb-2">Vitals</h3>
+                    <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4 text-sm">
+                        {/* BP */}
+                        <div className="col-span-2 md:col-span-1">
+                            <label className="custom-label">BP (mmHg)</label>
+                            <div className="flex items-center space-x-2">
+                                <input type="number" name="bp_systolic" placeholder="Systolic" value={vitalsData.bp_systolic || ''} onChange={handleInputChange} className="form-input-themed w-1/2" />
+                                <span>/</span>
+                                <input type="number" name="bp_diastolic" placeholder="Diastolic" value={vitalsData.bp_diastolic || ''} onChange={handleInputChange} className="form-input-themed w-1/2" />
+                            </div>
+                        </div>
+                        {/* Pulse */}
+                        <div>
+                            <label className="custom-label">Pulse (bpm)</label>
+                            <input type="number" name="pulse" value={vitalsData.pulse || ''} onChange={handleInputChange} className="form-input-themed" />
+                        </div>
+                        {/* Height */}
+                        <div>
+                            <label className="custom-label">Height (cm)</label>
+                            <input type="number" step="0.1" name="height" value={vitalsData.height || ''} onChange={handleInputChange} className="form-input-themed" />
+                        </div>
+                        {/* Weight */}
+                        <div>
+                            <label className="custom-label">Weight (kg)</label>
+                            <input type="number" step="0.1" name="weight" value={vitalsData.weight || ''} onChange={handleInputChange} className="form-input-themed" />
+                        </div>
+                        {/* BMI */}
+                        <div>
+                            <label className="custom-label">BMI (kg/m²)</label>
+                            <input type="number" step="0.01" name="bmi" value={vitalsData.bmi || ''} onChange={handleInputChange} className="form-input-themed bg-gray-100" readOnly />
+                        </div>
+                        {/* Waist */}
+                        <div>
+                            <label className="custom-label">Waist (cm)</label>
+                            <input type="number" step="0.1" name="waist" value={vitalsData.waist || ''} onChange={handleInputChange} className="form-input-themed" />
+                        </div>
+                        {/* Hip */}
+                        <div>
+                            <label className="custom-label">Hip (cm)</label>
+                            <input type="number" step="0.1" name="hip" value={vitalsData.hip || ''} onChange={handleInputChange} className="form-input-themed" />
+                        </div>
+                        {/* Temperature */}
+                        <div>
+                            <label className="custom-label">Temp (°F)</label>
+                            <input type="number" step="0.1" name="temperature" value={vitalsData.temperature || ''} onChange={handleInputChange} className="form-input-themed" />
+                        </div>
+                        {/* SPO2 */}
+                        <div>
+                            <label className="custom-label">SPO2 (%)</label>
+                            <input type="number" name="spo2" value={vitalsData.spo2 || ''} onChange={handleInputChange} className="form-input-themed" />
+                        </div>
+                        {/* LMP */}
+                        <div className="relative">
+                            <label className="custom-label">LMP</label>
+                            <input type="date" name="lmp" value={vitalsData.lmp || ''} className="form-input-themed vitals-date-picker pr-8" placeholder="Select date" />
+                            <i className="fas fa-calendar-alt absolute right-3 top-[34px] text-medical-gray pointer-events-none"></i>
+                        </div>
+                        {/* EDD */}
+                        <div className="relative">
+                            <label className="custom-label">EDD</label>
+                            <input type="date" name="edd" value={vitalsData.edd || ''} className="form-input-themed vitals-date-picker pr-8" placeholder="Select date" />
+                            <i className="fas fa-calendar-alt absolute right-3 top-[34px] text-medical-gray pointer-events-none"></i>
+                        </div>
+                        {/* Gestational Age */}
+                        <div className="col-span-2 lg:col-span-1">
+                            <label className="custom-label">Gestational Age</label>
+                            <div className="flex items-center space-x-2">
+                                <input type="number" name="gestational_age_weeks" placeholder="Weeks" value={vitalsData.gestational_age_weeks || ''} onChange={handleInputChange} className="form-input-themed w-1/2" />
+                                <input type="number" name="gestational_age_days" placeholder="Days" value={vitalsData.gestational_age_days || ''} onChange={handleInputChange} className="form-input-themed w-1/2" />
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            );
+        };
+
+        // NEW Consultation Notes Form Component (Quick Notes, Complaints, Diagnosis, Exam)
+        const ConsultationNotesForm = ({ notesData, setNotesData }) => {
+            const quickNotesRef = React.useRef(null);
+            const examNotesRef = React.useRef(null);
+            const quillInstances = React.useRef({}); // Store Quill instances
+            const [diagnosisInput, setDiagnosisInput] = React.useState('');
+
+            // Initialize Quill Editors
+            React.useEffect(() => {
+                const Quill = window.Quill;
+                if (!Quill) return;
+
+                const initQuill = (ref, key) => {
+                    if (ref.current && !quillInstances.current[key]) {
+                        // Check if the container is empty before initializing
+                        if (ref.current.querySelector('.ql-editor')) return; // Already initialized
+
+                        const quill = new Quill(ref.current, {
+                            theme: 'snow',
+                            modules: {
+                                toolbar: [
+                                    ['bold', 'italic', 'underline'],
+                                    [{ 'list': 'ordered' }, { 'list': 'bullet' }]
+                                ]
+                            },
+                            placeholder: `Enter ${key === 'quickNotes' ? 'quick notes' : 'systemic examination'}...`
+                        });
+                        quill.on('text-change', () => {
+                            setNotesData(prev => ({ ...prev, [key]: JSON.stringify(quill.getContents().ops) }));
+                        });
+                        quillInstances.current[key] = quill;
+                    }
+                };
+
+                initQuill(quickNotesRef, 'quick_notes');
+                initQuill(examNotesRef, 'systemic_examination');
+
+                // Cleanup on unmount (optional, might re-init on patient change anyway)
+                return () => {
+                    Object.values(quillInstances.current).forEach(q => q && q.off('text-change'));
+                    // quillInstances.current = {}; // Decide if needed based on re-render behavior
+                };
+            }, []); // Run once on mount
+
+            // Handle text area changes
+            const handleTextAreaChange = (e) => {
+                const { name, value } = e.target;
+                setNotesData(prev => ({ ...prev, [name]: value }));
+            };
+
+            // Handle adding a diagnosis tag
+            const handleAddDiagnosis = () => {
+                const newDiagnosis = diagnosisInput.trim();
+                if (newDiagnosis && !notesData.diagnoses?.some(d => d.diagnosis_name === newDiagnosis)) {
+                    setNotesData(prev => ({
+                        ...prev,
+                        diagnoses: [...(prev.diagnoses || []), { diagnosis_name: newDiagnosis }]
+                    }));
+                    setDiagnosisInput('');
+                }
+            };
+
+            const handleDiagnosisKeyDown = (e) => {
+                if (e.key === 'Enter' || e.key === ',') {
+                    e.preventDefault();
+                    handleAddDiagnosis();
+                }
+            };
+
+            // Handle removing a diagnosis tag
+            const handleRemoveDiagnosis = (indexToRemove) => {
+                setNotesData(prev => ({
+                    ...prev,
+                    diagnoses: prev.diagnoses.filter((_, index) => index !== indexToRemove)
+                }));
+            };
+
+            // Effect to set initial Quill content if data changes (e.g., loading past consultation)
+            React.useEffect(() => {
+                if (quillInstances.current.quick_notes && notesData.quick_notes) {
+                    try {
+                        quillInstances.current.quick_notes.setContents(JSON.parse(notesData.quick_notes));
+                    } catch { /* Ignore parse error */ }
+                }
+                if (quillInstances.current.systemic_examination && notesData.systemic_examination) {
+                    try {
+                        quillInstances.current.systemic_examination.setContents(JSON.parse(notesData.systemic_examination));
+                    } catch { /* Ignore parse error */ }
+                }
+            }, [notesData.quick_notes, notesData.systemic_examination]); // Dependencies ensure this runs if content changes from parent
+
+            return (
+                <div className="medical-card p-6 rounded-2xl space-y-4">
+                    {/* Quick Notes */}
+                    <div>
+                        <label className="custom-label">Quick Notes</label>
+                        <div ref={quickNotesRef} style={{ height: '100px' }}></div>
+                    </div>
+                    {/* Complaints */}
+                    <div>
+                        <label className="custom-label">Complaints</label>
+                        <textarea
+                            name="complaints"
+                            value={notesData.complaints || ''}
+                            onChange={handleTextAreaChange}
+                            className="custom-textarea"
+                            rows="3"
+                            placeholder="Enter patient complaints..."
+                        ></textarea>
+                    </div>
+                    {/* Diagnosis */}
+                    <div>
+                        <label className="custom-label">Diagnosis</label>
+                        <div className="flex flex-wrap items-center gap-2 mb-2 p-2 border border-gray-200 rounded-lg min-h-[40px]">
+                            {(notesData.diagnoses || []).map((diag, index) => (
+                                <span key={index} className="inline-flex items-center bg-medical-accent/10 text-medical-accent text-sm font-medium px-2.5 py-0.5 rounded-full">
+                                    {diag.diagnosis_name}
+                                    <button
+                                        type="button"
+                                        onClick={() => handleRemoveDiagnosis(index)}
+                                        className="ml-1.5 text-medical-accent hover:text-red-500"
+                                    >
+                                        <i className="fas fa-times-circle text-xs"></i>
+                                    </button>
+                                </span>
+                            ))}
+                            <input
+                                type="text"
+                                value={diagnosisInput}
+                                onChange={(e) => setDiagnosisInput(e.target.value)}
+                                onKeyDown={handleDiagnosisKeyDown}
+                                onBlur={handleAddDiagnosis} // Add on blur as well
+                                className="flex-grow p-1 border-none focus:ring-0 text-sm"
+                                placeholder="Add diagnosis (press Enter)..."
+                            />
+                        </div>
+                    </div>
+                    {/* Systemic Examination */}
+                    <div>
+                        <label className="custom-label">Systemic Examination</label>
+                        <div ref={examNotesRef} style={{ height: '100px' }}></div>
+                    </div>
+                </div>
+            );
+        };
+
+        // NEW Medication Form Component
+        const MedicationForm = ({ medicationsData, setMedicationsData }) => {
+            const handleAddMedication = () => {
+                setMedicationsData(prev => [
+                    ...prev,
+                    { type: 'TAB', medicine_name: '', dosage: '', when: '', frequency: 'daily', duration: '', notes: '' }
+                ]);
+            };
+
+            const handleRemoveMedication = (indexToRemove) => {
+                setMedicationsData(prev => prev.filter((_, index) => index !== indexToRemove));
+            };
+
+            const handleMedicationChange = (index, field, value) => {
+                setMedicationsData(prev =>
+                    prev.map((med, i) =>
+                        i === index ? { ...med, [field]: value } : med
+                    )
+                );
+            };
+
+            return (
+                <div className="medical-card p-6 rounded-2xl">
+                    <div className="flex items-center justify-between mb-4 border-b pb-2">
+                        <h3 className="text-lg font-semibold text-medical-dark">Medications (Rx)</h3>
+                        {/* TODO: Add Load Prev, Load Template, Save Template buttons */}
+                        <div>
+                            <button onClick={() => setMedicationsData([])} className="text-sm text-red-600 hover:underline mr-4">Clear All</button>
+                            <button onClick={handleAddMedication} className="medical-button px-3 py-1 text-white rounded-lg text-sm">
+                                <i className="fas fa-plus mr-1"></i> Add Medicine
+                            </button>
+                        </div>
+                    </div>
+
+                    <div className="overflow-x-auto">
+                        <table className="w-full text-sm">
+                            <thead>
+                                <tr className="text-left text-medical-gray">
+                                    <th className="p-2 w-12">#</th>
+                                    <th className="p-2 w-20">Type</th>
+                                    <th className="p-2 min-w-[200px]">Medicine</th>
+                                    <th className="p-2 w-28">Dosage</th>
+                                    <th className="p-2 w-28">When</th>
+                                    <th className="p-2 w-24">Freq.</th>
+                                    <th className="p-2 w-28">Duration</th>
+                                    <th className="p-2 min-w-[150px]">Notes</th>
+                                    <th className="p-2 w-10"></th> { /* Action column */}
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {medicationsData.map((med, index) => (
+                                    <tr key={index} className="border-b last:border-b-0">
+                                        <td className="p-2 text-center text-medical-gray">{index + 1}</td>
+                                        <td className="p-1">
+                                            <select value={med.type} onChange={(e) => handleMedicationChange(index, 'type', e.target.value)} className="form-input-themed p-1 text-xs">
+                                                <option value="TAB">TAB</option>
+                                                <option value="CAP">CAP</option>
+                                                <option value="SYP">SYP</option>
+                                                <option value="INJ">INJ</option>
+                                                <option value="CRM">CRM</option>
+                                                <option value="OTH">OTH</option>
+                                            </select>
+                                        </td>
+                                        <td className="p-1"><input type="text" placeholder="Medicine Name" value={med.medicine_name} onChange={(e) => handleMedicationChange(index, 'medicine_name', e.target.value)} className="form-input-themed p-1" /></td>
+                                        <td className="p-1"><input type="text" placeholder="e.g., 1-0-1" value={med.dosage} onChange={(e) => handleMedicationChange(index, 'dosage', e.target.value)} className="form-input-themed p-1" /></td>
+                                        <td className="p-1">
+                                            <select value={med.when} onChange={(e) => handleMedicationChange(index, 'when', e.target.value)} className="form-input-themed p-1 text-xs">
+                                                <option value="">Select</option>
+                                                <option value="Before Food">Before Food</option>
+                                                <option value="After Food">After Food</option>
+                                                <option value="With Food">With Food</option>
+                                                <option value="Bed Time">Bed Time</option>
+                                            </select>
+                                        </td>
+                                        <td className="p-1"><input type="text" placeholder="daily" value={med.frequency} onChange={(e) => handleMedicationChange(index, 'frequency', e.target.value)} className="form-input-themed p-1" /></td>
+                                        <td className="p-1"><input type="text" placeholder="e.g., 20 days" value={med.duration} onChange={(e) => handleMedicationChange(index, 'duration', e.target.value)} className="form-input-themed p-1" /></td>
+                                        <td className="p-1"><input type="text" placeholder="Notes" value={med.notes} onChange={(e) => handleMedicationChange(index, 'notes', e.target.value)} className="form-input-themed p-1" /></td>
+                                        <td className="p-1 text-center">
+                                            <button onClick={() => handleRemoveMedication(index)} className="text-red-500 hover:text-red-700">
+                                                <i className="fas fa-trash-alt"></i>
+                                            </button>
+                                        </td>
+                                    </tr>
+                                ))}
+                                {medicationsData.length === 0 && (
+                                    <tr><td colSpan="9" className="text-center p-4 text-medical-gray">No medications added.</td></tr>
+                                )}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            );
+        };
+
+        // NEW Advice Form Component
+        const AdviceForm = ({ adviceData, setAdviceData }) => {
+            const adviceEditorRef = React.useRef(null);
+            const quillInstance = React.useRef(null);
+
+            React.useEffect(() => {
+                const Quill = window.Quill;
+                if (Quill && adviceEditorRef.current && !quillInstance.current) {
+                    // Check if the container is empty before initializing
+                    if (adviceEditorRef.current.querySelector('.ql-editor')) return;
+
+                    const quill = new Quill(adviceEditorRef.current, {
+                        theme: 'snow',
+                        modules: {
+                            toolbar: [
+                                ['bold', 'italic', 'underline'],
+                                [{ 'list': 'ordered' }, { 'list': 'bullet' }]
+                            ]
+                        },
+                        placeholder: 'Enter advice for the patient...'
+                    });
+                    quill.on('text-change', () => {
+                        setAdviceData(prev => ({ ...prev, advice: JSON.stringify(quill.getContents().ops) }));
+                    });
+                    quillInstance.current = quill;
+                }
+                // Optional cleanup
+                return () => {
+                    quillInstance.current?.off('text-change');
+                    // quillInstance.current = null; // Decide if needed
+                };
+            }, []);
+
+            // Effect to set initial content if data changes
+            React.useEffect(() => {
+                if (quillInstance.current && adviceData.advice) {
+                    try {
+                        // Avoid resetting if the content is the same
+                        const currentContent = JSON.stringify(quillInstance.current.getContents().ops);
+                        if (currentContent !== adviceData.advice) {
+                            quillInstance.current.setContents(JSON.parse(adviceData.advice));
+                        }
+                    } catch { /* Ignore parse error */ }
+                } else if (quillInstance.current && !adviceData.advice) {
+                    quillInstance.current.setContents([]); // Clear content if adviceData.advice is empty/null
+                }
+            }, [adviceData.advice]);
+
+            return (
+                <div className="medical-card p-6 rounded-2xl">
+                    <h3 className="text-lg font-semibold text-medical-dark mb-4 border-b pb-2">Advice</h3>
+                    <div ref={adviceEditorRef} style={{ height: '150px' }}></div>
+                </div>
+            );
+        };
+
+        // NEW Investigation, Referral & Follow Up Form Component
+        const InvestigationFollowUpForm = ({ formData, setFormData }) => {
+            const usgFindingsRef = React.useRef(null);
+            const labTestsRef = React.useRef(null);
+            const quillInstances = React.useRef({});
+            const [nextVisitType, setNextVisitType] = React.useState('duration'); // 'duration' or 'date'
+            const [nextVisitValue, setNextVisitValue] = React.useState('');
+            const [nextVisitUnit, setNextVisitUnit] = React.useState('Days');
+
+            // Initialize Quill Editors
+            React.useEffect(() => {
+                const Quill = window.Quill;
+                if (!Quill) return;
+                const initQuill = (ref, key, placeholder) => {
+                    if (ref.current && !quillInstances.current[key]) {
+                        if (ref.current.querySelector('.ql-editor')) return; // Already initialized
+                        const quill = new Quill(ref.current, {
+                            theme: 'snow',
+                            modules: { toolbar: [['bold', 'italic'], [{ 'list': 'ordered' }, { 'list': 'bullet' }]] },
+                            placeholder: placeholder
+                        });
+                        quill.on('text-change', () => {
+                            setFormData(prev => ({ ...prev, [key]: JSON.stringify(quill.getContents().ops) }));
+                        });
+                        quillInstances.current[key] = quill;
+                    }
+                };
+                initQuill(usgFindingsRef, 'usg_findings', 'Enter USG findings...');
+                initQuill(labTestsRef, 'lab_tests_imaging', 'Enter lab tests and imaging details...');
+                return () => {
+                    Object.values(quillInstances.current).forEach(q => q && q.off('text-change'));
+                };
+            }, []);
+
+            // Initialize Flatpickr for Next Visit Date
+            React.useEffect(() => {
+                if (window.flatpickr) {
+                    window.flatpickr("#next-visit-date-picker", {
+                        dateFormat: "Y-m-d",
+                        allowInput: true,
+                        onChange: function (selectedDates, dateStr, instance) {
+                            handleInputChange({ target: { name: 'next_visit_date', value: dateStr } });
+                        }
+                    });
+                }
+            }, []);
+
+            // Handle standard input changes
+            const handleInputChange = (e) => {
+                const { name, value } = e.target;
+                setFormData(prev => ({ ...prev, [name]: value }));
+                // Handle combined next visit instructions field
+                if (name === 'nextVisitValue' || name === 'nextVisitUnit') {
+                    let instruction = '';
+                    const currentVal = name === 'nextVisitValue' ? value : nextVisitValue;
+                    const currentUnit = name === 'nextVisitUnit' ? value : nextVisitUnit;
+                    if (currentVal && currentUnit) {
+                        instruction = `${currentVal} ${currentUnit}`;
+                    }
+                    setFormData(prev => ({ ...prev, next_visit_instructions: instruction }));
+                }
+            };
+
+            // Update local state for next visit duration parts
+            React.useEffect(() => {
+                if (formData.next_visit_instructions) {
+                    const parts = formData.next_visit_instructions.split(' ');
+                    if (parts.length === 2 && !isNaN(parts[0])) {
+                        setNextVisitValue(parts[0]);
+                        setNextVisitUnit(parts[1]);
+                        setNextVisitType('duration');
+                    }
+                } else if (formData.next_visit_date) {
+                    setNextVisitType('date');
+                } else {
+                    // Default state if neither is set
+                    setNextVisitType('duration');
+                    setNextVisitValue('');
+                    setNextVisitUnit('Days');
+                }
+            }, [formData.next_visit_instructions, formData.next_visit_date]);
+
+            // Effect to set initial Quill content if data changes
+            React.useEffect(() => {
+                const setQuillContent = (key, content) => {
+                    if (quillInstances.current[key] && content) {
+                        try {
+                            const currentContent = JSON.stringify(quillInstances.current[key].getContents().ops);
+                            if (currentContent !== content) {
+                                quillInstances.current[key].setContents(JSON.parse(content));
+                            }
+                        } catch { /* Ignore */ }
+                    } else if (quillInstances.current[key] && !content) {
+                        quillInstances.current[key].setContents([]);
+                    }
+                }
+                setQuillContent('usg_findings', formData.usg_findings);
+                setQuillContent('lab_tests_imaging', formData.lab_tests_imaging);
+            }, [formData.usg_findings, formData.lab_tests_imaging]);
+
+            return (
+                <div className="medical-card p-6 rounded-2xl space-y-4">
+                    {/* Tests Requested */}
+                    <div>
+                        <label className="custom-label">Tests Requested</label>
+                        <textarea
+                            name="tests_requested"
+                            value={formData.tests_requested || ''}
+                            onChange={handleInputChange}
+                            className="custom-textarea"
+                            rows="2"
+                            placeholder="List any tests requested..."
+                        ></textarea>
+                    </div>
+
+                    {/* Next Visit */}
+                    <div>
+                        <label className="custom-label">Next Visit</label>
+                        <div className="flex items-center space-x-2">
+                            <input
+                                type="radio"
+                                name="nextVisitType"
+                                value="duration"
+                                checked={nextVisitType === 'duration'}
+                                onChange={() => { setNextVisitType('duration'); handleInputChange({ target: { name: 'next_visit_date', value: null } }); }}
+                                className="mr-1"
+                            />
+                            <input
+                                type="number"
+                                name="nextVisitValue"
+                                value={nextVisitValue}
+                                onChange={(e) => { setNextVisitValue(e.target.value); handleInputChange(e); }}
+                                className="form-input-themed w-20"
+                                placeholder="No of"
+                                disabled={nextVisitType !== 'duration'}
+                            />
+                            <select
+                                name="nextVisitUnit"
+                                value={nextVisitUnit}
+                                onChange={(e) => { setNextVisitUnit(e.target.value); handleInputChange(e); }}
+                                className="custom-select w-28"
+                                disabled={nextVisitType !== 'duration'}
+                            >
+                                <option>Days</option>
+                                <option>Weeks</option>
+                                <option>Months</option>
+                            </select>
+                            <span className="text-medical-gray">Or</span>
+                            <input
+                                type="radio"
+                                name="nextVisitType"
+                                value="date"
+                                checked={nextVisitType === 'date'}
+                                onChange={() => { setNextVisitType('date'); handleInputChange({ target: { name: 'next_visit_instructions', value: null } }); setNextVisitValue(''); setNextVisitUnit('Days'); }}
+                                className="ml-2 mr-1"
+                            />
+                            <input
+                                type="date"
+                                id="next-visit-date-picker"
+                                name="next_visit_date"
+                                value={formData.next_visit_date || ''}
+                                className="form-input-themed custom-datetime flex-grow"
+                                placeholder="Select date"
+                                disabled={nextVisitType !== 'date'}
+                            />
+                        </div>
+                    </div>
+
+                    {/* Referred To */}
+                    <div>
+                        <label className="custom-label">Referred To</label>
+                        <div className="grid grid-cols-1 md:grid-cols-4 gap-2 border p-3 rounded-lg bg-gray-50">
+                            <input type="text" name="referral_doctor_name" value={formData.referral_doctor_name || ''} onChange={handleInputChange} className="form-input-themed" placeholder="Doctor Name" />
+                            <input type="text" name="referral_speciality" value={formData.referral_speciality || ''} onChange={handleInputChange} className="form-input-themed" placeholder="Speciality" />
+                            <input type="tel" name="referral_phone" value={formData.referral_phone || ''} onChange={handleInputChange} className="form-input-themed" placeholder="Phone No" />
+                            <input type="email" name="referral_email" value={formData.referral_email || ''} onChange={handleInputChange} className="form-input-themed" placeholder="Email" />
+                            {/* TODO: Add '+' button for multiple referrals? */}
+                        </div>
+                    </div>
+
+                    {/* USG Findings */}
+                    <div>
+                        <label className="custom-label">USG Findings</label>
+                        <div ref={usgFindingsRef} style={{ height: '100px' }}></div>
+                    </div>
+
+                    {/* Lab Tests & Imaging */}
+                    <div>
+                        <label className="custom-label">Lab Tests and Imaging</label>
+                        <div ref={labTestsRef} style={{ height: '100px' }}></div>
+                    </div>
+                </div>
+            );
+        };
+
+        // NEW Consultation / EMR Editor Component
+        const ConsultationEditor = () => {
+            const [patients, setPatients] = React.useState([]);
+            const [patientSearch, setPatientSearch] = React.useState('');
+            const [filteredPatients, setFilteredPatients] = React.useState([]);
+            const [selectedPatient, setSelectedPatient] = React.useState(null); // Store the full patient object
+            const [consultationData, setConsultationData] = React.useState({});
+            const [loadingPatients, setLoadingPatients] = React.useState(true);
+            const [loadingConsultation, setLoadingConsultation] = React.useState(false);
+            const [error, setError] = React.useState('');
+            const [isNewPatientMode, setIsNewPatientMode] = React.useState(false); // Toggle state
+            const [newPatientData, setNewPatientData] = React.useState({ first_name: '', last_name: '', date_of_birth: '', city: '', phone_number: '', email: '' }); // State for new patient details
+            // State for Vitals sub-component
+            const [vitalsData, setVitalsData] = React.useState({});
+            // State for Notes sub-component
+            const [notesData, setNotesData] = React.useState({ diagnoses: [] }); // Init diagnoses as empty array
+            // State for Medications sub-component
+            const [medicationsData, setMedicationsData] = React.useState([]);
+            // State for Advice sub-component
+            const [adviceData, setAdviceData] = React.useState({});
+            // State for Investigations/Follow Up sub-component
+            const [investigationData, setInvestigationData] = React.useState({});
+
+            // Fetch all patients for the search dropdown
+            React.useEffect(() => {
+                const fetchPatients = async () => {
+                    setLoadingPatients(true);
+                    try {
+                        // Fetch all patients initially, might need pagination later
+                        const data = await api('/api/v1/patients?limit=1000');
+                        setPatients(Array.isArray(data) ? data : []);
+                        setFilteredPatients([]); // Start with no filtered results shown
+                    } catch (err) {
+                        setError('Failed to load patients.');
+                        console.error('Fetch patients error:', err);
+                    } finally {
+                        setLoadingPatients(false);
+                    }
+                };
+                fetchPatients();
+            }, []);
+
+            const handlePatientSearchChange = (term) => {
+                setPatientSearch(term);
+                if (term.length > 1) { // Start searching after 2 characters
+                    setFilteredPatients(
+                        patients.filter(p =>
+                            `${p.first_name || ''} ${p.last_name || ''}`.toLowerCase().includes(term.toLowerCase()) ||
+                            p.phone_number?.includes(term) ||
+                            p.email?.toLowerCase().includes(term.toLowerCase())
+                        ).slice(0, 10) // Limit results
+                    );
+                } else {
+                    setFilteredPatients([]);
+                }
+            };
+
+            const handleSelectPatient = (patient) => {
+                setSelectedPatient(patient);
+                setPatientSearch(`${patient.first_name || ''} ${patient.last_name || ''}`.trim());
+                setFilteredPatients([]);
+                setError('');
+                setIsNewPatientMode(false); // Ensure we are not in new patient mode
+                // TODO: Here you would typically fetch existing consultations for this patient
+                // For now, we'll just prepare for a new consultation
+                setConsultationData({ patient_id: patient.id });
+            };
+
+            const handleClearPatient = () => {
+                setSelectedPatient(null);
+                setPatientSearch('');
+                setFilteredPatients([]);
+                setConsultationData({});
+                setError('');
+                setVitalsData({}); // Clear vitals too
+                setNotesData({ diagnoses: [] }); // Clear notes and diagnoses
+                setMedicationsData([]); // Clear medications
+                setAdviceData({}); // Clear advice
+                setInvestigationData({}); // Clear investigations/follow up
+                setIsNewPatientMode(false); // Reset toggle
+                setNewPatientData({ first_name: '', last_name: '', date_of_birth: '', city: '', phone_number: '', email: '' }); // Clear new patient form
+            };
+
+            // Placeholder for save logic
+            const handleSaveConsultation = async () => {
+                if (!selectedPatient && !isNewPatientMode) {
+                    setError('Please select an existing patient or enter new patient details.');
+                    return;
+                }
+                if (isNewPatientMode && !newPatientData.first_name) { // Basic validation for new patient
+                    setError('New patient requires at least a First Name.');
+                    return;
+                }
+                setLoadingConsultation(true);
+                setError('');
+                try {
+                    // Construct the full payload including vitals, meds, etc.
+                    let payload = {
+                        ...consultationData,
+                        // Add nested vitals, diagnoses, medications from form state
+                        vitals: vitalsData,
+                        diagnoses: notesData.diagnoses || [], // Get diagnoses from notesData
+                        medications: medicationsData, // Get medications from state
+                        // Add fields managed by ConsultationNotesForm
+                        quick_notes: notesData.quick_notes,
+                        complaints: notesData.complaints,
+                        systemic_examination: notesData.systemic_examination,
+                        advice: adviceData.advice, // Add advice field
+                        // Add fields from InvestigationFollowUpForm state
+                        tests_requested: investigationData.tests_requested,
+                        next_visit_date: investigationData.next_visit_date,
+                        next_visit_instructions: investigationData.next_visit_instructions,
+                        referral_doctor_name: investigationData.referral_doctor_name,
+                        referral_speciality: investigationData.referral_speciality,
+                        referral_phone: investigationData.referral_phone,
+                        referral_email: investigationData.referral_email,
+                        usg_findings: investigationData.usg_findings,
+                        lab_tests_imaging: investigationData.lab_tests_imaging
+                    };
+
+                    // Add patient info based on mode
+                    if (isNewPatientMode) {
+                        payload.new_patient = newPatientData;
+                        delete payload.patient_id; // Ensure patient_id is not sent
+                    } else {
+                        payload.patient_id = selectedPatient.id;
+                        delete payload.new_patient; // Ensure new_patient is not sent
+                    }
+                    console.log("Saving Consultation Payload:", payload);
+                    await api('/api/v1/consultations/', {
+                        method: 'POST',
+                        body: JSON.stringify(payload)
+                    });
+                    toast('Consultation saved successfully!');
+                    // Optionally clear form or navigate
+                    handleClearPatient();
+                } catch (err) {
+                    setError(`Save failed: ${err.message}`);
+                    console.error('Save consultation error:', err);
+                } finally {
+                    setLoadingConsultation(false);
+                }
+            };
+
+            return (
+                <div className="space-y-6">
+                    <div className="flex items-center justify-between">
+                        <h2 className="text-lg sm:text-xl lg:text-2xl font-bold text-medical-dark font-primary">Consultation / EMR</h2>
+                        {selectedPatient && (
+                            <button onClick={handleClearPatient} className="text-sm text-medical-accent hover:underline">
+                                <i className="fas fa-times mr-1"></i>Change Patient
+                            </button>
+                        )}
+                    </div>
+
+                    {error && <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded-lg">{error}</div>}
+
+                    {/* --- Patient Selection / Creation Toggle --- */}
+                    {!selectedPatient && (
+                        <div className="flex items-center justify-center bg-gray-100 p-1 rounded-lg mb-4">
+                            <button
+                                onClick={() => setIsNewPatientMode(false)}
+                                className={`flex-1 py-2 px-4 rounded-md font-medium transition-all ${!isNewPatientMode ? 'bg-white shadow text-medical-accent' : 'text-medical-gray'}`}
+                            >
+                                Select Existing Patient
+                            </button>
+                            <button
+                                onClick={() => setIsNewPatientMode(true)}
+                                className={`flex-1 py-2 px-4 rounded-md font-medium transition-all ${isNewPatientMode ? 'bg-white shadow text-medical-accent' : 'text-medical-gray'}`}
+                            >
+                                Create New Patient
+                            </button>
+                        </div>
+                    )}
+
+                    {/* --- Patient Details Area --- */}
+                    {!selectedPatient && isNewPatientMode ? (
+                        // --- New Patient Form --- 
+                        <div className="medical-card p-6 rounded-2xl animate-fade-in space-y-4">
+                            <h3 className="text-lg font-semibold text-medical-dark">New Patient Details</h3>
+                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 text-sm">
+                                <div>
+                                    <label className="custom-label required">First Name</label>
+                                    <input type="text" value={newPatientData.first_name} onChange={(e) => setNewPatientData(p => ({ ...p, first_name: e.target.value }))} className="form-input-themed" placeholder="Enter first name" />
+                                </div>
+                                <div>
+                                    <label className="custom-label">Last Name</label>
+                                    <input type="text" value={newPatientData.last_name} onChange={(e) => setNewPatientData(p => ({ ...p, last_name: e.target.value }))} className="form-input-themed" placeholder="Enter last name" />
+                                </div>
+                                <div>
+                                    <label className="custom-label">Date of Birth</label>
+                                    <input type="date" value={newPatientData.date_of_birth} onChange={(e) => setNewPatientData(p => ({ ...p, date_of_birth: e.target.value }))} className="form-input-themed custom-datetime" />
+                                </div>
+                                <div>
+                                    <label className="custom-label">Phone Number</label>
+                                    <input type="tel" value={newPatientData.phone_number} onChange={(e) => setNewPatientData(p => ({ ...p, phone_number: e.target.value }))} className="form-input-themed" placeholder="Enter phone number" />
+                                </div>
+                                <div>
+                                    <label className="custom-label">Email</label>
+                                    <input type="email" value={newPatientData.email} onChange={(e) => setNewPatientData(p => ({ ...p, email: e.target.value }))} className="form-input-themed" placeholder="Enter email" />
+                                </div>
+                                <div>
+                                    <label className="custom-label">City</label>
+                                    <input type="text" value={newPatientData.city} onChange={(e) => setNewPatientData(p => ({ ...p, city: e.target.value }))} className="form-input-themed" placeholder="Enter city" />
+                                </div>
+                            </div>
+                        </div>
+                    ) : !selectedPatient && !isNewPatientMode ? (
+                        // --- Existing Patient Search --- 
+                        <div className="medical-card p-6 rounded-2xl animate-fade-in">
+                            <label className="custom-label mb-2">Select Patient</label>
+                            <div className="relative">
+                                <input
+                                    type="text"
+                                    value={patientSearch}
+                                    onChange={(e) => handlePatientSearchChange(e.target.value)}
+                                    className="form-input-themed pl-10"
+                                    placeholder="Search by name, phone, or email..."
+                                    disabled={loadingPatients}
+                                />
+                                <i className="fas fa-search absolute left-3 top-1/2 transform -translate-y-1/2 text-medical-gray"></i>
+                                {loadingPatients && <div className="absolute right-3 top-1/2 transform -translate-y-1/2"><LoadingSpinner /></div>}
+                            </div>
+                            {filteredPatients.length > 0 && (
+                                <div className="relative">
+                                    <div className="absolute z-20 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-60 overflow-y-auto scroll-custom">
+                                        {filteredPatients.map(p => (
+                                            <div
+                                                key={p.id}
+                                                onClick={() => handleSelectPatient(p)}
+                                                className="p-3 hover:bg-medical-light cursor-pointer border-b last:border-b-0"
+                                            >
+                                                <div className="font-semibold">{`${p.first_name || ''} ${p.last_name || ''}`.trim()}</div>
+                                                <div className="text-sm text-medical-gray">
+                                                    {p.phone_number && <span>Ph: {p.phone_number}</span>}
+                                                    {p.email && <span className="ml-2">Email: {p.email}</span>}
+                                                    {!p.phone_number && !p.email && <span>ID: {p.id}</span>}
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+                    ) : selectedPatient ? (
+                        // --- Selected Patient Display --- 
+                        <div className="medical-card p-6 rounded-2xl animate-fade-in bg-medical-light">
+                            <h3 className="text-lg font-semibold text-medical-dark mb-2">Patient: {`${selectedPatient.first_name || ''} ${selectedPatient.last_name || ''}`.trim()}</h3>
+                            <p className="text-sm text-medical-gray">ID: {selectedPatient.id} {selectedPatient.phone_number && `• Phone: ${selectedPatient.phone_number}`} {selectedPatient.email && `• Email: ${selectedPatient.email}`}</p>
+                            {/* TODO: Add 'View Past Consultations' button here */}
+                        </div>
+                    ) : null}
+
+                    {/* --- EMR Form Sections (Only show if patient selected OR new patient mode active) --- */}
+                    {(selectedPatient || isNewPatientMode) && (
+                        <div className="medical-card p-6 rounded-2xl animate-fade-in">
+                            <label className="custom-label mb-2">Select Patient</label>
+                            <div className="relative">
+                                <input
+                                    type="text"
+                                    value={patientSearch}
+                                    onChange={(e) => handlePatientSearchChange(e.target.value)}
+                                    className="form-input-themed pl-10"
+                                    placeholder="Search by name, phone, or email..."
+                                    disabled={loadingPatients}
+                                />
+                                <i className="fas fa-search absolute left-3 top-1/2 transform -translate-y-1/2 text-medical-gray"></i>
+                                {loadingPatients && <div className="absolute right-3 top-1/2 transform -translate-y-1/2"><LoadingSpinner /></div>}
+                            </div>
+                            {filteredPatients.length > 0 && (
+                                <div className="relative">
+                                    <div className="absolute z-20 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-60 overflow-y-auto scroll-custom">
+                                        {filteredPatients.map(p => (
+                                            <div
+                                                key={p.id}
+                                                onClick={() => handleSelectPatient(p)}
+                                                className="p-3 hover:bg-medical-light cursor-pointer border-b last:border-b-0"
+                                            >
+                                                <div className="font-semibold">{`${p.first_name || ''} ${p.last_name || ''}`.trim()}</div>
+                                                <div className="text-sm text-medical-gray">
+                                                    {p.phone_number && <span>Ph: {p.phone_number}</span>}
+                                                    {p.email && <span className="ml-2">Email: {p.email}</span>}
+                                                    {!p.phone_number && !p.email && <span>ID: {p.id}</span>}
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+                    )(
+                        <div className="medical-card p-6 rounded-2xl animate-fade-in bg-medical-light">
+                            <h3 className="text-lg font-semibold text-medical-dark mb-2">Patient: {`${selectedPatient.first_name || ''} ${selectedPatient.last_name || ''}`.trim()}</h3>
+                            <p className="text-sm text-medical-gray">ID: {selectedPatient.id} {selectedPatient.phone_number && `• Phone: ${selectedPatient.phone_number}`} {selectedPatient.email && `• Email: ${selectedPatient.email}`}</p>
+                            {/* TODO: Add 'View Past Consultations' button here */}
+                        </div>
+                    )}
+
+                    {/* --- EMR Form Sections (Only show if patient is selected) --- */}
+                    {selectedPatient && (
+                        <div className="space-y-6 animate-fade-in">
+                            {/* --- Vitals Section --- */}
+                            <VitalsForm vitalsData={vitalsData} setVitalsData={setVitalsData} />
+
+                            {/* --- Notes/Complaints/Diagnosis/Exam Section --- */}
+                            <ConsultationNotesForm notesData={notesData} setNotesData={setNotesData} />
+
+                            {/* --- Medications Section --- */}
+                            <MedicationForm medicationsData={medicationsData} setMedicationsData={setMedicationsData} />
+
+                            {/* --- Advice Section --- */}
+                            <AdviceForm adviceData={adviceData} setAdviceData={setAdviceData} />
+
+                            {/* --- Investigations, Referral & Follow Up Section --- */}
+                            <InvestigationFollowUpForm formData={investigationData} setFormData={setInvestigationData} />
+
+                            <div className="flex justify-end space-x-3">
+                                <button onClick={handleClearPatient} className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300" disabled={loadingConsultation}>Cancel</button>
+                                <button onClick={handleSaveConsultation} className="medical-button px-4 py-2 text-white rounded-lg relative z-10" disabled={loadingConsultation}>
+                                    {loadingConsultation ? 'Saving...' : 'Save Consultation'}
+                                </button>
+                            </div>
+                        </div>
+                    )}
                 </div>
             );
         };
@@ -2242,6 +3494,113 @@
                 fetchPatients();
             }, []);
 
+            // --- START EDIT: Fetch slots on date/location change ---
+            React.useEffect(() => {
+                console.log('[Slots Effect] Running effect hook...'); // <-- DEBUG: Confirm effect runs
+                console.log(`[Slots Effect] Current state: Date=${appointmentDate}, Location=${locationId}`); // <-- DEBUG: Check values
+                const fetchAndCalculateSlots = async () => {
+                    console.log(`[Slots] Triggered: Date=${appointmentDate}, Location=${locationId}`); // <-- DEBUG
+                    if (!appointmentDate || !locationId) {
+                        console.log('[Slots] Aborted: Missing date or location.'); // <-- DEBUG
+                        return;
+                    }
+                    setLoadingSlots(true);
+                    setAvailableSlots([]);
+                    setAppointmentTime(''); // Reset selected time
+                    setSlotError('');
+
+                    try {
+                        console.log('[Slots] 1. Fetching schedule...'); // <-- DEBUG
+                        // 1. Fetch Schedule for the location (we need duration/max/times for the specific day)
+                        const weeklyScheduleData = await api(`/api/v1/schedules/by-location/${locationId}`);
+                        console.log('[Slots] 1a. Fetched schedule data:', weeklyScheduleData); // <-- DEBUG
+                        const dayOfWeek = (new Date(appointmentDate).getDay() + 6) % 7; // Monday = 0
+                        const daySchedule = weeklyScheduleData?.find(s => s.day_of_week === dayOfWeek);
+
+                        if (!daySchedule || !daySchedule.is_available) {
+                            setSlotError('Doctor is unavailable on this date.');
+                            setLoadingSlots(false);
+                            return;
+                        }
+
+                        // 2. Fetch Existing Appointments for the specific date and location
+                        console.log('[Slots] 2. Fetching existing appointments...'); // <-- DEBUG
+                        const existingAppointments = await api(`/api/v1/appointments?start_date=${appointmentDate}&end_date=${appointmentDate}&location_id=${locationId}`);
+                        console.log('[Slots] 2a. Fetched existing appointments:', existingAppointments); // <-- DEBUG
+
+                        // 3. Calculate Slots (Logic will be refined later)
+                        console.log('[Slots] 3. Calculating slots...'); // <-- DEBUG
+                        const slots = [];
+                        const startTime = daySchedule.start_time; // e.g., "09:00:00"
+                        const endTime = daySchedule.end_time;     // e.g., "17:00:00"
+                        const duration = daySchedule.appointment_duration || 15; // Default to 15 mins
+                        const maxAppointments = daySchedule.max_appointments;
+
+                        // --- Placeholder Logic (Replace with detailed calculation) ---
+                        // Convert times to minutes from midnight
+                        const timeToMinutes = (timeStr) => {
+                            const [h, m] = timeStr.split(':').map(Number);
+                            return h * 60 + m;
+                        };
+                        let currentMinutes = timeToMinutes(startTime);
+                        const endMinutes = timeToMinutes(endTime);
+                        const bookedStartMinutes = new Set(existingAppointments.map(a => timeToMinutes(new Date(a.start_time).toTimeString().substring(0, 5))));
+
+                        while (currentMinutes < endMinutes) {
+                            const hours = Math.floor(currentMinutes / 60).toString().padStart(2, '0');
+                            const minutes = (currentMinutes % 60).toString().padStart(2, '0');
+                            const currentSlotStr = `${hours}:${minutes}`;
+
+                            let isAvailable = true;
+                            let reason = 'available';
+
+                            // Check if booked
+                            if (bookedStartMinutes.has(currentMinutes)) {
+                                isAvailable = false;
+                                reason = 'booked';
+                            }
+
+                            // Check max appointments (simplified check for now)
+                            const isAdmin = user?.role === 'admin';
+                            if (maxAppointments !== null && existingAppointments.length >= maxAppointments && !isAdmin) {
+                                // If limit reached, mark all further potential slots as unavailable for non-admins
+                                // A more robust check would happen inside the loop if adding this slot exceeds the limit
+                                // For now, if max is hit, just stop adding slots *unless* admin
+                                if (isAvailable) { // only apply max limit if slot wasn't already booked
+                                    isAvailable = false;
+                                    reason = 'limit_reached';
+                                }
+                            }
+
+                            // TODO: Add checks for break times, unavailable periods if needed
+
+                            if (isAvailable) {
+                                slots.push(currentSlotStr);
+                            }
+
+                            currentMinutes += duration;
+                        }
+                        // --- End Placeholder Logic ---
+
+                        console.log('[Slots] 3a. Calculated slots:', slots); // <-- DEBUG
+                        setAvailableSlots(slots);
+                        if (slots.length === 0 && !slotError) {
+                            console.log('[Slots] No slots calculated/available.'); // <-- DEBUG
+                            setSlotError('No available slots found for this date/location.');
+                        }
+
+                    } catch (err) {
+                        console.error("[Slots] ERROR during fetch/calculation:", err); // <-- DEBUG (more specific)
+                        setSlotError(`Error loading slots: ${err.message || 'Unknown error'}`); // <-- DEBUG (more specific)
+                    } finally {
+                        setLoadingSlots(false);
+                    }
+                };
+
+                fetchAndCalculateSlots();
+            }); // <-- EDIT: REMOVED dependency array to force run on every render
+            // --- END EDIT ---
+
 
 
             const handleSubmit = async () => {
@@ -2311,14 +3670,15 @@
         };
 
         // Appointment Editor Component
-        const AppointmentEditor = ({ appointment, onClose, refreshAppointments }) => {
+        const AppointmentEditor = ({ appointment, onClose, refreshAppointments, user }) => { // <-- Add user prop
+            console.log('[AppointmentEditor] Rendering/Re-rendering...'); // <-- DEBUG: Confirm render
             const [patientId, setPatientId] = React.useState(appointment?.patient_id || '');
-            const [locationId, setLocationId] = React.useState(appointment?.location_id || 1);
+            const [locationId, setLocationId] = React.useState(appointment?.location_id || 1); // <-- Add location state
             const [appointmentDate, setAppointmentDate] = React.useState(appointment ? new Date(appointment.start_time).toISOString().split('T')[0] : new Date().toISOString().split('T')[0]);
             const [appointmentTime, setAppointmentTime] = React.useState(appointment ? new Date(appointment.start_time).toTimeString().substring(0, 5) : '');
             const [reason, setReason] = React.useState(appointment?.reason || '');
             const [patients, setPatients] = React.useState([]);
-            const [error, setError] = React.useState('');
+            const [errors, setErrors] = React.useState([]); // <-- EDIT: Changed state for validation errors
 
             // New state for creating a new patient
             const [isNewPatient, setIsNewPatient] = React.useState(false);
@@ -2331,6 +3691,8 @@
             const [patientSearch, setPatientSearch] = React.useState('');
             const [filteredPatients, setFilteredPatients] = React.useState([]);
             const [availableSlots, setAvailableSlots] = React.useState([]);
+            const [loadingSlots, setLoadingSlots] = React.useState(false); // <-- Add loading state for slots
+            const [slotError, setSlotError] = React.useState(''); // <-- Add error state for slots
 
 
             React.useEffect(() => {
@@ -2367,6 +3729,8 @@
 
 
             const handleSubmit = async () => {
+                // --- EDIT: Use setErrors correctly --- 
+                setErrors([]); // Clear previous errors
                 const validationErrors = [];
                 if (!isNewPatient) {
                     if (!patientId) validationErrors.push('An existing patient must be selected.');
@@ -2426,7 +3790,8 @@
                     if (refreshAppointments) refreshAppointments();
                     onClose();
                 } catch (err) {
-                    setError('An error occurred. Please check the console and try again.');
+                    // --- EDIT: Use setErrors correctly --- 
+                    setErrors(['An error occurred saving the appointment. Please check details and try again.']);
                     console.error('Save appointment error:', err);
                 }
             };
@@ -2507,33 +3872,55 @@
 
                     <div className="border-t border-gray-200 pt-4 space-y-4">
                         <h3 className="text-lg font-semibold text-medical-dark">Appointment Details</h3>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-6"> {/* <-- Changed to 3 cols */}
+                            {/* --- START EDIT: Add Location Dropdown --- */}
                             <div>
-                                <label className="block text-sm font-medium text-medical-gray mb-2">Date <span className="text-red-500">*</span></label>
-                                <input type="date" value={appointmentDate} onChange={(e) => setAppointmentDate(e.target.value)} className="form-input-themed" />
+                                <label className="custom-label required">Location</label>
+                                <select
+                                    value={locationId}
+                                    onChange={(e) => { const newLocId = parseInt(e.target.value, 10); console.log('[AppointmentEditor] Location changed:', newLocId); setLocationId(newLocId); }}
+                                    className="custom-select"
+                                >
+                                    <option value={1}>Home Clinic</option>
+                                    <option value={2}>Hospital</option>
+                                </select>
                             </div>
+                            {/* --- END EDIT --- */}
                             <div>
-                                <label className="block text-sm font-medium text-medical-gray mb-2">Time <span className="text-red-500">*</span></label>
-                                {appointmentDate ? (
-                                    availableSlots.length > 0 ? (
-                                        <div className="grid grid-cols-4 gap-2">
-                                            {availableSlots.map(slot => (
-                                                <button
-                                                    key={slot}
-                                                    type="button"
-                                                    onClick={() => setAppointmentTime(slot)}
-                                                    className={`p-2 rounded-lg border text-sm transition-all ${appointmentTime === slot ? 'bg-medical-accent text-white border-medical-accent font-semibold shadow' : 'border-gray-300 hover:border-medical-accent hover:text-medical-accent'}`}
-                                                >
-                                                    {new Date(`1970-01-01T${slot}`).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true })}
-                                                </button>
-                                            ))}
-                                        </div>
-                                    ) : (
-                                        <p className="text-medical-gray text-sm p-3 bg-gray-50 rounded-lg">No available slots for this date.</p>
-                                    )
+                                <label className="custom-label required">Date</label>
+                                <input
+                                    type="date"
+                                    value={appointmentDate}
+                                    onChange={(e) => { const newDate = e.target.value; console.log('[AppointmentEditor] Date changed:', newDate); setAppointmentDate(newDate); }}
+                                    className="custom-datetime"
+                                    min={new Date().toISOString().split('T')[0]} // Prevent selecting past dates
+                                />
+                            </div>
+                            <div className="md:col-span-3"> {/* <-- Make Time span full width below Date/Location */}
+                                <label className="custom-label required">Time</label>
+                                {/* --- START EDIT: Updated Slot Display --- */}
+                                {loadingSlots ? (
+                                    <LoadingSpinner />
+                                ) : slotError ? (
+                                    <p className="text-medical-error text-sm p-3 bg-red-50 rounded-lg">{slotError}</p>
+                                ) : availableSlots.length > 0 ? (
+                                    <div className="grid grid-cols-4 sm:grid-cols-5 md:grid-cols-6 gap-2">
+                                        {availableSlots.map(slot => (
+                                            <button
+                                                key={slot}
+                                                type="button"
+                                                onClick={() => setAppointmentTime(slot)}
+                                                className={`p-2 rounded-lg border text-xs sm:text-sm transition-all ${appointmentTime === slot ? 'bg-medical-accent text-white border-medical-accent font-semibold shadow' : 'border-gray-300 hover:border-medical-accent hover:text-medical-accent'}`}
+                                            >
+                                                {/* Format time like 09:30 AM */}
+                                                {new Date(`1970-01-01T${slot}:00`).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true })}
+                                            </button>
+                                        ))}
+                                    </div>
                                 ) : (
-                                    <p className="text-medical-gray text-sm p-3 bg-gray-50 rounded-lg">Select a date to see available times.</p>
+                                    <p className="text-medical-gray text-sm p-3 bg-gray-50 rounded-lg">Select date and location to view available times.</p>
                                 )}
+                                {/* --- END EDIT --- */}
                             </div>
                         </div>
                         <div>
@@ -2768,7 +4155,7 @@
         };
 
         // New Day Editor Modal with Tabs
-        const DayEditorModal = ({ date, scheduleForDay, onClose, refreshSchedules }) => {
+        const DayEditorModal = ({ date, scheduleForDay, onClose, refreshSchedules, existingClinicBlock, existingHospitalBlock }) => {
             const [activeTab, setActiveTab] = React.useState('block');
 
             return (
@@ -2786,7 +4173,14 @@
                         </button>
                     </div>
                     <div>
-                        {activeTab === 'block' && <DailyUnavailabilityEditor date={date} onClose={onClose} />}
+                        {activeTab === 'block' &&
+                            <DailyUnavailabilityEditor
+                                date={date}
+                                onClose={onClose}
+                                existingClinicBlock={existingClinicBlock}
+                                existingHospitalBlock={existingHospitalBlock}
+                            />
+                        }
                         {activeTab === 'edit' && <SingleDayScheduleEditor date={date} scheduleForDay={scheduleForDay} onClose={onClose} refreshSchedules={refreshSchedules} />}
                     </div>
                 </div>
@@ -2879,14 +4273,50 @@
             );
         };
 
-        // Daily Unavailability Editor Component (Date Bug Fixed)
-        const DailyUnavailabilityEditor = ({ date, onClose }) => {
-            const toISODateString = (d) => d ? `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}` : '';
-            const [startDate, setStartDate] = React.useState(toISODateString(date));
-            const [endDate, setEndDate] = React.useState(toISODateString(date));
-            const [reason, setReason] = React.useState('');
-            const [selectedLocations, setSelectedLocations] = React.useState({ 1: true, 2: true }); // Default to both selected
+
+        // Daily Unavailability Editor Component (Rewritten for Edit/Delete)
+        const DailyUnavailabilityEditor = ({ date, onClose, existingClinicBlock, existingHospitalBlock }) => {
+            const toISODateString = (d) => {
+                if (!d) return '';
+                const dateObj = new Date(d);
+                return `${dateObj.getFullYear()}-${String(dateObj.getMonth() + 1).padStart(2, '0')}-${String(dateObj.getDate()).padStart(2, '0')}`;
+            };
+
+            // Find the earliest start date and latest end date from the existing blocks
+            const getInitialStartDate = () => {
+                const d1 = existingClinicBlock ? new Date(existingClinicBlock.start_datetime) : null;
+                const d2 = existingHospitalBlock ? new Date(existingHospitalBlock.start_datetime) : null;
+                if (d1 && d2) return toISODateString(d1 < d2 ? d1 : d2);
+                return toISODateString(d1 || d2 || date);
+            };
+
+            const getInitialEndDate = () => {
+                const d1 = existingClinicBlock ? new Date(existingClinicBlock.end_datetime) : null;
+                const d2 = existingHospitalBlock ? new Date(existingHospitalBlock.end_datetime) : null;
+                if (d1 && d2) return toISODateString(d1 > d2 ? d1 : d2);
+                return toISODateString(d1 || d2 || date);
+            };
+
+            const [startDate, setStartDate] = React.useState(getInitialStartDate());
+            const [endDate, setEndDate] = React.useState(getInitialEndDate());
+            const [reason, setReason] = React.useState(existingClinicBlock?.reason || existingHospitalBlock?.reason || '');
+            const [selectedLocations, setSelectedLocations] = React.useState({
+                1: !!existingClinicBlock,
+                2: !!existingHospitalBlock
+            });
+            // If no block exists, default to checking both boxes
+            React.useEffect(() => {
+                if (!existingClinicBlock && !existingHospitalBlock) {
+                    setSelectedLocations({ 1: true, 2: true });
+                }
+            }, [existingClinicBlock, existingHospitalBlock]);
+
             const [error, setError] = React.useState('');
+            const [isSubmitting, setIsSubmitting] = React.useState(false);
+
+            // Store the IDs of the blocks we are editing
+            const clinicBlockId = existingClinicBlock?.id || null;
+            const hospitalBlockId = existingHospitalBlock?.id || null;
 
             const handleLocationChange = (locationId) => {
                 setSelectedLocations(prev => ({ ...prev, [locationId]: !prev[locationId] }));
@@ -2894,45 +4324,116 @@
 
             const handleSubmit = async () => {
                 setError('');
-                const locationsToBlock = Object.keys(selectedLocations).filter(id => selectedLocations[id]);
+                setIsSubmitting(true);
 
                 if (!startDate || !endDate) {
                     setError('Start date and end date are required.');
-                    return;
-                }
-                if (locationsToBlock.length === 0) {
-                    setError('At least one location must be selected.');
+                    setIsSubmitting(false);
                     return;
                 }
 
                 const startDateTime = new Date(startDate);
+                startDateTime.setHours(0, 0, 0, 0); // Set to start of day
                 const endDateTime = new Date(endDate);
-                endDateTime.setHours(23, 59, 59); // Set to end of day
+                endDateTime.setHours(23, 59, 59, 999); // Set to end of day
+
+                const apiCalls = [];
+
+                // --- Logic for Location 1 (Home Clinic) ---
+                const clinicIsChecked = selectedLocations[1];
+                if (clinicIsChecked) {
+                    const payload = {
+                        location_id: 1,
+                        start_datetime: startDateTime.toISOString(),
+                        end_datetime: endDateTime.toISOString(),
+                        reason: reason,
+                    };
+                    if (clinicBlockId) {
+                        // Update existing block
+                        apiCalls.push(api(`/api/v1/unavailable-periods/${clinicBlockId}`, {
+                            method: 'PUT',
+                            body: JSON.stringify(payload)
+                        }));
+                    } else {
+                        // Create new block
+                        apiCalls.push(api('/api/v1/unavailable-periods/', {
+                            method: 'POST',
+                            body: JSON.stringify(payload)
+                        }));
+                    }
+                } else if (clinicBlockId) {
+                    // Was blocked, but now unchecked -> Delete
+                    apiCalls.push(api(`/api/v1/unavailable-periods/${clinicBlockId}`, { method: 'DELETE' }));
+                }
+
+                // --- Logic for Location 2 (Hospital) ---
+                const hospitalIsChecked = selectedLocations[2];
+                if (hospitalIsChecked) {
+                    const payload = {
+                        location_id: 2,
+                        start_datetime: startDateTime.toISOString(),
+                        end_datetime: endDateTime.toISOString(),
+                        reason: reason,
+                    };
+                    if (hospitalBlockId) {
+                        // Update existing block
+                        apiCalls.push(api(`/api/v1/unavailable-periods/${hospitalBlockId}`, {
+                            method: 'PUT',
+                            body: JSON.stringify(payload)
+                        }));
+                    } else {
+                        // Create new block
+                        apiCalls.push(api('/api/v1/unavailable-periods/', {
+                            method: 'POST',
+                            body: JSON.stringify(payload)
+                        }));
+                    }
+                } else if (hospitalBlockId) {
+                    // Was blocked, but now unchecked -> Delete
+                    apiCalls.push(api(`/api/v1/unavailable-periods/${hospitalBlockId}`, { method: 'DELETE' }));
+                }
+
+                if (apiCalls.length === 0 && !clinicBlockId && !hospitalBlockId) {
+                    setError('At least one location must be selected to create a new block.');
+                    setIsSubmitting(false);
+                    return;
+                }
 
                 try {
-                    // Create a promise for each API call
-                    const apiCalls = locationsToBlock.map(locationId => {
-                        const payload = {
-                            location_id: parseInt(locationId),
-                            start_datetime: startDateTime.toISOString(),
-                            end_datetime: endDateTime.toISOString(),
-                            reason: reason,
-                        };
-                        return api('/api/v1/unavailable-periods/', {
-                            method: 'POST',
-                            body: JSON.stringify(payload),
-                        });
-                    });
-
-                    // Wait for all API calls to complete
                     await Promise.all(apiCalls);
-
+                    setIsSubmitting(false);
                     onClose(); // Close modal on success
                 } catch (err) {
-                    const errorData = await err.json?.();
-                    const detail = errorData?.detail || 'An error occurred. Please try again.';
-                    setError(detail);
+                    setError(err.message || 'An error occurred. Please try again.');
                     console.error('Save unavailable period error:', err);
+                    setIsSubmitting(false);
+                }
+            };
+
+            const handleDeleteAll = async () => {
+                setError('');
+                setIsSubmitting(true);
+                const apiCalls = [];
+                if (clinicBlockId) {
+                    apiCalls.push(api(`/api/v1/unavailable-periods/${clinicBlockId}`, { method: 'DELETE' }));
+                }
+                if (hospitalBlockId) {
+                    apiCalls.push(api(`/api/v1/unavailable-periods/${hospitalBlockId}`, { method: 'DELETE' }));
+                }
+
+                if (apiCalls.length === 0) {
+                    setError('Nothing to delete.'); // Should not happen if button is shown
+                    setIsSubmitting(false);
+                    return;
+                }
+
+                try {
+                    await Promise.all(apiCalls);
+                    setIsSubmitting(false);
+                    onClose();
+                } catch (err) {
+                    setError(err.message || 'An error occurred while deleting.');
+                    setIsSubmitting(false);
                 }
             };
 
@@ -2980,11 +4481,25 @@
                         <label className="block text-sm font-medium text-medical-gray mb-2">Reason (Optional)</label>
                         <input type="text" value={reason} onChange={(e) => setReason(e.target.value)} className="form-input-themed" placeholder="e.g., Holiday, Personal Leave" />
                     </div>
-                    <div className="flex justify-end space-x-3">
-                        <button onClick={onClose} className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300">Cancel</button>
-                        <button onClick={handleSubmit} className="medical-button px-4 py-2 text-white rounded-lg relative z-10">
-                            Save Block
-                        </button>
+                    <div className="flex justify-between items-center">
+                        <div>
+                            {(clinicBlockId || hospitalBlockId) && (
+                                <button
+                                    onClick={handleDeleteAll}
+                                    className="px-4 py-2 bg-red-100 text-red-700 rounded-lg hover:bg-red-200"
+                                    disabled={isSubmitting}
+                                >
+                                    <i className="fas fa-trash-alt mr-2"></i>
+                                    Remove Block
+                                </button>
+                            )}
+                        </div>
+                        <div className="flex space-x-3">
+                            <button onClick={onClose} className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300" disabled={isSubmitting}>Cancel</button>
+                            <button onClick={handleSubmit} className="medical-button px-4 py-2 text-white rounded-lg relative z-10" disabled={isSubmitting}>
+                                {isSubmitting ? 'Saving...' : (clinicBlockId || hospitalBlockId ? 'Update Block' : 'Save Block')}
+                            </button>
+                        </div>
                     </div>
                 </div>
             );
@@ -3176,13 +4691,15 @@
                     case 'dashboard':
                         return <Dashboard openModal={openModal} closeModal={closeModal} />;
                     case 'appointments':
-                        return <Appointments />;
+                        return <Appointments openModal={openModal} closeModal={closeModal} user={user} />; // <-- Pass user prop down
                     case 'schedule':
                         return <DoctorSchedule />;
                     case 'patients':
                         return <Patients />;
-                    case 'prescriptions':
-                        return <Prescriptions />;
+                    case 'consultation': // Added new EMR view
+                        return <ConsultationEditor />;
+                    // case 'prescriptions': // Removed - Replaced by Consultation EMR
+                    //     return <Prescriptions />;
                     case 'users':
                         return user.role === 'admin' ? <Users /> : <Dashboard />;
                     case 'logs':

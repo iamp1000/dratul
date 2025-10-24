@@ -40,6 +40,36 @@ def read_unavailable_periods(
 # Removed duplicate emergency_block_day definition below.
 
 @router.post("/emergency-block", response_model=List[schemas.AppointmentResponse])
+@router.put("/{period_id}", response_model=schemas.UnavailablePeriodResponse)
+def update_unavailable_period_route(
+    period_id: int,
+    period_update: schemas.UnavailablePeriodUpdate,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(security.get_current_user)
+):
+    """
+    Update an existing unavailable period.
+    """
+    db_period = crud.update_unavailable_period(db=db, period_id=period_id, period_update=period_update)
+    if db_period is None:
+        raise HTTPException(status_code=404, detail="Unavailable period not found")
+    return db_period
+
+@router.delete("/{period_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_unavailable_period_route(
+    period_id: int,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(security.get_current_user)
+):
+    """
+    Delete an unavailable period.
+    """
+    success = crud.delete_unavailable_period(db=db, period_id=period_id)
+    if not success:
+        raise HTTPException(status_code=404, detail="Unavailable period not found")
+    return
+
+@router.post("/emergency-block", response_model=List[schemas.AppointmentResponse])
 async def emergency_block_day(
     block_data: schemas.EmergencyBlockCreate,
     db: Session = Depends(get_db),

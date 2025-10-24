@@ -149,13 +149,7 @@
 - Unified schedule calendar UI (merge home clinic and hospital views)
 
 
-now currently it says that only whatsapp and email services are online where the google calendar is offline even though i have the calendar_credentials in the project and what i want you  to do is check why the google calendar is offline and then proceed to making listed changes to the system status 
-
-1 whatsap and email should have a service suffix added with calendar haivn the same
-
-2 change the size of the system status to smaller supposendly to col-3 with a name and green or red dot in front indicating if working or not 
-
-3 add a backend and databse connection tab as well to indicate the backend and databse are connected and working fine and whatsapp should not show connected but rather show if the whatsapp bot we are trying to create is working or not get me ?
+now quill.js or editor.js for prescription editor once the appointment and patient data section are done 
 
 
 

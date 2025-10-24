@@ -130,6 +130,142 @@ class User(Base):
     deleted_at = Column(DateTime(timezone=True), nullable=True)  # Soft delete
 
 
+# ==================== EMR / Consultation Models (NEW) ====================
+
+class Consultation(Base):
+    """Represents a single clinical encounter or consultation."""
+    __tablename__ = "consultations"
+    __table_args__ = (
+        Index('idx_consultations_patient_date', 'patient_id', 'consultation_date'),
+        Index('idx_consultations_user_date', 'user_id', 'consultation_date'),
+        Index('idx_consultations_appointment', 'appointment_id'),
+    )
+
+    id = Column(Integer, primary_key=True, index=True)
+    patient_id = Column(Integer, ForeignKey("patients.id"), nullable=False)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False) # Doctor who conducted
+    appointment_id = Column(Integer, ForeignKey("appointments.id"), nullable=True, unique=True) # Link to the scheduled appt
+    consultation_date = Column(DateTime(timezone=True), nullable=False, default=func.now())
+
+    # Subjective
+    complaints = Column(Text, nullable=True)
+    history_of_presenting_illness = Column(Text, nullable=True) # Or break down further
+
+    # Objective
+    quick_notes = Column(Text, nullable=True) # Could store Quill Delta JSON here
+    systemic_examination = Column(Text, nullable=True) # Could store Quill Delta JSON here
+    
+    # Assessment
+    # Diagnoses are stored in a separate table (ConsultationDiagnosis)
+
+    # Plan
+    # Medications are stored in a separate table (ConsultationMedication)
+    investigations_notes = Column(Text, nullable=True) # E.g., "CBC, LFT, KFT"
+    tests_requested = Column(Text, nullable=True)
+    usg_findings = Column(Text, nullable=True) # Quill Delta JSON
+    lab_tests_imaging = Column(Text, nullable=True) # Quill Delta JSON
+    advice = Column(Text, nullable=True) # Quill Delta JSON
+    
+    # Follow Up
+    next_visit_date = Column(Date, nullable=True)
+    next_visit_instructions = Column(String(255), nullable=True) # e.g., "3 Months"
+    
+    # Referrals
+    referral_doctor_name = Column(String(100), nullable=True)
+    referral_speciality = Column(String(100), nullable=True)
+    referral_phone = Column(String(20), nullable=True)
+    referral_email = Column(String(255), nullable=True)
+
+    # Timestamps
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+
+    # Relationships
+    patient = relationship("Patient", back_populates="consultations")
+    user = relationship("User") # One-way relationship is fine here if not navigating User -> Consultations
+    appointment = relationship("Appointment", back_populates="consultation")
+    vitals = relationship("Vitals", back_populates="consultation", uselist=False, cascade="all, delete-orphan")
+    diagnoses = relationship("ConsultationDiagnosis", back_populates="consultation", cascade="all, delete-orphan")
+    medications = relationship("ConsultationMedication", back_populates="consultation", cascade="all, delete-orphan")
+
+class Vitals(Base):
+    """Vitals recorded during a consultation."""
+    __tablename__ = "vitals"
+    id = Column(Integer, primary_key=True, index=True)
+    consultation_id = Column(Integer, ForeignKey("consultations.id"), nullable=False, unique=True)
+    
+    bp_systolic = Column(Integer, nullable=True)
+    bp_diastolic = Column(Integer, nullable=True)
+    pulse = Column(Integer, nullable=True)
+    height = Column(Numeric(5, 2), nullable=True) # e.g., cm
+    weight = Column(Numeric(5, 2), nullable=True) # e.g., kg
+    bmi = Column(Numeric(4, 2), nullable=True)
+    waist = Column(Numeric(5, 2), nullable=True)
+    hip = Column(Numeric(5, 2), nullable=True)
+    temperature = Column(Numeric(4, 1), nullable=True) # e.g., F or C
+    spo2 = Column(Integer, nullable=True)
+    
+    # OB/GYN
+    lmp = Column(Date, nullable=True)
+    edd = Column(Date, nullable=True)
+    gestational_age_weeks = Column(Integer, nullable=True)
+    gestational_age_days = Column(Integer, nullable=True)
+
+    # Timestamps (Optional, but good practice)
+    recorded_at = Column(DateTime(timezone=True), server_default=func.now())
+
+    # Relationship
+    consultation = relationship("Consultation", back_populates="vitals")
+
+class ConsultationDiagnosis(Base):
+    """Diagnoses made during a consultation (Many-to-one with Consultation)."""
+    __tablename__ = "consultation_diagnoses"
+    id = Column(Integer, primary_key=True, index=True)
+    consultation_id = Column(Integer, ForeignKey("consultations.id"), nullable=False)
+    diagnosis_name = Column(String(255), nullable=False)
+    # Could add FK to a DiagnosisMaster table, ICD-10 code, etc.
+    
+    # Relationship
+    consultation = relationship("Consultation", back_populates="diagnoses")
+
+class ConsultationMedication(Base):
+    """Medications prescribed during a consultation (Many-to-one with Consultation)."""
+    __tablename__ = "consultation_medications"
+    id = Column(Integer, primary_key=True, index=True)
+    consultation_id = Column(Integer, ForeignKey("consultations.id"), nullable=False)
+    
+    type = Column(String(10), nullable=True) # TAB, INJ, etc.
+    medicine_name = Column(String(255), nullable=False)
+    dosage = Column(String(50), nullable=True)
+    when = Column(String(50), nullable=True) # Before Food, etc.
+    frequency = Column(String(50), nullable=True) # daily, etc.
+    duration = Column(String(50), nullable=True) # 20 days, etc.
+    notes = Column(Text, nullable=True)
+    
+    # Relationship
+    consultation = relationship("Consultation", back_populates="medications")
+
+class PatientMenstrualHistory(Base):
+    """Stores menstrual history for a patient (One-to-one with Patient)."""
+    __tablename__ = "patient_menstrual_history"
+    id = Column(Integer, primary_key=True, index=True)
+    patient_id = Column(Integer, ForeignKey("patients.id"), nullable=False, unique=True)
+    
+    age_at_menarche = Column(Integer, nullable=True)
+    lmp = Column(Date, nullable=True)
+    regularity = Column(String(50), nullable=True)
+    duration_of_bleeding = Column(String(50), nullable=True)
+    period_of_cycle = Column(String(50), nullable=True)
+    details_of_issues = Column(Text, nullable=True)
+    
+    # Timestamps
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+
+    # Relationship
+    patient = relationship("Patient", back_populates="menstrual_history")
+
+
 class Location(Base):
     """Enhanced Location model for multi-clinic support"""
     __tablename__ = "locations"
@@ -244,6 +380,8 @@ class Patient(Base):
     communications = relationship("CommunicationLog", back_populates="patient", cascade="all, delete-orphan")
     whatsapp_sessions = relationship("WhatsAppSession", back_populates="patient")
     remarks = relationship("Remark", back_populates="patient", cascade="all, delete-orphan")
+    consultations = relationship("Consultation", back_populates="patient", cascade="all, delete-orphan")
+    menstrual_history = relationship("PatientMenstrualHistory", back_populates="patient", uselist=False, cascade="all, delete-orphan")
 
 class Appointment(Base):
     """Comprehensive Appointment model with calendar integration"""
@@ -309,6 +447,8 @@ class Appointment(Base):
     patient = relationship("Patient", back_populates="appointments")
     location = relationship("Location", back_populates="appointments")
     user = relationship("User", back_populates="appointments")
+    # Link to the consultation record created during this appointment
+    consultation = relationship("Consultation", back_populates="appointment", uselist=False)
 
 class Document(Base):
     """Secure Document storage with encryption and audit trail"""
