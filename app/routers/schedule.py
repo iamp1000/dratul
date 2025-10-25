@@ -46,6 +46,21 @@ def update_schedules_for_location(
     
     try:
         updated_schedules = crud.update_schedules_for_location(db=db, location_id=location_id, schedules=schedules)
+
+        # --- Add Audit Log --- 
+        try:
+            crud.create_audit_log(
+                db=db,
+                user_id=current_user.id,
+                action="Updated Weekly Schedule",
+                category="SCHEDULE",
+                resource_type="LocationSchedule",
+                resource_id=location_id, # Log against the location ID
+                details=f"User {current_user.username} updated the full weekly schedule for location ID {location_id}."
+            )
+        except Exception as log_error:
+            print(f"ERROR: Failed to create audit log for weekly schedule update (loc {location_id}): {log_error}")
+        # --- End Audit Log ---
         
         # --- Start Slot Regeneration ---
         try:
@@ -125,6 +140,22 @@ def update_day_schedule(
             day_of_week=day_of_week, 
             schedule_update=schedule_update
         )
+
+        # --- Add Audit Log --- 
+        try:
+            day_name = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'][day_of_week]
+            crud.create_audit_log(
+                db=db,
+                user_id=current_user.id,
+                action="Updated Day Schedule",
+                category="SCHEDULE",
+                resource_type="LocationSchedule",
+                resource_id=location_id, # Log against location ID
+                details=f"User {current_user.username} updated schedule for {day_name} (Day {day_of_week}) at location ID {location_id}."
+            )
+        except Exception as log_error:
+            print(f"ERROR: Failed to create audit log for daily schedule update (loc {location_id}, day {day_of_week}): {log_error}")
+        # --- End Audit Log ---
         
         # --- Start Slot Regeneration ---
         try:

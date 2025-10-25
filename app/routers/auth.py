@@ -42,6 +42,20 @@ def login_for_access_token(db: Session = Depends(get_db), form_data: OAuth2Passw
             headers={"WWW-Authenticate": "Bearer"},
         )
     
+    # --- Add Audit Log on Successful Login --- 
+    try:
+        crud.create_audit_log(
+            db=db,
+            user_id=user.id,
+            action="Login Success",
+            category="AUTHENTICATION",
+            details=f"User {user.username} logged in successfully."
+        )
+    except Exception as log_error:
+        logger.error(f"Failed to create audit log for login event for user {user.username}: {log_error}")
+        # Do not fail login if logging fails, just log the error
+    # --- End Audit Log ---
+
     logger.info(f"User '{user.username}' successfully authenticated.")
     
     access_token = security.create_access_token(

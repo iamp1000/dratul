@@ -2,7 +2,7 @@
 from sqlalchemy.orm import Session, joinedload
 from sqlalchemy import or_, and_, desc, func
 from sqlalchemy.exc import SQLAlchemyError, IntegrityError
-from datetime import datetime, timedelta, date, time
+from datetime import datetime, timedelta, date, time, timezone # <-- Import timezone
 from typing import Optional, List, Dict, Any
 import secrets
 import logging
@@ -346,6 +346,60 @@ async def create_appointment(db: Session, appointment: schemas.AppointmentCreate
         db.commit()
         db.refresh(db_appointment)
         logger.info(f"Successfully created appointment {db_appointment.id} for patient {db_appointment.patient_id}")
+
+        # --- BEGIN: Update Slot Status and Add Audit Logging ---
+        try:
+            # Find the corresponding slot
+            target_slot = db.query(models.AppointmentSlot).filter(
+                models.AppointmentSlot.location_id == db_appointment.location_id,
+                models.AppointmentSlot.start_time == db_appointment.start_time,
+                models.AppointmentSlot.status == models.SlotStatus.available # Only book available slots
+            ).first()
+
+            if target_slot:
+                # Update slot status
+                target_slot.status = models.SlotStatus.booked
+                target_slot.appointment_id = db_appointment.id
+                db.commit()
+                logger.info(f"Updated slot {target_slot.id} status to booked for appointment {db_appointment.id}")
+                
+                # Log slot booking
+                create_audit_log(
+                    db=db,
+                    user_id=user_id,
+                    action="Booked Slot",
+                    category="APPOINTMENT",
+                    resource_type="AppointmentSlot",
+                    resource_id=target_slot.id,
+                    details=f"Slot booked for appointment {db_appointment.id}"
+                )
+            else:
+                # This case might indicate an issue (e.g., trying to book an already booked slot)
+                logger.warning(f"Could not find available slot for appointment {db_appointment.id} at location {db_appointment.location_id} starting at {db_appointment.start_time}")
+                # Log this potential issue
+                create_audit_log(
+                    db=db,
+                    user_id=user_id,
+                    action="Slot Booking Failed",
+                    category="APPOINTMENT",
+                    severity="WARN",
+                    details=f"Could not find available slot for appointment {db_appointment.id} at {db_appointment.start_time}"
+                )
+
+            # Log appointment creation (regardless of slot update success)
+            create_audit_log(
+                db=db,
+                user_id=user_id,
+                action="Created Appointment",
+                category="APPOINTMENT",
+                resource_type="Appointment",
+                resource_id=db_appointment.id,
+                details=f"Appointment created for patient {db_appointment.patient_id} at {db_appointment.start_time}"
+            )
+        except Exception as log_slot_error:
+            logger.error(f"Error during slot update or logging for appointment {db_appointment.id}: {log_slot_error}")
+            # Don't rollback the main appointment creation, just log this error
+        # --- END: Update Slot Status and Add Audit Logging ---
 
         # NEW: Create Google Calendar event
         try:
@@ -961,6 +1015,34 @@ async def emergency_cancel_appointments(db: Session, block_date: date, reason: s
         )
         create_unavailable_period(db=db, period=unavailable_period_data, created_by=user_id)
 
+    # --- NEW: Update status of AVAILABLE slots to emergency_block ---
+    slots_to_block = db.query(models.AppointmentSlot).filter(
+        models.AppointmentSlot.start_time >= start_of_day,
+        models.AppointmentSlot.end_time <= end_of_day,
+        models.AppointmentSlot.location_id.in_([1, 2]), # Block for both locations
+        models.AppointmentSlot.status == models.SlotStatus.available
+    ).all()
+
+    blocked_slot_count = 0
+    for slot in slots_to_block:
+        slot.status = models.SlotStatus.emergency_block
+        blocked_slot_count += 1
+        logger.info(f"Marking slot {slot.id} as emergency_block for date {block_date}")
+
+    # --- Add Audit Log for Slot Blocking --- 
+    try:
+        create_audit_log(
+            db=db,
+            user_id=user_id,
+            action="Emergency Block Slots",
+            category="SLOTS",
+            severity="WARN",
+            details=f"Marked {blocked_slot_count} available slots as 'emergency_block' for date {block_date} due to reason: {reason}"
+        )
+    except Exception as log_error:
+        logger.error(f"Failed to create audit log for emergency slot block on {block_date}: {log_error}")
+    # --- End Audit Log ---
+
     db.commit()
     return cancelled_appointments
 
@@ -1036,7 +1118,36 @@ def delete_unavailable_period(db: Session, period_id: int) -> bool:
         db_period = get_unavailable_period_by_id(db, period_id)
         if not db_period:
             return False
+
+        # --- NEW: Revert emergency_block slots to available --- 
+        slots_to_revert = db.query(models.AppointmentSlot).filter(
+            models.AppointmentSlot.location_id == db_period.location_id,
+            models.AppointmentSlot.start_time >= db_period.start_datetime,
+            models.AppointmentSlot.end_time <= db_period.end_datetime,
+            models.AppointmentSlot.status == models.SlotStatus.emergency_block
+        ).all()
+
+        reverted_count = 0
+        for slot in slots_to_revert:
+            slot.status = models.SlotStatus.available
+            reverted_count += 1
+            logger.info(f"Reverting slot {slot.id} status to available after deleting unavailable period {period_id}")
+
+        # --- Add Audit Log --- 
+        try:
+            # User ID might not be easily available here, log as System action
+            create_audit_log(
+                db=db, 
+                user_id=None, # Or pass user_id if available from calling context
+                action="Reverted Emergency Block Slots",
+                category="SLOTS",
+                details=f"System reverted {reverted_count} slots from 'emergency_block' to 'available' due to deletion of unavailable period {period_id}."
+            )
+        except Exception as log_error:
+             logger.error(f"Failed to create audit log for slot revert (unavailable period {period_id}): {log_error}")
+        # --- End Audit Log ---
         
+        # Now delete the period itself
         db.delete(db_period)
         db.commit()
         return True
@@ -1253,7 +1364,8 @@ def create_audit_log(
             details=details,
             old_values=old_values,
             new_values=new_values,
-            ip_address=ip_address
+            ip_address=ip_address,
+            timestamp=datetime.now(timezone.utc) # <-- Explicitly set timezone-aware UTC timestamp
         )
         db.add(db_log)
         db.commit()

@@ -71,6 +71,21 @@ class AuditAction(str, enum.Enum):
     PRINT = "PRINT"
     BULK_ACTION = "BULK_ACTION"
 
+    # --- NEWLY ADDED ACTIONS ---
+    LOGIN_SUCCESS = "Login Success"
+    CREATED_APPOINTMENT = "Created Appointment"
+    BOOKED_SLOT = "Booked Slot"
+    SLOT_BOOKING_FAILED = "Slot Booking Failed"
+    UPDATED_WEEKLY_SCHEDULE = "Updated Weekly Schedule"
+    UPDATED_DAY_SCHEDULE = "Updated Day Schedule"
+    STARTED_SLOT_RECONCILIATION = "Started Slot Reconciliation"
+    DELETED_SLOTS = "Deleted Slots"
+    GENERATED_SLOTS = "Generated Slots"
+    FINISHED_SLOT_RECONCILIATION = "Finished Slot Reconciliation"
+    FAILED_SLOT_RECONCILIATION = "Failed Slot Reconciliation"
+    EMERGENCY_BLOCK_SLOTS = "Emergency Block Slots"
+    REVERTED_EMERGENCY_BLOCK_SLOTS = "Reverted Emergency Block Slots"
+
 class DocumentType(str, enum.Enum):
     medical_record = "medical_record"
     prescription = "prescription"
@@ -134,7 +149,8 @@ class User(Base):
 class SlotStatus(str, enum.Enum):
     available = "available"
     booked = "booked"
-    unavailable = "unavailable" # Could be used if manually blocked or during generation if needed
+    unavailable = "unavailable" # Could be used if manually blocked (e.g., non-emergency) or during generation if needed
+    emergency_block = "emergency_block" # Specifically for emergency blocks
 
 # ==================== EMR / Consultation Models (NEW) ====================
 

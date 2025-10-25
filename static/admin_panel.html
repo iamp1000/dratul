@@ -1832,20 +1832,21 @@ const DailyViewModalContent = ({ date, appointmentsForDate }) => {
                 setIsSaving(true);
                 setSaveError('');
                 try {
-                    for (const locationId in localSchedules) {
-                        const schedulePayload = Object.values(localSchedules[locationId]).map(daySchedule => ({
-                            ...daySchedule,
-                            location_id: parseInt(locationId),
-                            // Ensure times are strings in HH:MM:SS format before sending
-                            start_time: typeof daySchedule.start_time === 'string' && daySchedule.start_time.length === 5 ? `${daySchedule.start_time}:00` : daySchedule.start_time,
-                            end_time: typeof daySchedule.end_time === 'string' && daySchedule.end_time.length === 5 ? `${daySchedule.end_time}:00` : daySchedule.end_time
-                        }));
-                        console.log(`Payload for Location ID ${locationId}:`, JSON.stringify(schedulePayload, null, 2));
-                        await api(`/api/v1/schedules/by-location/${locationId}`, {
-                            method: 'POST',
-                            body: JSON.stringify(schedulePayload)
-                        });
-                    }
+                    // --- FIX: Remove loop, only save the active location --- 
+                    const locationIdToSave = activeLocationId; // Get the currently selected tab's ID
+                    const schedulePayload = Object.values(localSchedules[locationIdToSave] || {}).map(daySchedule => ({
+                        ...daySchedule,
+                        location_id: parseInt(locationIdToSave),
+                        // Ensure times are strings in HH:MM:SS format before sending
+                        start_time: typeof daySchedule.start_time === 'string' && daySchedule.start_time.length === 5 ? `${daySchedule.start_time}:00` : daySchedule.start_time,
+                        end_time: typeof daySchedule.end_time === 'string' && daySchedule.end_time.length === 5 ? `${daySchedule.end_time}:00` : daySchedule.end_time
+                    }));
+                    console.log(`Payload for Location ID ${locationIdToSave}:`, JSON.stringify(schedulePayload, null, 2));
+                    await api(`/api/v1/schedules/by-location/${locationIdToSave}`, {
+                        method: 'POST',
+                        body: JSON.stringify(schedulePayload)
+                    });
+                    // --- END FIX ---
                     setIsSaving(false);
                     if (onSaveSuccess) onSaveSuccess(); // Call parent's success handler (e.g., to refresh data)
                     onClose(); // Close the modal
@@ -4682,7 +4683,11 @@ const DailyViewModalContent = ({ date, appointmentsForDate }) => {
                                         </tr>
                                     </thead>
                                     <tbody>
-                                        {logs.map(log => (
+                                        {logs.map(log => {
+                                            // --- DEBUG: Log raw timestamp string ---
+                                            console.log('Raw timestamp received:', log.timestamp);
+                                            // --- END DEBUG ---
+                                            return (
                                             <tr key={log.id} className="table-row border-b border-gray-100">
                                                 <td className="p-4 text-medical-gray text-sm whitespace-nowrap">{new Date(log.timestamp).toLocaleString()}</td>
                                                 <td className="p-4 text-medical-gray">{log.username || 'System'}</td>
@@ -4699,7 +4704,7 @@ const DailyViewModalContent = ({ date, appointmentsForDate }) => {
                                                 <td className="p-4 text-medical-gray">{log.action}</td>
                                                 <td className="p-4 text-medical-gray text-sm">{log.details || 'N/A'}</td>
                                             </tr>
-                                        ))}
+                                        );})}
                                     </tbody>
                                 </table></div>
                             )}

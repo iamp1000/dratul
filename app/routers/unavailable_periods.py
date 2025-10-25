@@ -140,7 +140,7 @@ def delete_unavailable_period_route(
     """
     # --- Start Slot Regeneration on Delete ---
     # 1. Get period details BEFORE deleting
-    period_to_delete = crud.get_unavailable_period(db=db, period_id=period_id) 
+    period_to_delete = crud.get_unavailable_period_by_id(db=db, period_id=period_id) # <-- FIX: Correct function name
     if period_to_delete is None:
         raise HTTPException(status_code=404, detail="Unavailable period not found")
         
