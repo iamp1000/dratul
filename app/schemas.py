@@ -2,6 +2,7 @@
 from datetime import datetime, date, time
 from typing import List, Optional, Dict, Any, Union
 from pydantic import BaseModel, Field, EmailStr, validator
+from .models import SlotStatus # Import SlotStatus
 from enum import Enum
 
 # --- Enum Classes ---
@@ -98,6 +99,24 @@ class UserResponse(UserBase):
     mfa_enabled: bool
     last_login: Optional[datetime]
     created_at: datetime
+
+
+# --- Appointment Slot Schemas ---
+class AppointmentSlotBase(BaseSchema):
+    location_id: int
+    start_time: datetime
+    end_time: datetime
+    status: SlotStatus = SlotStatus.available
+
+class AppointmentSlotCreate(AppointmentSlotBase):
+    pass # No extra fields needed for internal creation
+
+class AppointmentSlot(AppointmentSlotBase): # Schema for API responses
+    id: int
+    appointment_id: Optional[int] = None # Include if an appointment is linked
+
+    class Config:
+        from_attributes = True # Ensure compatibility with ORM model
     updated_at: Optional[datetime]
 
 # --- Patient Schemas ---

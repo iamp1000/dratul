@@ -14,7 +14,7 @@ from sqlalchemy.orm import Session
 from app import models, schemas, crud
 from app.database import get_db, create_tables
 from app.hash_password import create_or_update_admin, create_initial_data
-from app.routers import auth, patients, appointments, schedule, unavailable_periods, locations, users, prescriptions, logs, services, consultations
+from app.routers import auth, patients, appointments, schedule, unavailable_periods, locations, users, prescriptions, logs, services, consultations, slots
 # --- Logging Configuration --- START ---
 # Configure root logger to output DEBUG messages to console
 logging.basicConfig(level=logging.DEBUG,
@@ -58,6 +58,7 @@ app.include_router(prescriptions.router, prefix="/api/v1")
 app.include_router(logs.router, prefix="/api/v1")
 app.include_router(services.router, prefix="/api/v1")
 app.include_router(consultations.router, prefix="/api/v1") # Add the new consultations router
+app.include_router(slots.router, prefix="/api/v1") # Add the new slots router
 
 
 # ==================== AUTHENTICATION (UPGRADED) ====================

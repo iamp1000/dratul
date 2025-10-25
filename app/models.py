@@ -130,7 +130,14 @@ class User(Base):
     deleted_at = Column(DateTime(timezone=True), nullable=True)  # Soft delete
 
 
+# Enum for AppointmentSlot status
+class SlotStatus(str, enum.Enum):
+    available = "available"
+    booked = "booked"
+    unavailable = "unavailable" # Could be used if manually blocked or during generation if needed
+
 # ==================== EMR / Consultation Models (NEW) ====================
+
 
 class Consultation(Base):
     """Represents a single clinical encounter or consultation."""
@@ -675,6 +682,32 @@ class LocationSchedule(Base):
 
     # Relationships
     location = relationship("Location", back_populates="schedules")
+
+class AppointmentSlot(Base):
+    """Represents a pre-generated, bookable appointment time slot."""
+    __tablename__ = "appointment_slots"
+    __table_args__ = (
+        Index('idx_slot_location_start_status', 'location_id', 'start_time', 'status'),
+        Index('idx_slot_appointment', 'appointment_id'),
+        UniqueConstraint('location_id', 'start_time', name='uq_location_start_time'), # Ensure no duplicate slots
+    )
+
+    id = Column(Integer, primary_key=True, index=True)
+    location_id = Column(Integer, ForeignKey("locations.id"), nullable=False)
+    start_time = Column(DateTime(timezone=True), nullable=False, index=True)
+    end_time = Column(DateTime(timezone=True), nullable=False)
+    status = Column(SQLAlchemyEnum(SlotStatus, name='slot_status'), default=SlotStatus.available, nullable=False, index=True)
+
+    # Link to the appointment that books this slot
+    appointment_id = Column(Integer, ForeignKey("appointments.id"), nullable=True, unique=True)
+
+    # Timestamps
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+
+    # Relationships
+    location = relationship("Location") # Define back_populates if needed later
+    appointment = relationship("Appointment") # Define back_populates if needed later
 
 class UnavailablePeriod(Base):
     """Track holidays, vacations, and other unavailable periods"""

@@ -5,11 +5,12 @@ from fastapi import APIRouter, Depends, HTTPException, Request, BackgroundTasks,
 from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
 from typing import List, Optional
-from datetime import datetime, date
+from datetime import datetime, date, timezone # Added timezone
 
 from app import crud, schemas, models, security
 from app.database import get_db
 from app.limiter import limiter # <-- IMPORT FROM THE NEW FILE
+from ..services import slot_service # Import slot service (though not directly used, good practice)
 
 router = APIRouter(
     tags=["Appointments"],
@@ -25,8 +26,62 @@ async def create_new_appointment(
     db: Session = Depends(get_db),
     current_user: models.User = Depends(security.get_current_user)
 ):
-    """Create a new appointment and sync to Google Calendar."""
-    new_appointment = await crud.create_appointment(db=db, appointment=appointment, user_id=current_user.id)
+    """Create a new appointment, book the corresponding slot, and sync to Google Calendar."""
+    # --- Start Slot Booking Logic ---
+    target_slot = None # Initialize target_slot
+    try:
+        # Ensure start_time is timezone-aware UTC for query
+        start_time_utc = appointment.start_time
+        if start_time_utc.tzinfo is None:
+             # This assumes the incoming naive datetime is in the system's local timezone 
+             # or should be treated as UTC. Adjust if a specific local timezone needs conversion.
+             start_time_utc = start_time_utc.replace(tzinfo=timezone.utc)
+        else:
+             start_time_utc = start_time_utc.astimezone(timezone.utc)
+
+        # Find and lock the corresponding available slot
+        target_slot = db.query(models.AppointmentSlot).filter(
+            models.AppointmentSlot.location_id == appointment.location_id,
+            models.AppointmentSlot.start_time == start_time_utc,
+            models.AppointmentSlot.status == models.SlotStatus.available
+        ).with_for_update().first()
+
+        if not target_slot:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Selected time slot is not available or does not exist."
+            )
+
+        # Mark the slot as booked (but don't commit yet)
+        target_slot.status = models.SlotStatus.booked
+        db.add(target_slot) # Add to session if status changed
+
+        # Now create the actual appointment record
+        new_appointment = await crud.create_appointment(db=db, appointment=appointment, user_id=current_user.id)
+
+        # Link the new appointment ID back to the slot
+        target_slot.appointment_id = new_appointment.id
+        db.add(target_slot) # Ensure update is staged
+
+        # Commit both the slot update and the new appointment
+        db.commit()
+        db.refresh(new_appointment) # Refresh to get final state after commit
+        db.refresh(target_slot) # Refresh slot as well
+
+        print(f"Successfully booked slot {target_slot.id} for appointment {new_appointment.id}")
+
+    except HTTPException as http_exc:
+        db.rollback() # Rollback if slot not found/available
+        raise http_exc # Re-raise the HTTP exception
+    except Exception as e:
+        db.rollback() # Rollback on any other error during the process
+        print(f"ERROR during appointment/slot creation: {e}")
+        # Consider specific error logging
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="An internal error occurred while creating the appointment."
+        )
+    # --- End Slot Booking Logic ---
     background_tasks.add_task(
         crud.create_audit_log,
         db=db, user_id=current_user.id, action="CREATE", category="APPOINTMENT",

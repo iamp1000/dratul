@@ -2,7 +2,8 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from typing import List
-from datetime import date, time
+from datetime import date, time, timedelta # Added timedelta
+from ..services import slot_service # Import slot service
 from .. import crud, models, schemas
 from ..database import get_db
 from ..security import get_current_user
@@ -45,6 +46,25 @@ def update_schedules_for_location(
     
     try:
         updated_schedules = crud.update_schedules_for_location(db=db, location_id=location_id, schedules=schedules)
+        
+        # --- Start Slot Regeneration ---
+        try:
+            start_date = date.today()
+            end_date = start_date + timedelta(days=30) # Regenerate for the next 30 days
+            slot_service.regenerate_slots_for_location(
+                db=db, 
+                location_id=location_id, 
+                start_date=start_date, 
+                end_date=end_date, 
+                weekly_schedules=updated_schedules # Pass the updated ORM models
+            )
+            print(f"Successfully regenerated slots for location {location_id} after full schedule update.")
+        except Exception as slot_error:
+            # Log the error, but don't fail the request as schedule update succeeded
+            print(f"ERROR: Failed to regenerate slots for location {location_id} after schedule update: {slot_error}")
+            # Consider logging to a file or monitoring system here
+        # --- End Slot Regeneration ---
+        
         return updated_schedules
     except crud.CRUDError as e:
         raise HTTPException(status_code=400, detail=str(e))
@@ -105,6 +125,31 @@ def update_day_schedule(
             day_of_week=day_of_week, 
             schedule_update=schedule_update
         )
+        
+        # --- Start Slot Regeneration ---
+        try:
+            # Fetch the complete updated weekly schedule for regeneration logic
+            full_weekly_schedule = crud.get_schedules_for_location(db=db, location_id=location_id)
+            if full_weekly_schedule: # Ensure schedule exists
+                start_date = date.today()
+                end_date = start_date + timedelta(days=30) # Regenerate for the next 30 days
+                slot_service.regenerate_slots_for_location(
+                    db=db, 
+                    location_id=location_id, 
+                    start_date=start_date, 
+                    end_date=end_date, 
+                    weekly_schedules=full_weekly_schedule
+                )
+                print(f"Successfully regenerated slots for location {location_id} after updating day {day_of_week}.")
+            else:
+                 print(f"WARNING: Could not fetch full schedule for location {location_id} after updating day {day_of_week}. Slots not regenerated.")
+                 
+        except Exception as slot_error:
+            # Log the error, but don't fail the request as schedule update succeeded
+            print(f"ERROR: Failed to regenerate slots for location {location_id} after updating day {day_of_week}: {slot_error}")
+            # Consider logging to a file or monitoring system here
+        # --- End Slot Regeneration ---
+
         return updated_schedule
     except crud.CRUDError as e:
         raise HTTPException(status_code=400, detail=str(e))

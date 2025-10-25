@@ -1084,15 +1084,16 @@
                             setSelectedAppointment(null);
                             setSelectedDate(null);
                         }}
-                        title={selectedAppointment ? "Appointment Details" : "Appointments for Date"}
+                        title={selectedAppointment ? "Appointment Details" : "Daily View"} // Updated title
                         width="max-w-4xl"
                     >
                         {selectedAppointment ? (
                             <AppointmentDetails appointment={selectedAppointment} />
                         ) : selectedDate ? (
-                            <DateAppointments
-                                date={selectedDate}
-                                appointments={appointments.filter(apt =>
+                            // Render the new tabbed component
+                            <DailyViewModalContent 
+                                date={selectedDate} 
+                                appointmentsForDate={appointments.filter(apt => 
                                     new Date(apt.start_time).toDateString() === selectedDate.toDateString()
                                 )}
                             />
@@ -1125,7 +1126,148 @@
             );
         };
 
-        // Appointment Details Component
+        // NEW Day Slots Viewer Component
+const DaySlotsViewer = ({ date }) => {
+    // [Same code as proposed in the previous turn - fetches slots, allows location switching, displays grid]
+    // ... (Code for DaySlotsViewer as defined previously) ...
+     const [selectedLocationId, setSelectedLocationId] = React.useState(1); // Default to Home Clinic (ID 1)
+    const [slots, setSlots] = React.useState([]);
+    const [loading, setLoading] = React.useState(true);
+    const [error, setError] = React.useState('');
+
+    // Helper to format date as YYYY-MM-DD
+    const toISODate = (d) => d.toISOString().split('T')[0];
+
+    React.useEffect(() => {
+        const fetchSlots = async () => {
+            if (!date) return;
+            setLoading(true);
+            setError('');
+            setSlots([]); // Clear previous slots
+            const formattedDate = toISODate(date);
+
+            try {
+                console.log(`Fetching slots for Loc ${selectedLocationId} on ${formattedDate}`);
+                // Use the correct API endpoint path: /api/v1/slots/{location_id}/{target_date}
+                const fetchedSlots = await api(`/api/v1/slots/${selectedLocationId}/${formattedDate}`);
+                setSlots(Array.isArray(fetchedSlots) ? fetchedSlots : []);
+                 if (!Array.isArray(fetchedSlots) || fetchedSlots.length === 0) {
+                     // Check if an error wasn't already set by the API call itself
+                     if (!error) setError('No slots generated or found for this day and location.');
+                 }
+            } catch (err) {
+                console.error(`Error fetching slots for ${formattedDate}:`, err);
+                setError(`Failed to load slots: ${err.message}`);
+                 setSlots([]); // Ensure slots are cleared on error
+            } finally {
+                setLoading(false);
+            }
+        };
+
+        fetchSlots();
+    }, [date, selectedLocationId]); // Re-fetch when date or location changes
+
+    const getStatusColor = (status) => {
+        switch (status) {
+            case 'available': return 'bg-green-100 text-green-700 border-green-200';
+            case 'booked': return 'bg-blue-100 text-blue-700 border-blue-200';
+            case 'unavailable': return 'bg-gray-100 text-gray-500 border-gray-200';
+            default: return 'bg-gray-100 text-gray-700 border-gray-200';
+        }
+    };
+
+    return (
+        <div className="space-y-4">
+            {/* Location Switcher */}
+            <div className="flex space-x-1 bg-gray-100 p-1 rounded-xl mb-4">
+                <button
+                    onClick={() => setSelectedLocationId(1)}
+                    className={`flex-1 py-2 px-4 rounded-lg font-medium transition-all text-sm ${selectedLocationId === 1 ? 'bg-white text-medical-accent shadow-sm' : 'text-medical-gray hover:text-medical-dark'}`}
+                >
+                   <i className="fas fa-clinic-medical mr-1"></i> Home Clinic
+                </button>
+                <button
+                    onClick={() => setSelectedLocationId(2)}
+                    className={`flex-1 py-2 px-4 rounded-lg font-medium transition-all text-sm ${selectedLocationId === 2 ? 'bg-white text-medical-accent shadow-sm' : 'text-medical-gray hover:text-medical-dark'}`}
+                >
+                   <i className="fas fa-hospital mr-1"></i> Hospital
+                </button>
+            </div>
+
+            {/* Slots Display */}
+            {loading ? (
+                <LoadingSpinner />
+            ) : error ? (
+                 <div className="text-center py-6 text-red-600 bg-red-50 p-4 rounded-lg border border-red-200">
+                     <i className="fas fa-exclamation-triangle text-2xl mb-2"></i>
+                     <p className="text-sm">{error}</p>
+                 </div>
+            ) : slots.length === 0 ? (
+                 <div className="text-center py-6 text-medical-gray bg-gray-50 p-4 rounded-lg border border-gray-200">
+                     <i className="fas fa-calendar-times text-2xl mb-2"></i>
+                     <p className="text-sm">No slots found for this selection.</p>
+                 </div>
+            ) : (
+                <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-2">
+                    {slots.map(slot => (
+                        <div key={slot.id} className={`p-2 border rounded-lg text-center ${getStatusColor(slot.status)}`}>
+                            <div className="font-semibold text-xs sm:text-sm">
+                                {new Date(slot.start_time).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false })} {/* Use 24hr format for clarity? */}
+                            </div>
+                            <div className="text-xs capitalize mt-1 opacity-80">
+                                {slot.status}
+                                {/* {slot.status === 'booked' && slot.appointment_id ? ` (#${slot.appointment_id})` : ''} */}
+                            </div>
+                        </div>
+                    ))}
+                </div>
+            )}
+        </div>
+    );
+};
+
+
+// NEW Component to manage Tabs in the Daily View Modal
+const DailyViewModalContent = ({ date, appointmentsForDate }) => {
+    const [activeTab, setActiveTab] = React.useState('appointments'); // Default to appointments tab
+
+    return (
+        <div className="space-y-4">
+             <h4 className="font-semibold text-medical-dark mb-0"> {/* Moved date display here */}
+                 {date.toLocaleDateString('en-US', {
+                     weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'
+                 })}
+             </h4>
+            {/* Tab Buttons */}
+            <div className="flex space-x-1 bg-gray-100 p-1 rounded-xl">
+                <button
+                    onClick={() => setActiveTab('appointments')}
+                    className={`flex-1 py-2 px-4 rounded-lg font-medium transition-all text-sm ${activeTab === 'appointments' ? 'bg-white text-medical-accent shadow-sm' : 'text-medical-gray hover:text-medical-dark'}`}
+                >
+                   <i className="fas fa-calendar-check mr-1"></i> Appointments ({appointmentsForDate.length})
+                </button>
+                <button
+                    onClick={() => setActiveTab('slots')}
+                    className={`flex-1 py-2 px-4 rounded-lg font-medium transition-all text-sm ${activeTab === 'slots' ? 'bg-white text-medical-accent shadow-sm' : 'text-medical-gray hover:text-medical-dark'}`}
+                >
+                    <i className="fas fa-clock mr-1"></i> All Slots
+                </button>
+            </div>
+
+            {/* Conditional Content */}
+            <div className="mt-4">
+                {activeTab === 'appointments' && (
+                    <DateAppointments date={date} appointments={appointmentsForDate} />
+                )}
+                {activeTab === 'slots' && (
+                    <DaySlotsViewer date={date} />
+                )}
+            </div>
+        </div>
+    );
+};
+
+// Appointment Details Component
         const AppointmentDetails = ({ appointment }) => (
             <div className="space-y-6">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -3050,6 +3192,21 @@
                 fetchPatients();
             }, []);
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
             const handlePatientSearchChange = (term) => {
                 setPatientSearch(term);
                 if (term.length > 1) { // Start searching after 2 characters
@@ -3163,7 +3320,15 @@
                         )}
                     </div>
 
-                    {error && <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded-lg">{error}</div>}
+                    {/* --- EDIT: Display array of errors --- */}
+                    {errors.length > 0 && (
+                        <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded-lg mb-4">
+                            <p className="font-bold mb-1">Please fix the following:</p>
+                            <ul className="list-disc list-inside text-sm">
+                                {errors.map((err, index) => <li key={index}>{err}</li>)}
+                            </ul>
+                        </div>
+                    )}
 
                     {/* --- Patient Selection / Creation Toggle --- */}
                     {!selectedPatient && (
@@ -3494,112 +3659,8 @@
                 fetchPatients();
             }, []);
 
-            // --- START EDIT: Fetch slots on date/location change ---
-            React.useEffect(() => {
-                console.log('[Slots Effect] Running effect hook...'); // <-- DEBUG: Confirm effect runs
-                console.log(`[Slots Effect] Current state: Date=${appointmentDate}, Location=${locationId}`); // <-- DEBUG: Check values
-                const fetchAndCalculateSlots = async () => {
-                    console.log(`[Slots] Triggered: Date=${appointmentDate}, Location=${locationId}`); // <-- DEBUG
-                    if (!appointmentDate || !locationId) {
-                        console.log('[Slots] Aborted: Missing date or location.'); // <-- DEBUG
-                        return;
-                    }
-                    setLoadingSlots(true);
-                    setAvailableSlots([]);
-                    setAppointmentTime(''); // Reset selected time
-                    setSlotError('');
 
-                    try {
-                        console.log('[Slots] 1. Fetching schedule...'); // <-- DEBUG
-                        // 1. Fetch Schedule for the location (we need duration/max/times for the specific day)
-                        const weeklyScheduleData = await api(`/api/v1/schedules/by-location/${locationId}`);
-                        console.log('[Slots] 1a. Fetched schedule data:', weeklyScheduleData); // <-- DEBUG
-                        const dayOfWeek = (new Date(appointmentDate).getDay() + 6) % 7; // Monday = 0
-                        const daySchedule = weeklyScheduleData?.find(s => s.day_of_week === dayOfWeek);
 
-                        if (!daySchedule || !daySchedule.is_available) {
-                            setSlotError('Doctor is unavailable on this date.');
-                            setLoadingSlots(false);
-                            return;
-                        }
-
-                        // 2. Fetch Existing Appointments for the specific date and location
-                        console.log('[Slots] 2. Fetching existing appointments...'); // <-- DEBUG
-                        const existingAppointments = await api(`/api/v1/appointments?start_date=${appointmentDate}&end_date=${appointmentDate}&location_id=${locationId}`);
-                        console.log('[Slots] 2a. Fetched existing appointments:', existingAppointments); // <-- DEBUG
-
-                        // 3. Calculate Slots (Logic will be refined later)
-                        console.log('[Slots] 3. Calculating slots...'); // <-- DEBUG
-                        const slots = [];
-                        const startTime = daySchedule.start_time; // e.g., "09:00:00"
-                        const endTime = daySchedule.end_time;     // e.g., "17:00:00"
-                        const duration = daySchedule.appointment_duration || 15; // Default to 15 mins
-                        const maxAppointments = daySchedule.max_appointments;
-
-                        // --- Placeholder Logic (Replace with detailed calculation) ---
-                        // Convert times to minutes from midnight
-                        const timeToMinutes = (timeStr) => {
-                            const [h, m] = timeStr.split(':').map(Number);
-                            return h * 60 + m;
-                        };
-                        let currentMinutes = timeToMinutes(startTime);
-                        const endMinutes = timeToMinutes(endTime);
-                        const bookedStartMinutes = new Set(existingAppointments.map(a => timeToMinutes(new Date(a.start_time).toTimeString().substring(0, 5))));
-
-                        while (currentMinutes < endMinutes) {
-                            const hours = Math.floor(currentMinutes / 60).toString().padStart(2, '0');
-                            const minutes = (currentMinutes % 60).toString().padStart(2, '0');
-                            const currentSlotStr = `${hours}:${minutes}`;
-
-                            let isAvailable = true;
-                            let reason = 'available';
-
-                            // Check if booked
-                            if (bookedStartMinutes.has(currentMinutes)) {
-                                isAvailable = false;
-                                reason = 'booked';
-                            }
-
-                            // Check max appointments (simplified check for now)
-                            const isAdmin = user?.role === 'admin';
-                            if (maxAppointments !== null && existingAppointments.length >= maxAppointments && !isAdmin) {
-                                // If limit reached, mark all further potential slots as unavailable for non-admins
-                                // A more robust check would happen inside the loop if adding this slot exceeds the limit
-                                // For now, if max is hit, just stop adding slots *unless* admin
-                                if (isAvailable) { // only apply max limit if slot wasn't already booked
-                                    isAvailable = false;
-                                    reason = 'limit_reached';
-                                }
-                            }
-
-                            // TODO: Add checks for break times, unavailable periods if needed
-
-                            if (isAvailable) {
-                                slots.push(currentSlotStr);
-                            }
-
-                            currentMinutes += duration;
-                        }
-                        // --- End Placeholder Logic ---
-
-                        console.log('[Slots] 3a. Calculated slots:', slots); // <-- DEBUG
-                        setAvailableSlots(slots);
-                        if (slots.length === 0 && !slotError) {
-                            console.log('[Slots] No slots calculated/available.'); // <-- DEBUG
-                            setSlotError('No available slots found for this date/location.');
-                        }
-
-                    } catch (err) {
-                        console.error("[Slots] ERROR during fetch/calculation:", err); // <-- DEBUG (more specific)
-                        setSlotError(`Error loading slots: ${err.message || 'Unknown error'}`); // <-- DEBUG (more specific)
-                    } finally {
-                        setLoadingSlots(false);
-                    }
-                };
-
-                fetchAndCalculateSlots();
-            }); // <-- EDIT: REMOVED dependency array to force run on every render
-            // --- END EDIT ---
 
 
 
@@ -3747,21 +3808,17 @@
                 }
                 setErrors([]);
 
-                // Calculate end time
-                const startTimeObj = new Date(`${appointmentDate}T${appointmentTime}`);
-                const endTimeObj = new Date(startTimeObj.getTime() + 15 * 60000); // Add 15 minutes
-
-                const formatToLocalDateTimeString = (date) => {
-                    const year = date.getFullYear();
-                    const month = String(date.getMonth() + 1).padStart(2, '0');
-                    const day = String(date.getDate()).padStart(2, '0');
-                    const hours = String(date.getHours()).padStart(2, '0');
-                    const minutes = String(date.getMinutes()).padStart(2, '0');
-                    return `${year}-${month}-${day}T${hours}:${minutes}:00`;
-                };
-
-                const formattedStartTime = formatToLocalDateTimeString(startTimeObj);
-                const formattedEndTime = formatToLocalDateTimeString(endTimeObj);
+                // --- Get start_time and end_time directly from the selected slot --- 
+                // appointmentTime now holds the full ISO start_time string from the selected slot
+                const selectedSlot = availableSlots.find(s => s.start_time === appointmentTime);
+                if (!selectedSlot) {
+                    // This shouldn't happen if a slot was clicked, but handle defensively
+                    setErrors(['Invalid time slot selected. Please select again.']);
+                    return;
+                }
+                const formattedStartTime = selectedSlot.start_time;
+                const formattedEndTime = selectedSlot.end_time; // Use end_time directly from the slot
+                // --- End Slot Time Logic ---
 
                 let payload = {
                     location_id: locationId,
@@ -3798,7 +3855,14 @@
 
             return (
                 <div className="space-y-6">
-                    {error && <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded-lg">{error}</div>}
+                    {errors.length > 0 && (
+                        <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded-lg">
+                            <p className="font-bold mb-2">Please fix the following issues:</p>
+                            <ul className="list-disc list-inside text-sm">
+                                {errors.map((err, index) => <li key={index}>{err}</li>)}
+                            </ul>
+                        </div>
+                    )}
 
                     {/* New Patient Toggle */}
                     <div className="flex items-center justify-center bg-gray-100 p-1 rounded-lg">
@@ -3905,17 +3969,22 @@
                                     <p className="text-medical-error text-sm p-3 bg-red-50 rounded-lg">{slotError}</p>
                                 ) : availableSlots.length > 0 ? (
                                     <div className="grid grid-cols-4 sm:grid-cols-5 md:grid-cols-6 gap-2">
-                                        {availableSlots.map(slot => (
-                                            <button
-                                                key={slot}
-                                                type="button"
-                                                onClick={() => setAppointmentTime(slot)}
-                                                className={`p-2 rounded-lg border text-xs sm:text-sm transition-all ${appointmentTime === slot ? 'bg-medical-accent text-white border-medical-accent font-semibold shadow' : 'border-gray-300 hover:border-medical-accent hover:text-medical-accent'}`}
-                                            >
-                                                {/* Format time like 09:30 AM */}
-                                                {new Date(`1970-01-01T${slot}:00`).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true })}
-                                            </button>
-                                        ))}
+                                        {/* Map over slot OBJECTS, use slot.start_time for key and display */}
+                                        {availableSlots.map(slot => {
+                                            // Extract HH:MM from the ISO string for comparison and storing selected time
+                                            const slotTimeStr = slot.start_time.substring(11, 16);
+                                            return (
+                                                <button
+                                                    key={slot.id} // Use slot ID as key
+                                                    type="button"
+                                                    onClick={() => setAppointmentTime(slot.start_time)} // Store the full ISO string
+                                                    className={`p-2 rounded-lg border text-xs sm:text-sm transition-all ${appointmentTime === slot.start_time ? 'bg-medical-accent text-white border-medical-accent font-semibold shadow' : 'border-gray-300 hover:border-medical-accent hover:text-medical-accent'}`}
+                                                >
+                                                    {/* Format time like 09:30 AM from ISO string */}
+                                                    {new Date(slot.start_time).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true })}
+                                                </button>
+                                            );
+                                        })}
                                     </div>
                                 ) : (
                                     <p className="text-medical-gray text-sm p-3 bg-gray-50 rounded-lg">Select date and location to view available times.</p>
