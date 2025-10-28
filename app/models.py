@@ -148,9 +148,14 @@ class User(Base):
 # Enum for AppointmentSlot status
 class SlotStatus(str, enum.Enum):
     available = "available"
-    booked = "booked"
-    unavailable = "unavailable" # Could be used if manually blocked (e.g., non-emergency) or during generation if needed
+    booked = "booked" # This will now mean 'Strictly Full'
+    unavailable = "unavailable" 
     emergency_block = "emergency_block" # Specifically for emergency blocks
+
+# NEW: Enum for different booking types
+class BookingType(str, enum.Enum):
+    strict = "strict"       # E.g., Online patient, respects capacity
+    walk_in = "walk_in"     # E.g., Front-desk, can overbook
 
 # ==================== EMR / Consultation Models (NEW) ====================
 
@@ -303,7 +308,7 @@ class Location(Base):
     city = Column(String(100), nullable=True)
     state = Column(String(50), nullable=True)
     zip_code = Column(String(20), nullable=True)
-    country = Column(String(50), default="US")
+    country = Column(String(50), default="IN")
     
     # Contact information
     phone_number = Column(String(20), nullable=True)
@@ -311,7 +316,7 @@ class Location(Base):
     website = Column(String(255), nullable=True)
     
     # Operational details
-    timezone = Column(String(50), default="UTC")
+    timezone = Column(String(50), default="Asia/Kolkata")
     license_number = Column(String(100), nullable=True)
     
     # Settings and configuration
@@ -466,12 +471,18 @@ class Appointment(Base):
     cancelled_at = Column(DateTime(timezone=True), nullable=True)
     cancellation_reason = Column(Text, nullable=True)
 
+    # --- NEW: Link to the slot this appointment belongs to ---
+    slot_id = Column(Integer, ForeignKey("appointment_slots.id"), nullable=True, index=True)
+    booking_type = Column(SQLAlchemyEnum(BookingType, name='booking_type'), default=BookingType.strict, nullable=False)
+
     # Relationships
     patient = relationship("Patient", back_populates="appointments")
     location = relationship("Location", back_populates="appointments")
     user = relationship("User", back_populates="appointments")
     # Link to the consultation record created during this appointment
     consultation = relationship("Consultation", back_populates="appointment", uselist=False)
+    # Link to the slot
+    slot = relationship("AppointmentSlot", back_populates="appointments")
 
 class Document(Base):
     """Secure Document storage with encryption and audit trail"""
@@ -703,8 +714,9 @@ class AppointmentSlot(Base):
     """Represents a pre-generated, bookable appointment time slot."""
     __tablename__ = "appointment_slots"
     __table_args__ = (
+        # REFACTORED: Focus on location, time, and status for retrieval.
         Index('idx_slot_location_start_status', 'location_id', 'start_time', 'status'),
-        Index('idx_slot_appointment', 'appointment_id'),
+        # REMOVED: Index('idx_slot_appointment', 'appointment_id') -> 'appointment_id' column was removed.
         UniqueConstraint('location_id', 'start_time', name='uq_location_start_time'), # Ensure no duplicate slots
     )
 
@@ -714,16 +726,22 @@ class AppointmentSlot(Base):
     end_time = Column(DateTime(timezone=True), nullable=False)
     status = Column(SQLAlchemyEnum(SlotStatus, name='slot_status'), default=SlotStatus.available, nullable=False, index=True)
 
-    # Link to the appointment that books this slot
-    appointment_id = Column(Integer, ForeignKey("appointments.id"), nullable=True, unique=True)
+    # --- REFACTORED: Add capacity tracking ---
+    # This is the max number of *strict* (e.g., online) appointments
+    max_strict_capacity = Column(Integer, default=1, nullable=False)
+    # This is the current count of *strict* (e.g., online) appointments
+    current_strict_appointments = Column(Integer, default=0, nullable=False)
+    # The 'appointment_id' one-to-one link is REMOVED to allow one-to-many.
 
     # Timestamps
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
 
     # Relationships
-    location = relationship("Location") # Define back_populates if needed later
-    appointment = relationship("Appointment") # Define back_populates if needed later
+    location = relationship("Location") 
+    # --- NEW: One-to-Many relationship --- 
+    # One slot can now have MULTIPLE appointments
+    appointments = relationship("Appointment", back_populates="slot")
 
 class UnavailablePeriod(Base):
     """Track holidays, vacations, and other unavailable periods"""

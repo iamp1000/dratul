@@ -113,7 +113,12 @@ class AppointmentSlotCreate(AppointmentSlotBase):
 
 class AppointmentSlot(AppointmentSlotBase): # Schema for API responses
     id: int
-    appointment_id: Optional[int] = None # Include if an appointment is linked
+    # REFACTORED: Removed old 'appointment_id' (1:1) and added capacity fields.
+    max_strict_capacity: int
+    current_strict_appointments: int
+    
+    # FIX: Add timezone for client-side time display correction
+    location_timezone: Optional[str] = None
 
     class Config:
         from_attributes = True # Ensure compatibility with ORM model

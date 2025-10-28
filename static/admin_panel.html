@@ -513,19 +513,27 @@
                     // Handle different error structures (FastAPI object, FastAPI list, or plain text)
                     let errorString = 'Request failed';
                     if (data) {
-                        if (Array.isArray(data)) {
-                            // It's a list of errors (e.g., Pydantic validation)
-                            // We must safely handle err.msg, which could be an object
-                            errorString = data.map(err => {
-                                const loc = err.loc?.join('->') || 'error';
-                                const msg = (typeof err.msg === 'string') ? err.msg : JSON.stringify(err.msg);
-                                return `${loc}: ${msg}`;
-                            }).join(', ');
-                        } else if (data.detail) {
-                            // It's a standard FastAPI HTTPException
-                            errorString = data.detail;
+                        if (data.detail) {
+                            // This is the primary error structure (FastAPI HTTPException)
+                            if (Array.isArray(data.detail)) {
+                                // This is a 422 Validation Error
+                                errorString = data.detail.map(err => {
+                                    const loc = err.loc?.join('->') || 'field';
+                                    const msg = (typeof err.msg === 'string') ? err.msg : JSON.stringify(err.msg);
+                                    return `${loc}: ${msg}`;
+                                }).join(', ');
+                            } else if (typeof data.detail === 'string') {
+                                // This is a standard 400/404/etc. with a string detail
+                                errorString = data.detail;
+                            } else {
+                                // data.detail is some other object
+                                errorString = JSON.stringify(data.detail);
+                            }
+                        } else if (Array.isArray(data)) {
+                            // This is a custom route returning a list of errors (less common)
+                            errorString = data.map(err => (typeof err === 'string') ? err : JSON.stringify(err)).join(', ');
                         } else if (data.message) {
-                            // It's a custom error object
+                            // This is a custom error object
                             errorString = data.message;
                         } else {
                             // It's some other JSON object
@@ -602,7 +610,7 @@
             const [error, setError] = React.useState('');
             const [successMessage, setSuccessMessage] = React.useState('');
 
-            React.useEffect(() => {
+    React.useEffect(() => {
                 // Manually initialize Flatpickr for this modal's input
                 if (window.flatpickr) {
                     window.flatpickr("#emergency-block-date-picker", {
@@ -758,8 +766,8 @@
                                 <i className="fas fa-sign-out-alt"></i>
                                 <span>Logout</span>
                             </button>
-                        </div>
-                    </div>
+                            </div>
+                            </div>
                 </>
             );
         };
@@ -1049,7 +1057,8 @@
                 fetchAppointments();
             }, []);
 
-            const handleDateClick = (date) => {
+            const handleDateClick = (date) => { // 'date' here is the Date object from the Calendar cell
+                console.log("[Appointments] handleDateClick received:", date); // <-- Add log here
                 setSelectedDate(date);
                 setShowModal(true);
             };
@@ -1084,7 +1093,7 @@
                             setSelectedAppointment(null);
                             setSelectedDate(null);
                         }}
-                        title={selectedAppointment ? "Appointment Details" : "Daily View"} // Updated title
+                        title={selectedAppointment ? "Appointment Details" : "Daily View"} 
                         width="max-w-4xl"
                     >
                         {selectedAppointment ? (
@@ -1132,40 +1141,124 @@ const DaySlotsViewer = ({ date }) => {
     // ... (Code for DaySlotsViewer as defined previously) ...
      const [selectedLocationId, setSelectedLocationId] = React.useState(1); // Default to Home Clinic (ID 1)
     const [slots, setSlots] = React.useState([]);
-    const [loading, setLoading] = React.useState(true);
-    const [error, setError] = React.useState('');
+    const [loadingSlots, setLoadingSlots] = React.useState(false); // Renamed from 'loading'
+    const [slotError, setSlotError] = React.useState(''); // Renamed from 'error'
+    // --> NEW: State for weekly schedule check <--
+    const [weeklySchedule, setWeeklySchedule] = React.useState(null);
+    const [scheduleLoading, setScheduleLoading] = React.useState(true);
+    const [scheduleError, setScheduleError] = React.useState('');
+    const [displayStatus, setDisplayStatus] = React.useState('loading-schedule'); // loading-schedule, loading-slots, unavailable, error, no-slots, ready
 
-    // Helper to format date as YYYY-MM-DD
-    const toISODate = (d) => d.toISOString().split('T')[0];
+                    // NEW: Effect to fetch the weekly schedule for BOTH locations
+                    React.useEffect(() => {
+                        const fetchWeeklySchedules = async () => {
+                            setScheduleLoading(true);
+                            setScheduleError('');
+                            try {
+                                // Fetch for both locations
+                                const [clinicScheduleData, hospitalScheduleData] = await Promise.all([
+                                    api(`/api/v1/schedules/by-location/1`),
+                                    api(`/api/v1/schedules/by-location/2`)
+                                ]);
+
+                                // Convert array to map for easy lookup by day_of_week
+                                const clinicScheduleMap = (clinicScheduleData || []).reduce((acc, item) => {
+                                    acc[item.day_of_week] = item;
+                                    return acc;
+                                }, {});
+                                const hospitalScheduleMap = (hospitalScheduleData || []).reduce((acc, item) => {
+                                    acc[item.day_of_week] = item;
+                                    return acc;
+                                }, {});
+
+                                // Store both maps in the weeklySchedule state
+                                setWeeklySchedule({
+                                    1: clinicScheduleMap, // Key by location ID
+                                    2: hospitalScheduleMap
+                                });
+                                console.log("[DaySlotsViewer] Fetched weekly schedules:", { 1: clinicScheduleMap, 2: hospitalScheduleMap });
+
+                            } catch (err) {
+                                console.error("[DaySlotsViewer] Error fetching weekly schedules:", err);
+                                setScheduleError(`Failed to load doctor's schedule: ${err.message}`);
+                                setDisplayStatus('error');
+                            } finally {
+                                setScheduleLoading(false);
+                            }
+                        };
+
+                        fetchWeeklySchedules();
+                    }, []); // Empty dependency array. Runs once when component mounts.
+
+    // Helper to format date as YYYY-MM-DD (Corrected to use local date parts)
+    const toISODate = (d) => {
+        if (!d) return '';
+        const year = d.getFullYear();
+        const month = String(d.getMonth() + 1).padStart(2, '0'); // months are 0-indexed
+        const day = String(d.getDate()).padStart(2, '0');
+        return `${year}-${month}-${day}`;
+    };
 
     React.useEffect(() => {
-        const fetchSlots = async () => {
-            if (!date) return;
-            setLoading(true);
-            setError('');
-            setSlots([]); // Clear previous slots
-            const formattedDate = toISODate(date);
+        const checkAvailabilityAndFetchSlots = async () => {
+            // Waits for schedule to be fetched (scheduleLoading = false, weeklySchedule != null)
+            if (!date || scheduleLoading || !weeklySchedule) {
+                if (scheduleError) setDisplayStatus('error');
+                else if (scheduleLoading) setDisplayStatus('loading-schedule');
+                return; // Wait for schedule to load
+            }
 
+            setLoadingSlots(true);
+            setSlotError('');
+            setSlots([]);
+            setDisplayStatus('loading-slots'); // Now we are loading slots
+            const formattedDate = toISODate(date);
+            const dayOfWeek = (date.getDay() + 6) % 7; // 0=Monday, 6=Sunday
+
+            // Step 1: Check availability from the fetched weekly schedule
+            // --- FIX: Look up the schedule for the *selected location* ---
+            const locationSchedule = weeklySchedule[selectedLocationId];
+            const daySchedule = locationSchedule ? locationSchedule[dayOfWeek] : null; // Get the specific day's schedule
+
+            console.log(`[DaySlotsViewer] Checking schedule for Loc ${selectedLocationId}, Date ${formattedDate}, DayOfWeek ${dayOfWeek}:`, daySchedule);
+
+            if (daySchedule && daySchedule.is_available === false) {
+                console.log(`[DaySlotsViewer] Doctor marked as unavailable for Loc ${selectedLocationId} on Day ${dayOfWeek}.`);
+                setSlotError('Doctor is unavailable on this day.');
+                setDisplayStatus('unavailable');
+                setLoadingSlots(false);
+                return; // Stop here, don't fetch slots
+            }
+
+            // Step 2: If available (or schedule not defined), fetch slots
             try {
-                console.log(`Fetching slots for Loc ${selectedLocationId} on ${formattedDate}`);
-                // Use the correct API endpoint path: /api/v1/slots/{location_id}/{target_date}
+                console.log(`[DaySlotsViewer] Fetching slots for Loc ${selectedLocationId} on ${formattedDate}`);
                 const fetchedSlots = await api(`/api/v1/slots/${selectedLocationId}/${formattedDate}`);
-                setSlots(Array.isArray(fetchedSlots) ? fetchedSlots : []);
-                 if (!Array.isArray(fetchedSlots) || fetchedSlots.length === 0) {
-                     // Check if an error wasn't already set by the API call itself
-                     if (!error) setError('No slots generated or found for this day and location.');
-                 }
+                console.log(`[DaySlotsViewer] Received raw data for Loc ${selectedLocationId}, Date ${formattedDate}:`, JSON.stringify(fetchedSlots));
+                
+                const validSlots = Array.isArray(fetchedSlots) ? fetchedSlots : [];
+                setSlots(validSlots);
+                
+                if (validSlots.length === 0) {
+                    // Check if an error wasn't already set by the API call itself
+                    if (!slotError) setSlotError('No slots generated or found for this day and location.');
+                    setDisplayStatus('no-slots'); // Set specific 'no-slots' status
+                } else {
+                    setDisplayStatus('ready'); // Slots are ready to be displayed
+                }
+
             } catch (err) {
                 console.error(`Error fetching slots for ${formattedDate}:`, err);
-                setError(`Failed to load slots: ${err.message}`);
-                 setSlots([]); // Ensure slots are cleared on error
+                setSlotError(`Failed to load slots: ${err.message}`);
+                setSlots([]);
+                setDisplayStatus('error'); // Set error status
             } finally {
-                setLoading(false);
+                setLoadingSlots(false); // We are done loading (or failed)
             }
         };
 
-        fetchSlots();
-    }, [date, selectedLocationId]); // Re-fetch when date or location changes
+        checkAvailabilityAndFetchSlots();
+    }, [date, selectedLocationId, weeklySchedule, scheduleLoading, scheduleError]); // Re-run when date, location, or schedule data changes
 
     const getStatusColor = (status) => {
         switch (status) {
@@ -1184,29 +1277,30 @@ const DaySlotsViewer = ({ date }) => {
                     onClick={() => setSelectedLocationId(1)}
                     className={`flex-1 py-2 px-4 rounded-lg font-medium transition-all text-sm ${selectedLocationId === 1 ? 'bg-white text-medical-accent shadow-sm' : 'text-medical-gray hover:text-medical-dark'}`}
                 >
-                   <i className="fas fa-clinic-medical mr-1"></i> Home Clinic
+                <i className="fas fa-clinic-medical mr-1"></i> Home Clinic
                 </button>
                 <button
                     onClick={() => setSelectedLocationId(2)}
                     className={`flex-1 py-2 px-4 rounded-lg font-medium transition-all text-sm ${selectedLocationId === 2 ? 'bg-white text-medical-accent shadow-sm' : 'text-medical-gray hover:text-medical-dark'}`}
                 >
-                   <i className="fas fa-hospital mr-1"></i> Hospital
+                <i className="fas fa-hospital mr-1"></i> Hospital
                 </button>
             </div>
 
-            {/* Slots Display */}
-            {loading ? (
+            {/* Slots Display - Updated Logic */}
+            {displayStatus === 'loading-schedule' || displayStatus === 'loading-slots' ? (
                 <LoadingSpinner />
-            ) : error ? (
-                 <div className="text-center py-6 text-red-600 bg-red-50 p-4 rounded-lg border border-red-200">
-                     <i className="fas fa-exclamation-triangle text-2xl mb-2"></i>
-                     <p className="text-sm">{error}</p>
-                 </div>
-            ) : slots.length === 0 ? (
-                 <div className="text-center py-6 text-medical-gray bg-gray-50 p-4 rounded-lg border border-gray-200">
-                     <i className="fas fa-calendar-times text-2xl mb-2"></i>
-                     <p className="text-sm">No slots found for this selection.</p>
-                 </div>
+            ) : displayStatus === 'error' || displayStatus === 'unavailable' ? (
+                <div className="text-center py-6 text-red-600 bg-red-50 p-4 rounded-lg border border-red-200">
+                    <i className={`fas ${displayStatus === 'unavailable' ? 'fa-calendar-times' : 'fa-exclamation-triangle'} text-2xl mb-2`}></i>
+                     {/* Display specific error or unavailable message */}
+                    <p className="text-sm">{slotError || scheduleError || 'An error occurred.'}</p>
+                </div>
+            ) : displayStatus === 'no-slots' || slots.length === 0 ? ( // Added explicit no-slots status check
+                <div className="text-center py-6 text-medical-gray bg-gray-50 p-4 rounded-lg border border-gray-200">
+                    <i className="fas fa-clock text-2xl mb-2"></i>
+                    <p className="text-sm">No available appointment times found.</p>
+                </div>
             ) : (
                 <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-2">
                     {slots.map(slot => (
@@ -1480,7 +1574,7 @@ const DailyViewModalContent = ({ date, appointmentsForDate }) => {
         };
 
         // Doctor Schedule Component (Updated for Unified View & Edit Logic)
-        const DoctorSchedule = () => {
+        const DoctorSchedule = ({ openModal, closeModal, user }) => { // <-- Add props
             const [schedules, setSchedules] = React.useState({ 1: {}, 2: {} });
             const [locations, setLocations] = React.useState([]);
             const [loading, setLoading] = React.useState(true);
@@ -3193,21 +3287,7 @@ const DailyViewModalContent = ({ date, appointmentsForDate }) => {
                 fetchPatients();
             }, []);
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+            // --- Removed extraneous slot fetching logic from ConsultationEditor ---
             const handlePatientSearchChange = (term) => {
                 setPatientSearch(term);
                 if (term.length > 1) { // Start searching after 2 characters
@@ -3769,13 +3849,68 @@ const DailyViewModalContent = ({ date, appointmentsForDate }) => {
                 fetchPatients();
             }, []);
 
+            // --- NEW: Effect to fetch available slots ---
+            React.useEffect(() => {
+                const fetchSlots = async () => {
+                    // Don't fetch if date or locationId is missing
+                    if (!appointmentDate || !locationId) {
+                        setAvailableSlots([]);
+                        setSlotError('Please select a date and location.');
+                        return;
+                    }
+
+                    setLoadingSlots(true);
+                    setSlotError('');
+                    setAvailableSlots([]); // Clear previous slots
+                    // Clear selected time when date/location changes
+                    setAppointmentTime(''); 
+
+                    // Helper to format date as YYYY-MM-DD (ensure it matches backend expectation)
+                    const toISODate = (d) => {
+                        if (!d) return '';
+                        // Ensure we use parts from the input string 'YYYY-MM-DD' directly
+                        // to avoid timezone issues when creating a new Date object
+                        return d; 
+                    };
+                    const formattedDate = toISODate(appointmentDate);
+
+                    try {
+                        console.log(`[AppointmentEditor] Fetching slots for Loc ${locationId} on ${formattedDate}`);
+                        const fetchedSlots = await api(`/api/v1/slots/${locationId}/${formattedDate}`);
+                        
+                        // Filter for only 'available' slots before setting state
+                        const availableOnly = Array.isArray(fetchedSlots) ? fetchedSlots.filter(slot => slot.status === 'available') : [];
+                        
+                        console.log(`[AppointmentEditor] Received slots:`, fetchedSlots);
+                        console.log(`[AppointmentEditor] Filtered available slots:`, availableOnly);
+                        
+                        setAvailableSlots(availableOnly);
+                        if (availableOnly.length === 0) {
+                             setSlotError('No available slots found for this day and location.');
+                        }
+
+                    } catch (err) {
+                        console.error(`[AppointmentEditor] Error fetching slots for ${formattedDate}:`, err);
+                        setSlotError(`Failed to load slots: ${err.message}`);
+                        setAvailableSlots([]); // Ensure slots are cleared on error
+                    } finally {
+                        setLoadingSlots(false);
+                    }
+                };
+
+                fetchSlots();
+            }, [appointmentDate, locationId]); // Dependencies: Re-run when date or location changes
+            // --- END NEW Effect ---
+
             const handlePatientSearch = (e) => {
                 const searchTerm = e.target.value;
                 setPatientSearch(searchTerm);
                 if (searchTerm) {
+                    const lowerSearch = searchTerm.toLowerCase();
                     setFilteredPatients(
                         patients.filter(p =>
-                            p.name.toLowerCase().includes(searchTerm.toLowerCase())
+                            `${p.first_name || ''} ${p.last_name || ''}`.toLowerCase().includes(lowerSearch) ||
+                            p.phone_number?.includes(lowerSearch)
                         )
                     );
                 } else {
@@ -3785,7 +3920,7 @@ const DailyViewModalContent = ({ date, appointmentsForDate }) => {
 
             const selectPatient = (patient) => {
                 setPatientId(patient.id);
-                setPatientSearch(patient.name);
+                setPatientSearch(`${patient.first_name || ''} ${patient.last_name || ''}`.trim());
                 setFilteredPatients([]);
             };
 
@@ -3829,7 +3964,7 @@ const DailyViewModalContent = ({ date, appointmentsForDate }) => {
                 };
 
                 if (isNewPatient) {
-                    payload.patient = {
+                    payload.new_patient = { // <-- FIX: Changed 'patient' to 'new_patient' to match API
                         first_name: firstName,
                         last_name: lastName,
                         date_of_birth: dob,
@@ -3848,9 +3983,10 @@ const DailyViewModalContent = ({ date, appointmentsForDate }) => {
                     if (refreshAppointments) refreshAppointments();
                     onClose();
                 } catch (err) {
-                    // --- EDIT: Use setErrors correctly --- 
-                    setErrors(['An error occurred saving the appointment. Please check details and try again.']);
-                    console.error('Save appointment error:', err);
+                    // --- EDIT: Use the *parsed* error message from the api utility --- 
+                    // err.message will now contain the specific 422 error string
+                    setErrors([err.message || 'An unexpected error occurred.']);
+                    console.error('Save appointment error:', err.message); // Log the message, not the [object Object]
                 }
             };
 
@@ -3912,7 +4048,13 @@ const DailyViewModalContent = ({ date, appointmentsForDate }) => {
                                     type="text"
                                     value={patientSearch}
                                     onChange={handlePatientSearch}
-                                    onFocus={() => setFilteredPatients(patients.filter(p => p.name.toLowerCase().includes(patientSearch.toLowerCase())))}
+                                    onFocus={() => {
+                                        const lowerSearch = patientSearch.toLowerCase();
+                                        setFilteredPatients(patients.filter(p =>
+                                            `${p.first_name || ''} ${p.last_name || ''}`.toLowerCase().includes(lowerSearch) ||
+                                            p.phone_number?.includes(lowerSearch)
+                                        ));
+                                    }}
                                     onBlur={() => setTimeout(() => setFilteredPatients([]), 200)}
                                     className="form-input-themed"
                                     placeholder="Search for an existing patient..."
@@ -3923,9 +4065,10 @@ const DailyViewModalContent = ({ date, appointmentsForDate }) => {
                                             <div
                                                 key={p.id}
                                                 onClick={() => selectPatient(p)}
-                                                className="p-3 hover:bg-medical-light cursor-pointer"
+                                                className="p-3 hover:bg-medical-light cursor-pointer border-b last:border-b-0"
                                             >
-                                                {p.name}
+                                                <div className="font-semibold">{`${p.first_name || ''} ${p.last_name || ''}`.trim()}</div>
+                                                <div className="text-sm text-medical-gray">{p.phone_number || 'No phone'}</div>
                                             </div>
                                         ))}
                                     </div>
@@ -4767,7 +4910,8 @@ const DailyViewModalContent = ({ date, appointmentsForDate }) => {
                     case 'appointments':
                         return <Appointments openModal={openModal} closeModal={closeModal} user={user} />; // <-- Pass user prop down
                     case 'schedule':
-                        return <DoctorSchedule />;
+                        // Pass modal functions and user down to DoctorSchedule
+                        return <DoctorSchedule openModal={openModal} closeModal={closeModal} user={user} />;
                     case 'patients':
                         return <Patients />;
                     case 'consultation': // Added new EMR view

@@ -3,11 +3,12 @@
 
 from fastapi import APIRouter, Depends, HTTPException, Request, BackgroundTasks, status
 from fastapi.responses import JSONResponse
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 from typing import List, Optional
 from datetime import datetime, date, timezone # Added timezone
 
 from app import crud, schemas, models, security
+from app.models import BookingType, SlotStatus, UserRole # Import new models
 from app.database import get_db
 from app.limiter import limiter # <-- IMPORT FROM THE NEW FILE
 from ..services import slot_service # Import slot service (though not directly used, good practice)
@@ -26,68 +27,95 @@ async def create_new_appointment(
     db: Session = Depends(get_db),
     current_user: models.User = Depends(security.get_current_user)
 ):
-    """Create a new appointment, book the corresponding slot, and sync to Google Calendar."""
-    # --- Start Slot Booking Logic ---
-    target_slot = None # Initialize target_slot
+    """REBUILT: Create a new appointment with transactional slot capacity logic."""
+    
+    # --- 1. Determine Booking Type based on User Role ---
+    # Front-end users (staff, admin, etc.) can overbook.
+    # Other users (e.g., future patient-facing API) would be 'strict'.
+    front_end_roles = [UserRole.admin, UserRole.staff, UserRole.receptionist, UserRole.manager, UserRole.doctor]
+    booking_type = BookingType.walk_in if current_user.role in front_end_roles else BookingType.strict
+
+    # --- 2. Start Transactional Booking Logic ---
     try:
         # Ensure start_time is timezone-aware UTC for query
         start_time_utc = appointment.start_time
         if start_time_utc.tzinfo is None:
-             # This assumes the incoming naive datetime is in the system's local timezone 
-             # or should be treated as UTC. Adjust if a specific local timezone needs conversion.
              start_time_utc = start_time_utc.replace(tzinfo=timezone.utc)
         else:
              start_time_utc = start_time_utc.astimezone(timezone.utc)
 
-        # Find and lock the corresponding available slot
+        # --- 3. Find and LOCK the slot for this transaction ---
         target_slot = db.query(models.AppointmentSlot).filter(
             models.AppointmentSlot.location_id == appointment.location_id,
-            models.AppointmentSlot.start_time == start_time_utc,
-            models.AppointmentSlot.status == models.SlotStatus.available
+            models.AppointmentSlot.start_time == start_time_utc
         ).with_for_update().first()
 
         if not target_slot:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Selected time slot is not available or does not exist."
+                detail="Selected time slot does not exist."
             )
 
-        # Mark the slot as booked (but don't commit yet)
-        target_slot.status = models.SlotStatus.booked
-        db.add(target_slot) # Add to session if status changed
+        # --- 4. Check Slot Status and Capacity ---
+        if target_slot.status in [SlotStatus.emergency_block, SlotStatus.unavailable]:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Selected time slot is blocked and not available for booking."
+            )
 
-        # Now create the actual appointment record
-        new_appointment = await crud.create_appointment(db=db, appointment=appointment, user_id=current_user.id)
+        # --- 5. Apply Booking Rules ---
+        if booking_type == BookingType.walk_in:
+            # This is a 'Walk-In' (Front-End) user.
+            # They can overbook. No capacity check needed.
+            print(f"WALK-IN BOOKING: User {current_user.username} is overbooking slot {target_slot.id}")
+        
+        elif booking_type == BookingType.strict:
+            # This is a 'Strict' (e.g., Online) user.
+            # Check capacity.
+            if target_slot.current_strict_appointments >= target_slot.max_strict_capacity:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="This time slot is fully booked for online appointments."
+                )
+            
+            # If not full, increment the strict count
+            target_slot.current_strict_appointments += 1
+            
+            # If this booking fills the slot, mark it as 'booked'
+            if target_slot.current_strict_appointments == target_slot.max_strict_capacity:
+                target_slot.status = SlotStatus.booked
+            
+            db.add(target_slot)
+            print(f"STRICT BOOKING: Slot {target_slot.id} count incremented to {target_slot.current_strict_appointments}")
 
-        # Link the new appointment ID back to the slot
-        target_slot.appointment_id = new_appointment.id
-        db.add(target_slot) # Ensure update is staged
+        # --- 6. Create the Appointment Record ---
+        # We pass the slot_id and booking_type to the refactored crud function
+        new_appointment = await crud.create_appointment(
+            db=db, 
+            appointment=appointment, 
+            user_id=current_user.id,
+            slot_id=target_slot.id, 
+            booking_type=booking_type
+        )
 
-        # Commit both the slot update and the new appointment
+        # --- 7. Commit the Transaction ---
+        # This commits both the slot update (if any) and the new appointment
         db.commit()
-        db.refresh(new_appointment) # Refresh to get final state after commit
-        db.refresh(target_slot) # Refresh slot as well
-
-        print(f"Successfully booked slot {target_slot.id} for appointment {new_appointment.id}")
+        db.refresh(new_appointment)
+        print(f"Successfully created appointment {new_appointment.id} for slot {target_slot.id}")
 
     except HTTPException as http_exc:
-        db.rollback() # Rollback if slot not found/available
+        db.rollback() # Rollback on known errors (slot full, blocked, etc.)
         raise http_exc # Re-raise the HTTP exception
     except Exception as e:
-        db.rollback() # Rollback on any other error during the process
-        print(f"ERROR during appointment/slot creation: {e}")
-        # Consider specific error logging
+        db.rollback() # Rollback on any other error
+        print(f"ERROR during transactional appointment creation: {e}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="An internal error occurred while creating the appointment."
         )
-    # --- End Slot Booking Logic ---
-    background_tasks.add_task(
-        crud.create_audit_log,
-        db=db, user_id=current_user.id, action="CREATE", category="APPOINTMENT",
-        resource_id=new_appointment.id, details=f"Created new appointment for patient ID {new_appointment.patient_id}",
-        new_values=appointment.dict(exclude_unset=True)
-    )
+    
+    # Note: The 'create_appointment' crud function now handles its own audit logging for creation.
     return new_appointment
 
 # ... (the rest of the file remains the same) ...
@@ -106,6 +134,12 @@ def read_appointments(
     return crud.get_appointments_by_date_range(db, start_date=start_datetime, end_date=end_datetime, location_id=location_id)
 
 @router.put("/appointments/{appointment_id}", response_model=schemas.AppointmentResponse)
+# --- REFACTORED: Add db_appointment parameter to crud.delete_appointment ---
+# We also need to update crud.py to accept this.
+# This avoids a second DB lookup in the crud function.
+async def _helper_patch_crud_delete_appointment():
+    pass # This is a placeholder, will edit crud.py next.
+
 async def update_appointment_endpoint(
     appointment_id: int,
     appointment_update: schemas.AppointmentUpdate,
@@ -133,11 +167,59 @@ async def delete_appointment_endpoint(
     db: Session = Depends(get_db),
     current_user: models.User = Depends(security.get_current_user)
 ):
-    """Delete an appointment and sync to Google Calendar."""
-    success = await crud.delete_appointment(db=db, appointment_id=appointment_id)
-    if not success:
-        raise HTTPException(status_code=404, detail="Appointment not found")
+    """REBUILT: Delete an appointment, decrement slot capacity, and sync to Google Calendar."""
     
+    try:
+        # --- 1. Find the appointment and its associated slot ---
+        db_appointment = db.query(models.Appointment).options(
+            joinedload(models.Appointment.slot)
+        ).filter(models.Appointment.id == appointment_id).first()
+
+        if not db_appointment:
+            raise HTTPException(status_code=404, detail="Appointment not found")
+
+        # --- 2. Lock the slot (if it exists) to prevent race conditions ---
+        if db_appointment.slot:
+            target_slot = db.query(models.AppointmentSlot).filter(
+                models.AppointmentSlot.id == db_appointment.slot_id
+            ).with_for_update().first()
+
+            # --- 3. Decrement strict count if it was a strict booking ---
+            if target_slot and db_appointment.booking_type == BookingType.strict:
+                target_slot.current_strict_appointments = max(0, target_slot.current_strict_appointments - 1)
+                
+                # If the slot was 'booked' (full), it is now 'available' again
+                if target_slot.status == SlotStatus.booked:
+                    target_slot.status = SlotStatus.available
+                
+                db.add(target_slot)
+                print(f"STRICT DELETION: Slot {target_slot.id} count decremented to {target_slot.current_strict_appointments}")
+            
+            elif db_appointment.booking_type == BookingType.walk_in:
+                print(f"WALK-IN DELETION: No change to slot capacity for {db_appointment.slot_id}")
+
+        # --- 4. Call the CRUD function to delete the appointment (handles GCal) ---
+        # Pass the pre-fetched db_appointment to avoid a second query
+        success = await crud.delete_appointment(db=db, appointment_id=appointment_id, db_appointment=db_appointment)
+        if not success:
+             # This shouldn't happen if we just found it, but as a safeguard:
+            raise HTTPException(status_code=404, detail="Appointment not found during deletion.")
+
+        # --- 5. Commit the transaction (deletes appointment, updates slot) ---
+        db.commit()
+
+    except HTTPException as http_exc:
+        db.rollback()
+        raise http_exc
+    except Exception as e:
+        db.rollback()
+        print(f"ERROR during transactional appointment deletion: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="An internal error occurred while deleting the appointment."
+        )
+
+    # --- 6. Add Audit Log --- 
     background_tasks.add_task(
         crud.create_audit_log,
         db=db, user_id=current_user.id, action="DELETE", category="APPOINTMENT",

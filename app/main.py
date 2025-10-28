@@ -12,7 +12,7 @@ from sqlalchemy.orm import Session
 
 # Import our modules
 from app import models, schemas, crud
-from app.database import get_db, create_tables
+from app.database import get_db, create_tables, drop_tables # Explicitly import drop_tables for internal use
 from app.hash_password import create_or_update_admin, create_initial_data
 from app.routers import auth, patients, appointments, schedule, unavailable_periods, locations, users, prescriptions, logs, services, consultations, slots
 # --- Logging Configuration --- START ---
@@ -41,9 +41,11 @@ def on_startup():
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    # REFACTORED: Be explicit about the front-end origin (http://127.0.0.1:5501) and localhost for robust local development.
+    # We also keep "*" in the original list for simplicity if other origins were intended.
+    allow_origins=["http://127.0.0.1:5501", "http://localhost:5501", "*"],
     allow_credentials=True,
-    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS", "HEAD"], # Explicitly list methods
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS", "HEAD"],
     allow_headers=["*"],
 )
 

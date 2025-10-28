@@ -225,7 +225,14 @@ def delete_patient(db: Session, patient_id: int) -> bool:
 
 # ==================== APPOINTMENT CRUD OPERATIONS (NEW) ====================
 
-async def create_appointment(db: Session, appointment: schemas.AppointmentCreate, user_id: int) -> models.Appointment:
+# --- REFACTORED: Accept slot_id and booking_type from the router ---
+async def create_appointment(
+    db: Session, 
+    appointment: schemas.AppointmentCreate, 
+    user_id: int, 
+    slot_id: int, 
+    booking_type: models.BookingType
+) -> models.Appointment:
     """
     Create a new appointment. If new_patient data is provided, a new patient
     is created first.
@@ -339,7 +346,13 @@ async def create_appointment(db: Session, appointment: schemas.AppointmentCreate
         raise CRUDError("An appointment already exists at this time.")
 
     # Create the appointment model instance
-    db_appointment = models.Appointment(**appointment_data, user_id=user_id)
+    # --- REFACTORED: Pass new required fields --- 
+    db_appointment = models.Appointment(
+        **appointment_data, 
+        user_id=user_id, 
+        slot_id=slot_id, 
+        booking_type=booking_type
+    )
     
     try:
         db.add(db_appointment)
@@ -347,46 +360,10 @@ async def create_appointment(db: Session, appointment: schemas.AppointmentCreate
         db.refresh(db_appointment)
         logger.info(f"Successfully created appointment {db_appointment.id} for patient {db_appointment.patient_id}")
 
-        # --- BEGIN: Update Slot Status and Add Audit Logging ---
+        # --- REFACTORED: Slot logic is now handled in the router. ---
+        # --- We only log the appointment creation itself. ---
         try:
-            # Find the corresponding slot
-            target_slot = db.query(models.AppointmentSlot).filter(
-                models.AppointmentSlot.location_id == db_appointment.location_id,
-                models.AppointmentSlot.start_time == db_appointment.start_time,
-                models.AppointmentSlot.status == models.SlotStatus.available # Only book available slots
-            ).first()
-
-            if target_slot:
-                # Update slot status
-                target_slot.status = models.SlotStatus.booked
-                target_slot.appointment_id = db_appointment.id
-                db.commit()
-                logger.info(f"Updated slot {target_slot.id} status to booked for appointment {db_appointment.id}")
-                
-                # Log slot booking
-                create_audit_log(
-                    db=db,
-                    user_id=user_id,
-                    action="Booked Slot",
-                    category="APPOINTMENT",
-                    resource_type="AppointmentSlot",
-                    resource_id=target_slot.id,
-                    details=f"Slot booked for appointment {db_appointment.id}"
-                )
-            else:
-                # This case might indicate an issue (e.g., trying to book an already booked slot)
-                logger.warning(f"Could not find available slot for appointment {db_appointment.id} at location {db_appointment.location_id} starting at {db_appointment.start_time}")
-                # Log this potential issue
-                create_audit_log(
-                    db=db,
-                    user_id=user_id,
-                    action="Slot Booking Failed",
-                    category="APPOINTMENT",
-                    severity="WARN",
-                    details=f"Could not find available slot for appointment {db_appointment.id} at {db_appointment.start_time}"
-                )
-
-            # Log appointment creation (regardless of slot update success)
+            # Log appointment creation
             create_audit_log(
                 db=db,
                 user_id=user_id,
@@ -394,12 +371,11 @@ async def create_appointment(db: Session, appointment: schemas.AppointmentCreate
                 category="APPOINTMENT",
                 resource_type="Appointment",
                 resource_id=db_appointment.id,
-                details=f"Appointment created for patient {db_appointment.patient_id} at {db_appointment.start_time}"
+                details=f"Appointment created for patient {db_appointment.patient_id} at {db_appointment.start_time} (Type: {booking_type.value})"
             )
-        except Exception as log_slot_error:
-            logger.error(f"Error during slot update or logging for appointment {db_appointment.id}: {log_slot_error}")
-            # Don't rollback the main appointment creation, just log this error
-        # --- END: Update Slot Status and Add Audit Logging ---
+        except Exception as log_error:
+            logger.error(f"Error during audit logging for appointment {db_appointment.id}: {log_error}")
+        # --- END: Refactored Logging ---
 
         # NEW: Create Google Calendar event
         try:
@@ -498,8 +474,11 @@ async def update_appointment(db: Session, appointment_id: int, appointment_updat
 
     return db_appointment
 
-async def delete_appointment(db: Session, appointment_id: int) -> bool:
-    db_appointment = db.query(models.Appointment).filter(models.Appointment.id == appointment_id).first()
+async def delete_appointment(db: Session, appointment_id: int, db_appointment: Optional[models.Appointment] = None) -> bool:
+    # If the appointment object isn't passed in, fetch it.
+    if not db_appointment:
+        db_appointment = db.query(models.Appointment).filter(models.Appointment.id == appointment_id).first()
+    
     if not db_appointment:
         return False
 
@@ -1417,8 +1396,11 @@ def get_dashboard_stats(db: Session, location_id: int = None) -> Dict[str, Any]:
         stats["total_patients"] = db.query(models.Patient).count()
         stats["total_appointments"] = db.query(models.Appointment).count()
         stats["appointments_today"] = db.query(models.Appointment).filter(func.date(models.Appointment.start_time) == date.today()).count()
-        stats["pending_appointments"] = db.query(models.Appointment).filter(models.Appointment.status.in_(['scheduled', 'confirmed'])).count()
-        stats["appointments_week"] = db.query(models.Appointment).filter(models.Appointment.start_time >= (datetime.now() - timedelta(days=7))).count()
+        # REFACTORED: Use explicit Enum values to avoid string/casting issues and ensure compatibility with new models
+        stats["pending_appointments"] = db.query(models.Appointment).filter(
+            models.Appointment.status.in_([models.AppointmentStatus.scheduled, models.AppointmentStatus.confirmed])
+        ).count()
+        stats["appointments_week"] = db.query(models.Appointment).filter(models.Appointment.start_time >= (datetime.now(timezone.utc) - timedelta(days=7))).count()
         return stats
     except SQLAlchemyError as e:
         logger.error(f"Error fetching dashboard stats: {str(e)}")
@@ -1427,7 +1409,11 @@ def get_dashboard_stats(db: Session, location_id: int = None) -> Dict[str, Any]:
 def get_appointments(db: Session, skip: int = 0, limit: int = 100, **kwargs) -> List[models.Appointment]:
     """Get appointments with comprehensive filtering"""
     try:
-        return db.query(models.Appointment).options(joinedload(models.Appointment.patient)).offset(skip).limit(limit).all()
+        # FIX: Eagerly load new 'slot' relationship to prevent lazy-loading crashes during serialization
+        return db.query(models.Appointment).options(
+            joinedload(models.Appointment.patient),
+            joinedload(models.Appointment.slot)
+        ).offset(skip).limit(limit).all()
     except SQLAlchemyError as e:
         logger.error(f"Error fetching appointments: {str(e)}")
         raise CRUDError(f"Database error: {str(e)}")
@@ -1435,7 +1421,11 @@ def get_appointments(db: Session, skip: int = 0, limit: int = 100, **kwargs) -> 
 def get_appointments_by_date_range(db: Session, start_date: datetime, end_date: datetime, location_id: Optional[int] = None) -> List[models.Appointment]:
     try:
         # --- START EDIT: Add location_id filter ---
-        query = db.query(models.Appointment).options(joinedload(models.Appointment.patient)).filter(
+        # FIX: Eagerly load new 'slot' relationship for date range queries
+        query = db.query(models.Appointment).options(
+            joinedload(models.Appointment.patient),
+            joinedload(models.Appointment.slot)
+        ).filter(
             models.Appointment.start_time >= start_date,
             models.Appointment.end_time <= end_date
         )
