@@ -902,8 +902,8 @@
         };
 
         // Calendar Component
-        const Calendar = ({ appointments, onDateClick, onAppointmentClick }) => {
-            const [currentDate, setCurrentDate] = React.useState(new Date());
+        const Calendar = ({ appointments, onDateClick, onAppointmentClick, currentDate, setCurrentDate }) => {
+            // const [currentDate, setCurrentDate] = React.useState(new Date()); // State lifted to parent (Appointments)
 
             const getDaysInMonth = (date) => {
                 return new Date(date.getFullYear(), date.getMonth() + 1, 0).getDate();
@@ -979,7 +979,7 @@
             const navigateMonth = (direction) => {
                 const newDate = new Date(currentDate);
                 newDate.setMonth(currentDate.getMonth() + direction);
-                setCurrentDate(newDate); // This now calls the prop handler from DoctorSchedule
+                setCurrentDate(newDate); // This now calls the prop handler from the parent (Appointments)
             };
 
             return (
@@ -1024,38 +1024,44 @@
             const [selectedAppointment, setSelectedAppointment] = React.useState(null);
             const [selectedDate, setSelectedDate] = React.useState(null);
             const [showModal, setShowModal] = React.useState(false);
+            const [currentDate, setCurrentDate] = React.useState(new Date()); // <-- Lifted state from Calendar
 
+            // --- NEW: Centralized function to fetch appointments --- 
+            const fetchAppointments = React.useCallback(async () => {
+                setLoading(true);
+                try {
+                    // Use the 'currentDate' state to determine the month to fetch
+                    const firstDay = new Date(Date.UTC(currentDate.getFullYear(), currentDate.getMonth(), 1)); // Use UTC to avoid timezone shifts
+                    const lastDay = new Date(Date.UTC(currentDate.getFullYear(), currentDate.getMonth() + 1, 0)); // Day 0 of next month is last day of current
+
+                    // Helper to format date as YYYY-MM-DD using UTC values
+                    const toISODate = (d) => {
+                        const year = d.getUTCFullYear();
+                        const month = String(d.getUTCMonth() + 1).padStart(2, '0'); // months are 0-indexed
+                        const day = String(d.getUTCDate()).padStart(2, '0');
+                        return `${year}-${month}-${day}`;
+                    };
+
+                    const startDate = toISODate(firstDay);
+                    const endDate = toISODate(lastDay);
+
+                    console.log(`[Appointments] Fetching data for ${startDate} to ${endDate}`);
+                    const data = await api(`/api/v1/appointments?start_date=${startDate}&end_date=${endDate}`);
+                    
+                    setAppointments(Array.isArray(data) ? data : data.appointments || []);
+                } catch (error) {
+                    console.error("--- FAILED TO FETCH APPOINTMENTS ---");
+                    console.error("The API returned an error:", error.message);
+                    console.error("Full error object:", error);
+                } finally {
+                    setLoading(false);
+                }
+            }, [currentDate]); // This function depends on 'currentDate'
+
+            // --- UPDATED: useEffect now runs fetchAppointments and re-runs when 'currentDate' changes --- 
             React.useEffect(() => {
-                const fetchAppointments = async () => {
-                    try {
-                        // --- START EDIT: Fix 422 Error ---
-                        // The API requires a start_date and end_date.
-                        // We will default to the current month for now.
-                        const today = new Date();
-                        const firstDay = new Date(today.getFullYear(), today.getMonth(), 1);
-                        const lastDay = new Date(today.getFullYear(), today.getMonth() + 1, 0); // Day 0 of next month is last day of current
-
-                        // Helper to format date as YYYY-MM-DD
-                        const toISODate = (d) => d.toISOString().split('T')[0];
-
-                        const startDate = toISODate(firstDay);
-                        const endDate = toISODate(lastDay);
-
-                        const data = await api(`/api/v1/appointments?start_date=${startDate}&end_date=${endDate}`);
-                        // --- END EDIT ---
-                        setAppointments(Array.isArray(data) ? data : data.appointments || []);
-                    } catch (error) {
-                        // --- START EDIT ---
-                        console.error("--- FAILED TO FETCH APPOINTMENTS ---");
-                        console.error("The API returned an error:", error.message);
-                        console.error("Full error object:", error);
-                        // --- END EDIT ---
-                    } finally {
-                        setLoading(false);
-                    }
-                };
                 fetchAppointments();
-            }, []);
+            }, [fetchAppointments]); // Runs when fetchAppointments (and thus currentDate) changes
 
             const handleDateClick = (date) => { // 'date' here is the Date object from the Calendar cell
                 console.log("[Appointments] handleDateClick received:", date); // <-- Add log here
@@ -1074,16 +1080,20 @@
                 <div className="space-y-8">
                     <div className="flex items-center justify-between">
                         <h2 className="text-lg sm:text-xl lg:text-2xl font-bold text-medical-dark font-primary">Appointments</h2>
-                        <button onClick={() => openModal('Create New Appointment', <AppointmentEditor onClose={closeModal} user={user} />)} className="medical-button px-6 py-3 text-white rounded-xl font-secondary flex flex-wrap items-center gap-2 relative z-10">
+                        {/* --- UPDATED: Pass refreshAppointments to the modal --- */}
+                        <button onClick={() => openModal('Create New Appointment', <AppointmentEditor onClose={closeModal} user={user} refreshAppointments={fetchAppointments} />)} className="medical-button px-6 py-3 text-white rounded-xl font-secondary flex flex-wrap items-center gap-2 relative z-10">
                             <i className="fas fa-plus"></i>
                             <span>New Appointment</span>
                         </button>
                     </div>
 
+                    {/* --- UPDATED: Pass currentDate and setCurrentDate to Calendar --- */}
                     <Calendar
                         appointments={appointments}
                         onDateClick={handleDateClick}
                         onAppointmentClick={handleAppointmentClick}
+                        currentDate={currentDate}
+                        setCurrentDate={setCurrentDate}
                     />
 
                     <Modal
@@ -3828,6 +3838,8 @@ const DailyViewModalContent = ({ date, appointmentsForDate }) => {
             const [lastName, setLastName] = React.useState('');
             const [dob, setDob] = React.useState('');
             const [city, setCity] = React.useState('');
+            const [phoneNumber, setPhoneNumber] = React.useState(''); // <-- ADD State
+            const [email, setEmail] = React.useState(''); // <-- ADD State
 
             // New state for patient search
             const [patientSearch, setPatientSearch] = React.useState('');
@@ -3835,6 +3847,7 @@ const DailyViewModalContent = ({ date, appointmentsForDate }) => {
             const [availableSlots, setAvailableSlots] = React.useState([]);
             const [loadingSlots, setLoadingSlots] = React.useState(false); // <-- Add loading state for slots
             const [slotError, setSlotError] = React.useState(''); // <-- Add error state for slots
+            const [isWalkIn, setIsWalkIn] = React.useState(false); // <-- NEW: State for walk-in toggle
 
 
             React.useEffect(() => {
@@ -3935,8 +3948,10 @@ const DailyViewModalContent = ({ date, appointmentsForDate }) => {
                     if (!firstName) validationErrors.push('First Name is a required field.');
                     if (!dob) validationErrors.push('Date of Birth is a required field.');
                 }
-                if (!appointmentDate) validationErrors.push('Appointment Date is required.');
-                if (!appointmentTime) validationErrors.push('Appointment Time is required.');
+                if (!isWalkIn) { // Only require date/time if NOT a walk-in
+                    if (!appointmentDate) validationErrors.push('Appointment Date is required.');
+                    if (!appointmentTime) validationErrors.push('Appointment Time is required.');
+                }
 
                 if (validationErrors.length > 0) {
                     setErrors(validationErrors);
@@ -3944,43 +3959,62 @@ const DailyViewModalContent = ({ date, appointmentsForDate }) => {
                 }
                 setErrors([]);
 
-                // --- Get start_time and end_time directly from the selected slot --- 
-                // appointmentTime now holds the full ISO start_time string from the selected slot
-                const selectedSlot = availableSlots.find(s => s.start_time === appointmentTime);
-                if (!selectedSlot) {
-                    // This shouldn't happen if a slot was clicked, but handle defensively
-                    setErrors(['Invalid time slot selected. Please select again.']);
-                    return;
+                // --- Get start_time and end_time (or null if walk-in) --- 
+                let formattedStartTime = null;
+                let formattedEndTime = null;
+                if (!isWalkIn) {
+                    const selectedSlot = availableSlots.find(s => s.start_time === appointmentTime);
+                    if (!selectedSlot) {
+                        setErrors(['Invalid time slot selected. Please select again.']);
+                        return;
+                    }
+                    formattedStartTime = selectedSlot.start_time;
+                    formattedEndTime = selectedSlot.end_time;
                 }
-                const formattedStartTime = selectedSlot.start_time;
-                const formattedEndTime = selectedSlot.end_time; // Use end_time directly from the slot
                 // --- End Slot Time Logic ---
 
+                // --- EDIT: Initialize payload ---
                 let payload = {
                     location_id: locationId,
                     start_time: formattedStartTime,
                     end_time: formattedEndTime,
-                    reason
+                    reason,
+                    patient_id: null, // Default to null
+                    new_patient: null // Default to null
                 };
 
                 if (isNewPatient) {
-                    payload.new_patient = { // <-- FIX: Changed 'patient' to 'new_patient' to match API
+                    payload.new_patient = { // Fill the new_patient object
                         first_name: firstName,
                         last_name: lastName,
                         date_of_birth: dob,
-                        city: city
+                        city: city,
+                        phone_number: phoneNumber, // <-- ADD Field
+                        email: email // <-- ADD Field
                     };
+                    // Keep payload.patient_id as null
                 } else {
-                    payload.patient_id = parseInt(patientId);
+                    payload.patient_id = parseInt(patientId); // Fill patient_id
+                    // Ensure patient_id is not NaN
+                    if (isNaN(payload.patient_id)) {
+                        // Handle error: patientId wasn't a valid number string
+                        setErrors(['Invalid Patient ID selected. Please select a valid patient.']);
+                        return;
+                    }
+                    // Keep payload.new_patient as null
                 }
 
+                // --- NEW: Add is_walk_in flag if checked ---
+                if (isWalkIn) {
+                    payload.is_walk_in = true;
+                }
 
                 try {
                     await api('/api/v1/appointments', {
                         method: 'POST',
                         body: JSON.stringify(payload)
                     });
-                    if (refreshAppointments) refreshAppointments();
+                    if (refreshAppointments) refreshAppointments(); // <-- REFRESH aPPOINTMENTS LIST
                     onClose();
                 } catch (err) {
                     // --- EDIT: Use the *parsed* error message from the api utility --- 
@@ -4038,6 +4072,16 @@ const DailyViewModalContent = ({ date, appointmentsForDate }) => {
                                     <label className="block text-sm font-medium text-medical-gray mb-2">City</label>
                                     <input type="text" value={city} onChange={(e) => setCity(e.target.value)} className="form-input-themed" placeholder="Enter city" />
                                 </div>
+                                {/* --- ADD Phone and Email Inputs --- */}
+                                <div>
+                                    <label className="block text-sm font-medium text-medical-gray mb-2">Phone Number</label>
+                                    <input type="tel" value={phoneNumber} onChange={(e) => setPhoneNumber(e.target.value)} className="form-input-themed" placeholder="Enter phone number" />
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-medium text-medical-gray mb-2">Email</label>
+                                    <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} className="form-input-themed" placeholder="Enter email" />
+                                </div>
+                                {/* --- END Add --- */}
                             </div>
                         </div>
                     ) : (
@@ -4077,6 +4121,20 @@ const DailyViewModalContent = ({ date, appointmentsForDate }) => {
                         </div>
                     )}
 
+                    {/* --- NEW: Walk-in Toggle --- */}
+                    <div className="flex items-center space-x-2 my-4">
+                        <input 
+                            type="checkbox" 
+                            id="walk-in-toggle"
+                            checked={isWalkIn}
+                            onChange={(e) => setIsWalkIn(e.target.checked)}
+                            className="w-4 h-4 text-medical-accent rounded focus:ring-medical-accent"
+                        />
+                        <label htmlFor="walk-in-toggle" className="text-sm font-medium text-medical-gray cursor-pointer">
+                            Register as Walk-in Patient (No specific time slot)
+                        </label>
+                    </div>
+                    {/* --- END NEW --- */}
 
                     <div className="border-t border-gray-200 pt-4 space-y-4">
                         <h3 className="text-lg font-semibold text-medical-dark">Appointment Details</h3>
@@ -4102,10 +4160,11 @@ const DailyViewModalContent = ({ date, appointmentsForDate }) => {
                                     onChange={(e) => { const newDate = e.target.value; console.log('[AppointmentEditor] Date changed:', newDate); setAppointmentDate(newDate); }}
                                     className="custom-datetime"
                                     min={new Date().toISOString().split('T')[0]} // Prevent selecting past dates
+                                    disabled={isWalkIn} // Disable if walk-in
                                 />
                             </div>
-                            <div className="md:col-span-3"> {/* <-- Make Time span full width below Date/Location */}
-                                <label className="custom-label required">Time</label>
+                            <div className={`md:col-span-3 ${isWalkIn ? 'opacity-50' : ''}`}> {/* <-- Dim if walk-in */}
+                                <label className={`custom-label ${!isWalkIn ? 'required' : ''}`}>Time</label> {/* Only required if not walk-in */}
                                 {/* --- START EDIT: Updated Slot Display --- */}
                                 {loadingSlots ? (
                                     <LoadingSpinner />
@@ -4122,7 +4181,8 @@ const DailyViewModalContent = ({ date, appointmentsForDate }) => {
                                                     key={slot.id} // Use slot ID as key
                                                     type="button"
                                                     onClick={() => setAppointmentTime(slot.start_time)} // Store the full ISO string
-                                                    className={`p-2 rounded-lg border text-xs sm:text-sm transition-all ${appointmentTime === slot.start_time ? 'bg-medical-accent text-white border-medical-accent font-semibold shadow' : 'border-gray-300 hover:border-medical-accent hover:text-medical-accent'}`}
+                                                    className={`p-2 rounded-lg border text-xs sm:text-sm transition-all ${appointmentTime === slot.start_time ? 'bg-medical-accent text-white border-medical-accent font-semibold shadow' : 'border-gray-300 hover:border-medical-accent hover:text-medical-accent'} ${isWalkIn ? 'cursor-not-allowed' : ''}`}
+                                                    disabled={isWalkIn} // Disable if walk-in
                                                 >
                                                     {/* Format time like 09:30 AM from ISO string */}
                                                     {new Date(slot.start_time).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true })}

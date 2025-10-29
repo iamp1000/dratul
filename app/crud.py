@@ -239,76 +239,12 @@ async def create_appointment(
     """
     appointment_data = appointment.dict()
 
-    # Validate start time and duration
-    start_time = appointment_data['start_time']
-    end_time = appointment_data['end_time']
-
-    # Pull configured interval (default 15)
-    interval_entry = get_system_config(db, "appointment_interval_minutes")
-    slot_minutes = int(interval_entry.value) if interval_entry and str(interval_entry.value).isdigit() else 15
-    if start_time.minute % slot_minutes != 0:
-        raise CRUDError(f"Appointments must start on a {slot_minutes}-minute interval.")
-    if (end_time - start_time) != timedelta(minutes=slot_minutes):
-        raise CRUDError(f"Appointment duration must be exactly {slot_minutes} minutes.")
-
-    # Enforce weekly schedule availability and unavailable periods
-    # 1) Weekly schedule
-    day_of_week = start_time.weekday()
-    schedule = db.query(models.LocationSchedule).filter(
-        models.LocationSchedule.location_id == appointment_data['location_id'],
-        models.LocationSchedule.day_of_week == day_of_week,
-        models.LocationSchedule.is_available == True
-    ).first()
-    if not schedule:
-        raise CRUDError("Selected day is unavailable for this location.")
-    # Ensure within working hours
-    schedule_start = datetime.combine(start_time.date(), schedule.start_time)
-    schedule_end = datetime.combine(start_time.date(), schedule.end_time)
-    if not (schedule_start <= start_time and end_time <= schedule_end):
-        raise CRUDError("Selected time is outside working hours for this location.")
-    # Respect break times if configured
-    if schedule.break_start and schedule.break_end:
-        break_start_dt = datetime.combine(start_time.date(), schedule.break_start)
-        break_end_dt = datetime.combine(start_time.date(), schedule.break_end)
-        if not (end_time <= break_start_dt or start_time >= break_end_dt):
-            raise CRUDError("Selected time falls within a break period.")
-
-    # 2) Unavailable periods
-    overlaps_unavailable = db.query(models.UnavailablePeriod).filter(
-        models.UnavailablePeriod.location_id == appointment_data['location_id'],
-        models.UnavailablePeriod.start_datetime < end_time,
-        models.UnavailablePeriod.end_datetime > start_time
-    ).first()
-    if overlaps_unavailable:
-        raise CRUDError("Selected time is blocked due to unavailability.")
-
-    # 3) Daily booking limits per patient (basic limit)
-    patient_id_for_limit = appointment_data.get('patient_id')
-    if patient_id_for_limit:
-        day_start = datetime.combine(start_time.date(), time.min)
-        day_end = datetime.combine(start_time.date(), time.max)
-        limit_entry = get_system_config(db, "appointment_daily_limit")
-        daily_limit_val = int(limit_entry.value) if limit_entry and str(limit_entry.value).isdigit() else SecurityConfig.APPOINTMENT_BOOKING_DAILY_LIMIT
-        daily_count = db.query(models.Appointment).filter(
-            models.Appointment.patient_id == patient_id_for_limit,
-            models.Appointment.start_time >= day_start,
-            models.Appointment.end_time <= day_end,
-            models.Appointment.status != models.AppointmentStatus.cancelled
-        ).count()
-        if daily_count >= daily_limit_val:
-            raise CRUDError("Daily booking limit reached for this patient.")
-
-    # 4) Respect Google Calendar busy times as source of truth
-    try:
-        from app.services.calendar_service import GoogleCalendarService
-        calendar_service = GoogleCalendarService()
-        if calendar_service.enabled:
-            busy = await calendar_service.get_busy_times(start_time, end_time)
-            if busy:
-                raise CRUDError("Selected time is busy in Google Calendar.")
-    except Exception:
-        # Fail-open if calendar check throws; we already enforce overlaps elsewhere
-        pass
+    # --- OBSOLETE VALIDATION REMOVED ---
+    # All time-based validation (intervals, schedule, breaks, unavailability, GCal)
+    # is now handled by the slot generation service (slot_service.py) and the
+    # endpoint logic (appointments.py) which finds and locks an existing AppointmentSlot.
+    # This CRUD function now assumes the slot is valid.
+    # --- END OBSOLETE VALIDATION ---
 
     # NEW: Add calendar event creation to the appointment workflow
     appointment_data['google_calendar_event_id'] = None # Initialize field
@@ -334,16 +270,14 @@ async def create_appointment(
         del appointment_data['new_patient']
 
 
-    # Check for scheduling conflicts for the location/doctor
-    existing_appointment = db.query(models.Appointment).filter(
-        models.Appointment.location_id == appointment_data['location_id'], # Assuming one doctor per location for now
-        models.Appointment.start_time < appointment_data['end_time'],
-        models.Appointment.end_time > appointment_data['start_time'],
-        models.Appointment.status != models.AppointmentStatus.cancelled
-    ).first()
+    # --- OBSOLETE CONFLICT CHECK REMOVED ---
+    # This simple overlap check is redundant. The new transactional logic in
+    # app/routers/appointments.py finds and locks the specific AppointmentSlot.
+    # That lock is the source of truth for availability, preventing race conditions.
+    # --- END OBSOLETE CONFLICT CHECK ---
 
-    if existing_appointment:
-        raise CRUDError("An appointment already exists at this time.")
+    # Remove the is_walk_in flag before creating the model, as it's not a DB field
+    appointment_data.pop('is_walk_in', None)
 
     # Create the appointment model instance
     # --- REFACTORED: Pass new required fields --- 
@@ -367,7 +301,7 @@ async def create_appointment(
             create_audit_log(
                 db=db,
                 user_id=user_id,
-                action="Created Appointment",
+                action=schemas.AuditAction.CREATE, # Use the correct Enum value
                 category="APPOINTMENT",
                 resource_type="Appointment",
                 resource_id=db_appointment.id,
@@ -1426,8 +1360,9 @@ def get_appointments_by_date_range(db: Session, start_date: datetime, end_date: 
             joinedload(models.Appointment.patient),
             joinedload(models.Appointment.slot)
         ).filter(
-            models.Appointment.start_time >= start_date,
-            models.Appointment.end_time <= end_date
+            # Use overlap logic for calendars: (StartA < EndB) AND (EndA > StartB)
+            models.Appointment.start_time < end_date,
+            models.Appointment.end_time > start_date
         )
         if location_id is not None:
             query = query.filter(models.Appointment.location_id == location_id)

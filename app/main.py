@@ -4,7 +4,7 @@ import logging
 import sys
 from datetime import datetime, timezone, timedelta, date
 from typing import List, Optional
-from fastapi import FastAPI, Depends, HTTPException, Request, status, Form
+from fastapi import FastAPI, Depends, HTTPException, Request, status, Form, Response
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import RedirectResponse, JSONResponse, FileResponse, HTMLResponse
 from fastapi.staticfiles import StaticFiles
@@ -15,11 +15,14 @@ from app import models, schemas, crud
 from app.database import get_db, create_tables, drop_tables # Explicitly import drop_tables for internal use
 from app.hash_password import create_or_update_admin, create_initial_data
 from app.routers import auth, patients, appointments, schedule, unavailable_periods, locations, users, prescriptions, logs, services, consultations, slots
+from app.services.whatsapp_service import whatsapp_service # Import the WhatsApp service instance
 # --- Logging Configuration --- START ---
 # Configure root logger to output DEBUG messages to console
 logging.basicConfig(level=logging.DEBUG,
                     stream=sys.stdout, # Explicitly direct to stdout
                     format='%(levelname)-8s %(name)s: %(message)s')
+
+logger = logging.getLogger(__name__)
 # Optional: Set level for specific libraries if too noisy
 # logging.getLogger("uvicorn.access").setLevel(logging.WARNING)
 # logging.getLogger("sqlalchemy.engine").setLevel(logging.INFO)
@@ -61,6 +64,37 @@ app.include_router(logs.router, prefix="/api/v1")
 app.include_router(services.router, prefix="/api/v1")
 app.include_router(consultations.router, prefix="/api/v1") # Add the new consultations router
 app.include_router(slots.router, prefix="/api/v1") # Add the new slots router
+
+# +++ NEW TWILIO WEBHOOK ENDPOINT +++
+@app.post("/webhooks/twilio", status_code=status.HTTP_204_NO_CONTENT)
+async def handle_twilio_webhook(
+    From: str = Form(...), # Sender's WhatsApp number (e.g., whatsapp:+1...)
+    Body: str = Form(...), # Message text
+    # Twilio sends many other fields, but From and Body are essential
+    db: Session = Depends(get_db)
+):
+    """
+    Receive incoming WhatsApp messages from Twilio webhook.
+    """
+    logger.info(f"Received Twilio webhook message from: {From}, Body: {Body}")
+    # Construct a simplified message_data dictionary for process_incoming_message
+    phone_number_without_prefix = From.split(':')[-1] # Get number part after 'whatsapp:'
+    message_data = {
+        "from": phone_number_without_prefix, 
+        "type": "text", # Assume text for simplicity from Twilio's basic webhook
+        "text": {"body": Body}
+    }
+    try:
+        # Process the message using the existing service function
+        await whatsapp_service.process_incoming_message(message_data, db)
+    except Exception as e:
+        # Log errors but still return 2xx to Twilio to prevent retries for processing errors
+        logger.error(f"Error processing Twilio webhook for {From}: {e}", exc_info=True)
+        # Optionally, you could send an error message back via WhatsApp API here if needed
+    
+    # Return No Content to acknowledge receipt to Twilio
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
+# +++ END NEW ENDPOINT +++
 
 
 # ==================== AUTHENTICATION (UPGRADED) ====================

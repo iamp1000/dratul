@@ -29,7 +29,7 @@ def create_new_patient(
     """
     db_patient = crud.get_patient_by_phone(db, phone_number=patient.phone_number)
     if db_patient:
-        raise HTTPException(status_code=400, detail="Patient with this phone number already exists")
+        raise HTTPException(status_code=400, detail="👥 **Duplicate Patient:** A patient with this phone number already exists in the system.")
     
     new_patient = crud.create_patient(db=db, patient=patient, created_by=current_user.id)
     crud.create_audit_log(
@@ -81,7 +81,7 @@ def read_all_patients(skip: int = 0, limit: int = 200, search: Optional[str] = N
 def read_patient_details(patient_id: int, db: Session = Depends(get_db), current_user: models.User = Depends(security.get_current_user)):
     db_patient = crud.get_patient(db, patient_id=patient_id)
     if db_patient is None:
-        raise HTTPException(status_code=404, detail="Patient not found")
+        raise HTTPException(status_code=404, detail="🔍 **Not Found:** The patient with the specified ID could not be found.")
     crud.create_audit_log(
         db=db, user_id=current_user.id, action="READ", category="PATIENT", 
         resource_id=patient_id, details=f"Accessed details for patient ID {patient_id}"
@@ -98,7 +98,7 @@ def read_patient_composite(
     """Return decrypted patient demographics with recent appointments, prescriptions, and remarks."""
     patient = crud.get_patient(db, patient_id)
     if not patient:
-        raise HTTPException(status_code=404, detail="Patient not found")
+        raise HTTPException(status_code=404, detail="🔍 **Not Found:** The patient with the specified ID could not be found.")
     full_name = security.encryption_service.decrypt(patient.name_encrypted) if patient.name_encrypted else ""
     first_name, last_name = (full_name.split(" ", 1) + [None])[:2] if full_name else ("", None)
     phone = security.encryption_service.decrypt(patient.phone_number_encrypted) if patient.phone_number_encrypted else None
@@ -138,7 +138,7 @@ def update_patient_details(
 ):
     updated = crud.update_patient(db, patient_id, payload)
     if not updated:
-        raise HTTPException(status_code=404, detail="Patient not found")
+        raise HTTPException(status_code=404, detail="🔍 **Not Found:** The patient could not be found to update.")
     return updated
 
 @router.get("/patients/{patient_id}/remarks/", response_model=List[schemas.RemarkResponse])

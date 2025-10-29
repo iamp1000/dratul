@@ -28,7 +28,7 @@ def create_consultation_endpoint(
         if current_user.role not in [models.UserRole.doctor, models.UserRole.admin]:
              raise HTTPException(
                  status_code=status.HTTP_403_FORBIDDEN,
-                 detail="User does not have permission to create consultations."
+                 detail="🚫 **Access Denied:** You do not have the necessary permissions to create consultations."
              )
         
         db_consultation = crud.create_consultation(db=db, consultation=consultation, user_id=current_user.id)
@@ -37,7 +37,7 @@ def create_consultation_endpoint(
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
     except Exception as e:
         # Catch unexpected errors
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="An unexpected error occurred while creating the consultation.")
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Internal Server Error: An unexpected error occurred while creating the consultation.")
 
 @router.get("/{consultation_id}", response_model=schemas.ConsultationResponse)
 def get_consultation_endpoint(
@@ -51,7 +51,7 @@ def get_consultation_endpoint(
     """
     db_consultation = crud.get_consultation(db=db, consultation_id=consultation_id)
     if db_consultation is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Consultation not found")
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="🔍 **Not Found:** The consultation with the specified ID could not be found.")
     
     # Basic permission check (e.g., allow admin or the doctor who created it, or if related to a patient they can access)
     # More granular checks might be needed depending on roles

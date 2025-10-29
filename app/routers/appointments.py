@@ -35,6 +35,11 @@ async def create_new_appointment(
     front_end_roles = [UserRole.admin, UserRole.staff, UserRole.receptionist, UserRole.manager, UserRole.doctor]
     booking_type = BookingType.walk_in if current_user.role in front_end_roles else BookingType.strict
 
+    # --- Override booking_type if is_walk_in flag is explicitly set --- 
+    if hasattr(appointment, 'is_walk_in') and appointment.is_walk_in is True:
+        booking_type = BookingType.walk_in
+        print(f"INFO: is_walk_in flag detected. Forcing booking_type to walk_in for user {current_user.username}.")
+
     # --- 2. Start Transactional Booking Logic ---
     try:
         # Ensure start_time is timezone-aware UTC for query
@@ -53,40 +58,60 @@ async def create_new_appointment(
         if not target_slot:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Selected time slot does not exist."
+                detail="😕 **Slot Not Found:** The selected time slot does not exist or is no longer available."
             )
 
-        # --- 4. Check Slot Status and Capacity ---
+        # --- 4. Check Slot Status ---
         if target_slot.status in [SlotStatus.emergency_block, SlotStatus.unavailable]:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Selected time slot is blocked and not available for booking."
+                detail="🚫 **Slot Unavailable:** The selected time slot is blocked and not available for booking."
             )
 
-        # --- 5. Apply Booking Rules ---
-        if booking_type == BookingType.walk_in:
-            # This is a 'Walk-In' (Front-End) user.
-            # They can overbook. No capacity check needed.
-            print(f"WALK-IN BOOKING: User {current_user.username} is overbooking slot {target_slot.id}")
-        
-        elif booking_type == BookingType.strict:
-            # This is a 'Strict' (e.g., Online) user.
-            # Check capacity.
+        # --- 5. Apply Booking Rules & Update Slot Status ---
+        slot_updated = False
+        if booking_type == BookingType.strict:
+            # --- Strict Booking (e.g., Online Patient) ---
+            # Check if already booked 
+            if target_slot.status == SlotStatus.booked:
+                 raise HTTPException(
+                     status_code=status.HTTP_400_BAD_REQUEST,
+                     detail="🚫 **Slot Unavailable:** The selected time slot is already booked."
+                 )
+            # Check capacity
             if target_slot.current_strict_appointments >= target_slot.max_strict_capacity:
                 raise HTTPException(
                     status_code=status.HTTP_400_BAD_REQUEST,
-                    detail="This time slot is fully booked for online appointments."
+                    detail="🈵 **Slot Full:** This time slot is fully booked for online appointments. Please select another time."
                 )
             
-            # If not full, increment the strict count
+            # Update slot: Increment counter and set status to booked
             target_slot.current_strict_appointments += 1
-            
-            # If this booking fills the slot, mark it as 'booked'
-            if target_slot.current_strict_appointments == target_slot.max_strict_capacity:
-                target_slot.status = SlotStatus.booked
-            
+            target_slot.status = SlotStatus.booked # Always booked after first strict booking
             db.add(target_slot)
-            print(f"STRICT BOOKING: Slot {target_slot.id} count incremented to {target_slot.current_strict_appointments}")
+            slot_updated = True
+            print(f"STRICT BOOKING: Slot {target_slot.id} status set to booked. Count: {target_slot.current_strict_appointments}")
+
+        elif booking_type == BookingType.walk_in:
+            # --- Walk-In Booking using a Slot (e.g., Staff assigning a walk-in to an empty slot) ---
+            # Check if the slot is already booked (by strict or a previous walk-in)
+            if target_slot.status == SlotStatus.booked:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="🚫 **Slot Unavailable:** The selected time slot is already booked."
+                ) # No overbooking allowed
+            
+            # If the slot was available, mark it as booked. No capacity check needed.
+            if target_slot.status == SlotStatus.available:
+                target_slot.status = SlotStatus.booked
+                db.add(target_slot)
+                slot_updated = True
+                print(f"WALK-IN SLOT BOOKING: User {current_user.username} booked available slot {target_slot.id}. Status set to booked.")
+            # (No 'else' needed here, as the check above handles the 'booked' case)
+        
+        # Persist slot changes if any were made
+        if slot_updated:
+             db.flush() # Ensure slot changes are pushed before creating appointment
 
         # --- 6. Create the Appointment Record ---
         # We pass the slot_id and booking_type to the refactored crud function
@@ -112,7 +137,7 @@ async def create_new_appointment(
         print(f"ERROR during transactional appointment creation: {e}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="An internal error occurred while creating the appointment."
+            detail="Internal Server Error: An unexpected error occurred while creating the appointment."
         )
     
     # Note: The 'create_appointment' crud function now handles its own audit logging for creation.
@@ -150,7 +175,7 @@ async def update_appointment_endpoint(
     """Update an appointment and sync changes to Google Calendar."""
     db_appointment = await crud.update_appointment(db=db, appointment_id=appointment_id, appointment_update=appointment_update)
     if db_appointment is None:
-        raise HTTPException(status_code=404, detail="Appointment not found")
+        raise HTTPException(status_code=404, detail="🔍 **Not Found:** The requested appointment could not be found.")
     
     background_tasks.add_task(
         crud.create_audit_log,
@@ -176,7 +201,7 @@ async def delete_appointment_endpoint(
         ).filter(models.Appointment.id == appointment_id).first()
 
         if not db_appointment:
-            raise HTTPException(status_code=404, detail="Appointment not found")
+            raise HTTPException(status_code=404, detail="🔍 **Not Found:** The requested appointment could not be found.")
 
         # --- 2. Lock the slot (if it exists) to prevent race conditions ---
         if db_appointment.slot:
@@ -203,7 +228,7 @@ async def delete_appointment_endpoint(
         success = await crud.delete_appointment(db=db, appointment_id=appointment_id, db_appointment=db_appointment)
         if not success:
              # This shouldn't happen if we just found it, but as a safeguard:
-            raise HTTPException(status_code=404, detail="Appointment not found during deletion.")
+            raise HTTPException(status_code=404, detail="🔍 **Not Found:** The appointment could not be found during the deletion process.")
 
         # --- 5. Commit the transaction (deletes appointment, updates slot) ---
         db.commit()
@@ -216,7 +241,7 @@ async def delete_appointment_endpoint(
         print(f"ERROR during transactional appointment deletion: {e}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="An internal error occurred while deleting the appointment."
+            detail="Internal Server Error: An unexpected error occurred while deleting the appointment."
         )
 
     # --- 6. Add Audit Log --- 
@@ -238,7 +263,7 @@ async def update_appointment_status_endpoint(
     """Update an appointment's status and sync to Google Calendar."""
     db_appointment = await crud.update_appointment(db=db, appointment_id=appointment_id, appointment_update=status_update)
     if db_appointment is None:
-        raise HTTPException(status_code=404, detail="Appointment not found")
+        raise HTTPException(status_code=404, detail="🔍 **Not Found:** The requested appointment could not be found.")
     
     background_tasks.add_task(
         crud.create_audit_log,

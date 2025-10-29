@@ -1,7 +1,8 @@
 # app/schemas.py
 from datetime import datetime, date, time
 from typing import List, Optional, Dict, Any, Union
-from pydantic import BaseModel, Field, EmailStr, validator
+from pydantic import BaseModel, Field, EmailStr, validator, model_validator, computed_field
+# Import for encryption_service moved inside computed_field to avoid circular import
 from .models import SlotStatus # Import SlotStatus
 from enum import Enum
 
@@ -155,13 +156,82 @@ class PatientUpdate(BaseSchema):
     hipaa_authorization: Optional[bool] = None
     consent_to_treatment: Optional[bool] = None
 
-class PatientResponse(PatientBase):
+class PatientResponse(BaseSchema): # Inherit from BaseSchema, not PatientBase
     id: int
+
+    # --- Non-PII fields (copied from PatientBase) ---
+    date_of_birth: Optional[date] = None
+    city: Optional[str] = Field(None, max_length=100)
+    gender: Optional[str] = Field(None, max_length=10)
+    preferred_communication: CommunicationType = CommunicationType.phone
+    whatsapp_number: Optional[str] = Field(None, max_length=20)
+    whatsapp_opt_in: bool = False
+    hipaa_authorization: bool = False
+    consent_to_treatment: bool = False
+
+    # --- Metadata fields ---
     phone_hash: Optional[str] = None
     email_hash: Optional[str] = None
     created_by: Optional[int] = None
     created_at: datetime
     updated_at: Optional[datetime]
+
+    # --- Private fields for internal use ---
+    # These are populated from the ORM model but excluded from the JSON response.
+    # They are used by the @computed_field properties below.
+    name_encrypted: Optional[bytes] = Field(None, exclude=True)
+    phone_number_encrypted: Optional[bytes] = Field(None, exclude=True)
+    email_encrypted: Optional[bytes] = Field(None, exclude=True)
+
+    # --- Computed Fields for PII ---
+    # These fields are now compatible as they don't override a parent.
+
+    @computed_field
+    @property
+    def first_name(self) -> str:
+        from app.security import encryption_service # LAZY IMPORT
+        if not self.name_encrypted:
+            return "N/A"
+        try:
+            decrypted_name = encryption_service.decrypt(self.name_encrypted)
+            return decrypted_name.split(' ', 1)[0]
+        except Exception:
+            return "[Decrypt Error]"
+
+    @computed_field
+    @property
+    def last_name(self) -> Optional[str]:
+        from app.security import encryption_service # LAZY IMPORT
+        if not self.name_encrypted:
+            return None
+        try:
+            decrypted_name = encryption_service.decrypt(self.name_encrypted)
+            parts = decrypted_name.split(' ', 1)
+            return parts[1] if len(parts) > 1 else None
+        except Exception:
+            return "[Decrypt Error]"
+
+    @computed_field
+    @property
+    def phone_number(self) -> Optional[str]:
+        from app.security import encryption_service # LAZY IMPORT
+        if not self.phone_number_encrypted:
+            return None
+        try:
+            return encryption_service.decrypt(self.phone_number_encrypted)
+        except Exception:
+            return "[Decrypt Error]"
+
+    @computed_field
+    @property
+    def email(self) -> Optional[EmailStr]:
+        from app.security import encryption_service # LAZY IMPORT
+        if not self.email_encrypted:
+            return None
+        try:
+            return encryption_service.decrypt(self.email_encrypted)
+        except Exception:
+            return "[Decrypt Error]"
 
 # --- Location Schemas ---
 class LocationBase(BaseSchema):
@@ -197,11 +267,17 @@ class NewPatient(BaseModel):
     phone_number: Optional[str] = None
     email: Optional[EmailStr] = None
 
+    @validator('email', pre=True)
+    def empty_str_to_none(cls, v):
+        if v == "":
+            return None
+        return v
+
 class AppointmentBase(BaseSchema):
     patient_id: Optional[int] = None
     location_id: int
-    start_time: datetime
-    end_time: datetime
+    start_time: datetime # Required again
+    end_time: datetime   # Required again
     reason: Optional[str] = None
     notes: Optional[str] = None
     appointment_type: str = Field(default="consultation", max_length=50)
@@ -209,14 +285,18 @@ class AppointmentBase(BaseSchema):
 
 class AppointmentCreate(AppointmentBase):
     new_patient: Optional[NewPatient] = None
+    is_walk_in: Optional[bool] = False # Flag to indicate walk-in status from frontend
 
-    @validator('patient_id', pre=True, always=True)
-    def check_patient_logic(cls, v, values):
-        if v is None and values.get('new_patient') is None:
+    @model_validator(mode='after')
+    def check_patient_logic(self):
+        patient_id = self.patient_id
+        new_patient = self.new_patient
+
+        if patient_id is None and new_patient is None:
             raise ValueError('Either patient_id or new_patient must be provided.')
-        if v is not None and values.get('new_patient') is not None:
+        if patient_id is not None and new_patient is not None:
             raise ValueError('Cannot provide both patient_id and new_patient.')
-        return v
+        return self
 
 class AppointmentUpdate(BaseSchema):
     start_time: Optional[datetime] = None
