@@ -9,11 +9,9 @@ from enum import Enum
 # --- Enum Classes ---
 class UserRole(str, Enum):
     admin = "admin"
-    staff = "staff"
+    staff = "staff" 
     doctor = "doctor"
-    nurse = "nurse"
-    receptionist = "receptionist"
-    manager = "manager"
+    viewer = "viewer"
 
 class AppointmentStatus(str, Enum):
     scheduled = "scheduled"
@@ -38,9 +36,26 @@ class AuditAction(str, Enum):
     DELETE = "DELETE"
     LOGIN = "LOGIN"
     LOGOUT = "LOGOUT"
+    MFA_SETUP = "MFA_SETUP"
+    MFA_VERIFY = "MFA_VERIFY"
+    PASSWORD_RESET = "PASSWORD_RESET"
     ACCESS_DENIED = "ACCESS_DENIED"
     EXPORT = "EXPORT"
     PRINT = "PRINT"
+    BULK_ACTION = "BULK_ACTION"
+    LOGIN_SUCCESS = "Login Success"
+    APPOINTMENT_CREATE = "Created Appointment"
+    SLOT_BOOK_SUCCESS = "Booked Slot"
+    SLOT_BOOK_FAILED = "Slot Booking Failed"
+    SCHEDULE_WEEK_UPDATE = "Updated Weekly Schedule"
+    SCHEDULE_DAY_UPDATE = "Updated Day Schedule"
+    SLOT_RECONCILE_START = "Started Slot Reconciliation"
+    SLOTS_DELETE = "Deleted Slots"
+    SLOTS_GENERATE = "Generated Slots"
+    SLOT_RECONCILE_FINISH = "Finished Slot Reconciliation"
+    SLOT_RECONCILE_FAILED = "Failed Slot Reconciliation"
+    SLOT_EMERGENCY_BLOCK = "Emergency Block Slots"
+    SLOT_EMERGENCY_UNBLOCK = "Reverted Emergency Block Slots"
 
 # --- Base Schemas ---
 class BaseSchema(BaseModel):
@@ -48,12 +63,30 @@ class BaseSchema(BaseModel):
         from_attributes = True
 
 
+# --- Permissions Schema ---
+class PermissionSet(BaseSchema):
+    # Core System Access
+    can_access_logs: bool = Field(False, description="Can view the Audit Logs and System Health status.")
+    can_run_anomaly_fix: bool = Field(False, description="Can execute anomaly fixing tools in LogViewer.")
+    
+    # User Management
+    can_manage_users: bool = Field(False, description="Can add, edit, or delete user accounts.")
+    
+    # Patient/Data Management
+    can_edit_patient_info: bool = Field(False, description="Can edit existing patient demographic details.")
+    can_delete_patient: bool = Field(False, description="Can permanently delete patient records.")
+
+    # Appointment/Schedule Management
+    can_edit_schedule: bool = Field(False, description="Can modify weekly doctor schedules and set unavailable periods.")
+    can_manage_appointments: bool = Field(True, description="Can schedule, reschedule, and cancel appointments.")
+
+
 class User(BaseModel):
     id: int
     username: str
     email: EmailStr
     role: UserRole
-    permissions: Dict[str, Any] = {}
+    permissions: PermissionSet = Field(default_factory=PermissionSet, description="Detailed feature permissions")
     is_active: Optional[bool] = None
     mfa_enabled: Optional[bool] = None
     last_login: Optional[datetime] = None
@@ -70,7 +103,7 @@ class UserBase(BaseModel):
     email: EmailStr
     role: UserRole
     phone_number: Optional[str] = Field(None, max_length=20)
-    permissions: Optional[Dict[str, Any]] = None
+    permissions: Optional[PermissionSet] = None
 
 class UserCreate(UserBase):
     password: str = Field(..., min_length=8)
@@ -100,6 +133,9 @@ class UserResponse(UserBase):
     mfa_enabled: bool
     last_login: Optional[datetime]
     created_at: datetime
+
+    class Config:
+        from_attributes = True # Allow conversion from ORM model
 
 
 # --- Appointment Slot Schemas ---
@@ -452,6 +488,9 @@ class AuditLogResponse(BaseSchema):
     timestamp: datetime
     user: Optional[UserResponse] = None
 
+    class Config:
+        from_attributes = True # Ensure nested ORM models (like user) are converted
+
 # --- WhatsApp Schemas ---
 class WhatsAppSessionResponse(BaseSchema):
     id: int
@@ -539,6 +578,71 @@ class NotificationResponse(BaseSchema):
     channel: str
     status: str
     created_at: datetime
+
+from typing import Union, Literal # <-- Add Union and Literal
+
+# --- Health Check Schemas ---
+
+class SlotInconsistency(BaseModel):
+    slot_id: int
+    location_id: int
+    start_time: datetime
+    status: str
+    issue: str # e.g., "Booked but no appointments found"
+
+class AppointmentInconsistency(BaseModel):
+    appointment_id: int
+    patient_id: int
+    slot_id: Optional[int]
+    start_time: Optional[datetime]
+    status: str
+    issue: str # e.g., "Linked to available slot"
+
+class ConsistencyReport(BaseModel):
+    checked_at: datetime
+    booked_slots_without_appointments: List[SlotInconsistency] = []
+    available_slots_with_appointments: List[SlotInconsistency] = []
+    status_counter_mismatches: List[SlotInconsistency] = []
+    # Add more lists here as we implement more checks
+
+class FixedSlotReport(BaseModel):
+    slot_id: int
+    previous_status: str
+    new_status: str
+    details: str
+
+class FixedCounterReport(BaseModel):
+    slot_id: int
+    previous_count: int
+    new_count: int
+    details: str
+
+class ConsistencyFixReport(BaseModel):
+    checked_at: datetime
+    fixed_slots: List[FixedSlotReport] = []
+    fixed_counters: List[FixedCounterReport] = []
+    errors: List[str] = []
+
+# --- Combined Log/Health Entry Schema ---
+class HealthCheckEntry(BaseModel):
+    # Mimics AuditLogResponse fields where possible for easier frontend display
+    id: Optional[int] = None # Health checks don't have IDs like logs
+    timestamp: datetime
+    username: str = "System Health"
+    category: str = "HEALTH_CHECK"
+    severity: str = "WARN" # Default severity for inconsistencies
+    action: str # Describes the check type, e.g., "Booked Slot Anomaly"
+    resource_type: Optional[str] = None # e.g., "AppointmentSlot"
+    resource_id: Optional[int] = None # e.g., slot_id
+    details: str # The specific issue found
+    log_type: Literal['health_alert'] = 'health_alert' # Differentiator field
+
+class AuditLogEntry(AuditLogResponse):
+    # Add a differentiator field to the existing log response
+    log_type: Literal['audit_log'] = 'audit_log'
+
+# Union type for the comprehensive log endpoint response
+ComprehensiveLogEntry = Union[AuditLogEntry, HealthCheckEntry]
 
 # --- EMR / Consultation Schemas ---
 
@@ -656,6 +760,10 @@ class ConsultationBase(BaseSchema):
     quick_notes: Optional[str] = None # Quill Delta JSON stored as string or JSONB
     complaints: Optional[str] = None
     systemic_examination: Optional[str] = None # Quill Delta JSON stored as string or JSONB
+    # NEW: Physical Examination
+    physical_examination_notes: Optional[str] = None # Quill Delta JSON
+    breast_examination_notes: Optional[str] = None # Quill Delta JSON
+    per_speculum_notes: Optional[str] = None # Quill Delta JSON
     advice: Optional[str] = None # Quill Delta JSON stored as string or JSONB
     # Follow Up
     next_visit_date: Optional[date] = None
@@ -681,6 +789,9 @@ class ConsultationUpdate(BaseSchema):
     quick_notes: Optional[str] = None
     complaints: Optional[str] = None
     systemic_examination: Optional[str] = None
+    physical_examination_notes: Optional[str] = None
+    breast_examination_notes: Optional[str] = None
+    per_speculum_notes: Optional[str] = None
     advice: Optional[str] = None
     next_visit_date: Optional[date] = None
     next_visit_instructions: Optional[str] = None

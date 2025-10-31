@@ -42,12 +42,12 @@ def login_for_access_token(db: Session = Depends(get_db), form_data: OAuth2Passw
             headers={"WWW-Authenticate": "Bearer"},
         )
     
-    # --- Add Audit Log on Successful Login --- 
+    # --- Add Audit Log on Successful Login (Force Reload v1) --- 
     try:
         crud.create_audit_log(
             db=db,
             user_id=user.id,
-            action="Login Success",
+            action=models.AuditAction.LOGIN_SUCCESS, # Use the standardized Enum member
             category="AUTHENTICATION",
             details=f"User {user.username} logged in successfully."
         )

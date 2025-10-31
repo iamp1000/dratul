@@ -15,9 +15,7 @@ class UserRole(str, enum.Enum):
     admin = "admin"
     staff = "staff" 
     doctor = "doctor"
-    nurse = "nurse"
-    receptionist = "receptionist"
-    manager = "manager"
+    viewer = "viewer"
     
     @property
     def mfa_enabled(self):
@@ -37,7 +35,37 @@ class UserRole(str, enum.Enum):
     
     @property
     def permissions(self):
-        return {}
+        # Define default permission sets based on the user's role
+        if self == UserRole.admin:
+            return {
+                "can_access_logs": True,
+                "can_run_anomaly_fix": True,
+                "can_manage_users": True,
+                "can_edit_patient_info": True,
+                "can_delete_patient": True,
+                "can_edit_schedule": True,
+                "can_manage_appointments": True,
+            }
+        elif self == UserRole.doctor:
+            return {
+                "can_access_logs": True,
+                "can_run_anomaly_fix": False,
+                "can_manage_users": False,
+                "can_edit_patient_info": True,
+                "can_delete_patient": False,
+                "can_edit_schedule": True,
+                "can_manage_appointments": True,
+            }
+        # Default permissions for staff, nurse, receptionist, manager, etc.
+        return {
+            "can_access_logs": False,
+            "can_run_anomaly_fix": False,
+            "can_manage_users": False,
+            "can_edit_patient_info": False,
+            "can_delete_patient": False,
+            "can_edit_schedule": False,
+            "can_manage_appointments": True,
+        }
 
 
 class AppointmentStatus(str, enum.Enum):
@@ -71,20 +99,22 @@ class AuditAction(str, enum.Enum):
     PRINT = "PRINT"
     BULK_ACTION = "BULK_ACTION"
 
-    # --- NEWLY ADDED ACTIONS ---
-    LOGIN_SUCCESS = "Login Success"
-    CREATED_APPOINTMENT = "Created Appointment"
-    BOOKED_SLOT = "Booked Slot"
-    SLOT_BOOKING_FAILED = "Slot Booking Failed"
-    UPDATED_WEEKLY_SCHEDULE = "Updated Weekly Schedule"
-    UPDATED_DAY_SCHEDULE = "Updated Day Schedule"
-    STARTED_SLOT_RECONCILIATION = "Started Slot Reconciliation"
-    DELETED_SLOTS = "Deleted Slots"
-    GENERATED_SLOTS = "Generated Slots"
-    FINISHED_SLOT_RECONCILIATION = "Finished Slot Reconciliation"
-    FAILED_SLOT_RECONCILIATION = "Failed Slot Reconciliation"
-    EMERGENCY_BLOCK_SLOTS = "Emergency Block Slots"
-    REVERTED_EMERGENCY_BLOCK_SLOTS = "Reverted Emergency Block Slots"
+    # --- NEWLY ADDED ACTIONS (Standardized) ---
+    LOGIN_SUCCESS = "LOGIN_SUCCESS"
+    APPOINTMENT_CREATE = "APPOINTMENT_CREATE"
+    APPOINTMENT_UPDATE = "APPOINTMENT_UPDATE"
+    APPOINTMENT_DELETE = "APPOINTMENT_DELETE"
+    SLOT_BOOK_SUCCESS = "SLOT_BOOK_SUCCESS"
+    SLOT_BOOK_FAILED = "SLOT_BOOK_FAILED"
+    SCHEDULE_WEEK_UPDATE = "SCHEDULE_WEEK_UPDATE"
+    SCHEDULE_DAY_UPDATE = "SCHEDULE_DAY_UPDATE"
+    SLOT_RECONCILE_START = "SLOT_RECONCILE_START"
+    SLOT_RECONCILE_FINISH = "SLOT_RECONCILE_FINISH"
+    SLOT_RECONCILE_FAILED = "SLOT_RECONCILE_FAILED"
+    SLOTS_DELETE = "SLOTS_DELETE"
+    SLOTS_GENERATE = "SLOTS_GENERATE"
+    SLOT_EMERGENCY_BLOCK = "SLOT_EMERGENCY_BLOCK"
+    SLOT_EMERGENCY_UNBLOCK = "SLOT_EMERGENCY_UNBLOCK"
 
 class DocumentType(str, enum.Enum):
     medical_record = "medical_record"
@@ -182,6 +212,11 @@ class Consultation(Base):
     # Objective
     quick_notes = Column(Text, nullable=True) # Could store Quill Delta JSON here
     systemic_examination = Column(Text, nullable=True) # Could store Quill Delta JSON here
+    
+    # --- NEW: Physical Examination (for Gynae) ---
+    physical_examination_notes = Column(Text, nullable=True) # Quill Delta JSON
+    breast_examination_notes = Column(Text, nullable=True) # Quill Delta JSON
+    per_speculum_notes = Column(Text, nullable=True) # Quill Delta JSON
     
     # Assessment
     # Diagnoses are stored in a separate table (ConsultationDiagnosis)

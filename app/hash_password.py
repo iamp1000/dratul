@@ -60,11 +60,21 @@ def create_or_update_admin():
 
         # Upsert super admin (if we have some credential source)
         su = crud.get_user_by_identifier(db, super_username)
+        
+        # Lazy import PermissionSet to get the structure and ensure SuperAdmin gets all of them
+        from .schemas import PermissionSet
+        admin_permissions = PermissionSet(
+            can_access_logs=True, can_run_anomaly_fix=True, can_manage_users=True, 
+            can_edit_patient_info=True, can_delete_patient=True, can_edit_schedule=True,
+            can_manage_appointments=True
+        ).model_dump()
+        
         if su:
             # Ensure role and flags
             su.role = "admin" if getattr(su.role, 'value', su.role) != 'admin' else su.role
             su.is_active = True
             su.is_super_admin = True
+            su.permissions = admin_permissions # Ensure permissions are set explicitly
             # Keep password synced to provided secret/hash (if configured)
             if enforced_hash and su.password_hash != enforced_hash:
                 # If env provided hash, set directly; else if plain was provided, we already hashed
@@ -110,22 +120,29 @@ def create_or_update_admin():
             # If admin user does not exist, create them
             admin_email = os.getenv("ADMIN_DEFAULT_EMAIL", "admin@example.com")
             admin_phone = os.getenv("ADMIN_DEFAULT_PHONE", "1234567890")
+            # Lazy import PermissionSet to get the structure (if not imported above)
+            from .schemas import PermissionSet
+            default_admin_permissions = PermissionSet(
+                can_access_logs=True, can_run_anomaly_fix=True, can_manage_users=True, 
+                can_edit_patient_info=True, can_delete_patient=True, can_edit_schedule=True,
+                can_manage_appointments=True
+            ).model_dump()
+
             user_in = UserCreate(
                 username=admin_username,
                 email=admin_email,
                 password=admin_password, # The crud function will hash this
                 role="admin",
                 phone_number=admin_phone,
-                # Set required fields that are not in UserCreate schema
-                id=0, # Placeholder, will be ignored by DB
-                is_active=True,
-                mfa_enabled=False,
-                created_at=None,
-                updated_at=None,
-                last_login=None,
-                permissions={}
+                # Explicitly set permissions for the default admin user
+                permissions=default_admin_permissions
             )
-            crud.create_user(db, user_in)
+            created_user = crud.create_user(db, user_in)
+            # Explicitly set is_super_admin to False for the default admin user (ID 1) if desired
+            if created_user.id == 1:
+                 created_user.is_super_admin = True # Since the first user is typically the primary admin
+                 db.commit()
+            
             logger.info("Admin user has been created on startup.")
     except Exception as e:
         logging.getLogger(__name__).error(f"CRITICAL: Error during admin user initialization: {e}")

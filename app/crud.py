@@ -21,7 +21,7 @@ class CRUDError(Exception):
 
 # --- NEW UTILITY FUNCTION ---
 def _ensure_complete_user(user: models.User) -> models.User:
-    """Ensures the user object has non-None values for required boolean/integer fields."""
+    """Ensures the user object has non-None values for required boolean/integer fields and grants default permissions if missing."""
     if user:
         if getattr(user, 'mfa_enabled', None) is None:
             user.mfa_enabled = False
@@ -29,6 +29,17 @@ def _ensure_complete_user(user: models.User) -> models.User:
             user.is_active = True
         if getattr(user, 'failed_login_attempts', None) is None:
             user.failed_login_attempts = 0
+        
+        # FIX: Grant default permissions if the permissions column is NULL or empty ({}) 
+        # (This is needed for existing users before the schema was updated)
+        if not user.permissions or (isinstance(user.permissions, dict) and not user.permissions):
+             user.permissions = user.role.permissions
+
+        # FIX: Ensure SuperAdmin (id=1, created on startup) has full permissions
+        if user.id == 1 and user.role == models.UserRole.admin:
+            user.is_super_admin = True
+            user.permissions = user.role.permissions # Re-apply full permissions
+
     return user
 
 # ==================== USER CRUD OPERATIONS (UPGRADED) ====================
@@ -84,11 +95,41 @@ def get_users(db: Session, skip: int = 0, limit: int = 100, role: str = None, is
 
 def create_user(db: Session, user: schemas.UserCreate, created_by: int = None) -> models.User:
     """Create new user with comprehensive validation."""
+    
+    # Define a robust mapping of default permissions here, as the custom @property in model enums is unreliable.
+    default_permissions = {
+        models.UserRole.admin: {
+            "can_access_logs": True, "can_run_anomaly_fix": True, "can_manage_users": True,
+            "can_edit_patient_info": True, "can_delete_patient": True, "can_edit_schedule": True,
+            "can_manage_appointments": True,
+        },
+        models.UserRole.doctor: {
+            "can_access_logs": True, "can_run_anomaly_fix": False, "can_manage_users": False,
+            "can_edit_patient_info": True, "can_delete_patient": False, "can_edit_schedule": True,
+            "can_manage_appointments": True,
+        },
+        # Default permissions for staff
+        models.UserRole.staff: {
+            "can_access_logs": False, "can_run_anomaly_fix": False, "can_manage_users": False,
+            "can_edit_patient_info": True, "can_delete_patient": False, "can_edit_schedule": False,
+            "can_manage_appointments": True,
+        },
+        # Default permissions for viewer (read-only)
+        models.UserRole.viewer: {
+            "can_access_logs": False, "can_run_anomaly_fix": False, "can_manage_users": False,
+            "can_edit_patient_info": False, "can_delete_patient": False, "can_edit_schedule": False,
+            "can_manage_appointments": False,
+        },
+    }
+    
     try:
         if db.query(models.User).filter(models.User.username == user.username).first():
             raise CRUDError("Username already exists")
         if db.query(models.User).filter(models.User.email == user.email).first():
             raise CRUDError("Email already exists")
+        
+        # Determine permissions to apply
+        permissions_to_set = user.permissions.model_dump() if user.permissions else default_permissions.get(user.role, default_permissions[models.UserRole.staff])
         
         hashed_password = get_password_hash(user.password)
         db_user = models.User(
@@ -102,7 +143,7 @@ def create_user(db: Session, user: schemas.UserCreate, created_by: int = None) -
             mfa_enabled=False,
             failed_login_attempts=0,
             password_last_changed=datetime.utcnow(),
-            permissions=(getattr(user, 'permissions', {}) or {})
+            permissions=permissions_to_set
         )
         db.add(db_user)
         db.commit()
@@ -120,11 +161,28 @@ def update_user(db: Session, user_id: int, user_update: schemas.UserUpdate) -> O
     db_user = get_user(db, user_id=user_id)
     if not db_user:
         return None
+    
+    # SuperAdmin Protection: Prevent modification of SuperAdmin (user.id == 1)
+    if db_user.id == 1:
+        # Allow password update only for the user themselves, or if forced via separate endpoint.
+        # For CRUD updates, we'll block role and permission changes.
+        if user_update.role is not None and user_update.role != db_user.role:
+            raise CRUDError("Cannot change the role of the SuperAdmin account.")
+        if user_update.permissions is not None:
+            raise CRUDError("Cannot modify the permissions of the SuperAdmin account.")
+
     update_data = user_update.dict(exclude_unset=True)
     if "password" in update_data:
         update_data["password_hash"] = get_password_hash(update_data["password"])
         del update_data["password"]
+        # Clear password_last_changed field so it gets updated on commit
+        update_data["password_last_changed"] = datetime.utcnow()
+        
     for key, value in update_data.items():
+        # Skip role and permission updates if this is the SuperAdmin, as we already checked/raised above
+        if db_user.id == 1 and key in ['role', 'permissions']: 
+            continue
+            
         setattr(db_user, key, value)
     db.commit()
     db.refresh(db_user)
@@ -134,6 +192,11 @@ def delete_user(db: Session, user_id: int) -> bool:
     db_user = get_user(db, user_id=user_id)
     if not db_user:
         return False
+
+    # SuperAdmin Protection: Prevent deletion of SuperAdmin (user.id == 1)
+    if db_user.id == 1:
+        raise CRUDError("Cannot delete the primary SuperAdmin account (ID 1).")
+
     # Soft delete by default
     setattr(db_user, 'deleted_at', datetime.utcnow())
     setattr(db_user, 'is_active', False)
@@ -301,7 +364,7 @@ async def create_appointment(
             create_audit_log(
                 db=db,
                 user_id=user_id,
-                action=schemas.AuditAction.CREATE, # Use the correct Enum value
+                action=models.AuditAction.APPOINTMENT_CREATE.value, # Use Enum for consistency
                 category="APPOINTMENT",
                 resource_type="Appointment",
                 resource_id=db_appointment.id,
@@ -947,7 +1010,7 @@ async def emergency_cancel_appointments(db: Session, block_date: date, reason: s
         create_audit_log(
             db=db,
             user_id=user_id,
-            action="Emergency Block Slots",
+            action=models.AuditAction.SLOT_EMERGENCY_BLOCK.value, # Use Enum for consistency
             category="SLOTS",
             severity="WARN",
             details=f"Marked {blocked_slot_count} available slots as 'emergency_block' for date {block_date} due to reason: {reason}"
@@ -1052,7 +1115,7 @@ def delete_unavailable_period(db: Session, period_id: int) -> bool:
             create_audit_log(
                 db=db, 
                 user_id=None, # Or pass user_id if available from calling context
-                action="Reverted Emergency Block Slots",
+                action=models.AuditAction.SLOT_EMERGENCY_UNBLOCK.value, # Use Enum for consistency
                 category="SLOTS",
                 details=f"System reverted {reverted_count} slots from 'emergency_block' to 'available' due to deletion of unavailable period {period_id}."
             )
@@ -1578,6 +1641,180 @@ def create_prescription_share_log(db: Session, user_id: int, patient_id: int, me
         ))
     except Exception:
         pass
+
+# ==================== HEALTH CHECK FUNCTIONS (NEW) ====================
+
+def run_consistency_checks(db: Session) -> Dict[str, Any]: # Removed async
+    """Runs various data consistency checks and returns a report."""
+    report = {
+        "checked_at": datetime.now(timezone.utc),
+        "booked_slots_without_appointments": [],
+        "available_slots_with_appointments": [],
+        "status_counter_mismatches": [],
+    }
+
+    # Check 1: Booked slots with no active appointments
+    # Subquery to find slot IDs that HAVE at least one active appointment
+    subquery_active_appts = db.query(models.Appointment.slot_id).filter(
+        models.Appointment.slot_id.isnot(None),
+        models.Appointment.status != models.AppointmentStatus.cancelled
+    ).distinct()
+
+    booked_slots_missing_appts = db.query(models.AppointmentSlot).filter(
+        models.AppointmentSlot.status == models.SlotStatus.booked,
+        ~models.AppointmentSlot.id.in_(subquery_active_appts)
+    ).all()
+
+    for slot in booked_slots_missing_appts:
+        report["booked_slots_without_appointments"].append({
+            "slot_id": slot.id,
+            "location_id": slot.location_id,
+            "start_time": slot.start_time,
+            "status": slot.status.value,
+            "issue": "Slot is 'booked' but no active appointments found linked to it."
+        })
+
+    # Check 2: Available slots with active appointments
+    # Find slots that are 'available' but ARE in the subquery of slots with active appointments
+    available_slots_with_appts = db.query(models.AppointmentSlot).filter(
+        models.AppointmentSlot.status == models.SlotStatus.available,
+        models.AppointmentSlot.id.in_(subquery_active_appts)
+    ).all()
+
+    for slot in available_slots_with_appts:
+        report["available_slots_with_appointments"].append({
+            "slot_id": slot.id,
+            "location_id": slot.location_id,
+            "start_time": slot.start_time,
+            "status": slot.status.value,
+            "issue": "Slot is 'available' but has active appointments linked to it."
+        })
+        
+    # Check 3: Strict counter mismatch
+    # Find slots and the count of their linked 'strict' appointments
+    subquery_strict_counts = db.query(
+            models.Appointment.slot_id,
+            func.count(models.Appointment.id).label("actual_strict_count")
+        ).filter(
+            models.Appointment.slot_id.isnot(None),
+            models.Appointment.booking_type == models.BookingType.strict,
+            models.Appointment.status != models.AppointmentStatus.cancelled
+        ).group_by(models.Appointment.slot_id).subquery()
+
+    # Join slots with the subquery and compare counts
+    mismatched_slots = db.query(
+            models.AppointmentSlot,
+            subquery_strict_counts.c.actual_strict_count
+        ).outerjoin(
+            subquery_strict_counts, models.AppointmentSlot.id == subquery_strict_counts.c.slot_id
+        ).filter(
+            # Compare slot's counter with the actual count (coalesce handles slots with 0 actual appointments)
+            models.AppointmentSlot.current_strict_appointments != func.coalesce(subquery_strict_counts.c.actual_strict_count, 0)
+        ).all()
+        
+    for slot, actual_count in mismatched_slots:
+         report["status_counter_mismatches"].append({
+            "slot_id": slot.id,
+            "location_id": slot.location_id,
+            "start_time": slot.start_time,
+            "status": slot.status.value,
+            "issue": f"Slot counter mismatch: DB shows {slot.current_strict_appointments} strict bookings, but found {int(actual_count or 0)}."
+        })
+
+    return report
+
+
+def fix_consistency_issues(db: Session) -> schemas.ConsistencyFixReport:
+    """
+    Runs consistency checks and attempts to fix the identified issues.
+    Returns a report of actions taken.
+    """
+    # First, run the checks to get the list of issues
+    issues_report = run_consistency_checks(db)
+    
+    fix_report = schemas.ConsistencyFixReport(
+        checked_at=issues_report["checked_at"],
+        fixed_slots=[],
+        fixed_counters=[],
+        errors=[]
+    )
+
+    try:
+        # Fix 1: Booked slots with no active appointments -> Set to 'available'
+        for issue in issues_report["booked_slots_without_appointments"]:
+            try:
+                slot = db.query(models.AppointmentSlot).filter(models.AppointmentSlot.id == issue["slot_id"]).with_for_update().first()
+                if slot and slot.status == models.SlotStatus.booked:
+                    old_status = slot.status.value
+                    slot.status = models.SlotStatus.available
+                    slot.current_strict_appointments = 0 # Also reset counter
+                    db.add(slot)
+                    fix_report.fixed_slots.append(schemas.FixedSlotReport(
+                        slot_id=slot.id,
+                        previous_status=old_status,
+                        new_status=models.SlotStatus.available.value,
+                        details=issue["issue"]
+                    ))
+            except Exception as e:
+                db.rollback()
+                fix_report.errors.append(f"Error fixing slot {issue['slot_id']} (Check 1): {str(e)}")
+                db.begin() # Start a new transaction block if one failed
+
+        # Fix 2: Available slots with active appointments -> Set to 'booked'
+        for issue in issues_report["available_slots_with_appointments"]:
+            try:
+                slot = db.query(models.AppointmentSlot).filter(models.AppointmentSlot.id == issue["slot_id"]).with_for_update().first()
+                if slot and slot.status == models.SlotStatus.available:
+                    old_status = slot.status.value
+                    slot.status = models.SlotStatus.booked
+                    db.add(slot)
+                    fix_report.fixed_slots.append(schemas.FixedSlotReport(
+                        slot_id=slot.id,
+                        previous_status=old_status,
+                        new_status=models.SlotStatus.booked.value,
+                        details=issue["issue"]
+                    ))
+            except Exception as e:
+                db.rollback()
+                fix_report.errors.append(f"Error fixing slot {issue['slot_id']} (Check 2): {str(e)}")
+                db.begin()
+
+        # Fix 3: Strict counter mismatch -> Update to correct count
+        for issue in issues_report["status_counter_mismatches"]:
+            try:
+                # Re-calculate the actual count just to be safe
+                actual_strict_count = db.query(models.Appointment).filter(
+                    models.Appointment.slot_id == issue["slot_id"],
+                    models.Appointment.booking_type == models.BookingType.strict,
+                    models.Appointment.status != models.AppointmentStatus.cancelled
+                ).count()
+                
+                slot = db.query(models.AppointmentSlot).filter(models.AppointmentSlot.id == issue["slot_id"]).with_for_update().first()
+                
+                if slot and slot.current_strict_appointments != actual_strict_count:
+                    old_count = slot.current_strict_appointments
+                    slot.current_strict_appointments = actual_strict_count
+                    db.add(slot)
+                    fix_report.fixed_counters.append(schemas.FixedCounterReport(
+                        slot_id=slot.id,
+                        previous_count=old_count,
+                        new_count=actual_strict_count,
+                        details=issue["issue"]
+                    ))
+            except Exception as e:
+                db.rollback()
+                fix_report.errors.append(f"Error fixing counter for slot {issue['slot_id']} (Check 3): {str(e)}")
+                db.begin()
+
+        db.commit() # Commit all successful fixes
+    
+    except Exception as e:
+        db.rollback()
+        logger.error(f"FATAL error during consistency fix: {e}")
+        fix_report.errors.append(f"A fatal error occurred, rolling back all changes: {str(e)}")
+        
+    return fix_report
+
 
 # ==================== SYSTEM CONFIGURATION HELPERS ====================
 

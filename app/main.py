@@ -14,7 +14,7 @@ from sqlalchemy.orm import Session
 from app import models, schemas, crud
 from app.database import get_db, create_tables, drop_tables # Explicitly import drop_tables for internal use
 from app.hash_password import create_or_update_admin, create_initial_data
-from app.routers import auth, patients, appointments, schedule, unavailable_periods, locations, users, prescriptions, logs, services, consultations, slots
+from app.routers import auth, patients, appointments, schedule, unavailable_periods, locations, users, prescriptions, logs, services, consultations, slots, health
 from app.services.whatsapp_service import whatsapp_service # Import the WhatsApp service instance
 # --- Logging Configuration --- START ---
 # Configure root logger to output DEBUG messages to console
@@ -64,6 +64,7 @@ app.include_router(logs.router, prefix="/api/v1")
 app.include_router(services.router, prefix="/api/v1")
 app.include_router(consultations.router, prefix="/api/v1") # Add the new consultations router
 app.include_router(slots.router, prefix="/api/v1") # Add the new slots router
+app.include_router(health.router, prefix="/api/v1") # Add the new health check router
 
 # +++ NEW TWILIO WEBHOOK ENDPOINT +++
 @app.post("/webhooks/twilio", status_code=status.HTTP_204_NO_CONTENT)

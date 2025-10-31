@@ -8,7 +8,7 @@ from ..database import get_db
 
 router = APIRouter(
     tags=["Users"],
-    dependencies=[Depends(security.require_admin)], # All routes require admin
+    dependencies=[Depends(security.require_admin)],
     responses={404: {"description": "Not found"}},
 )
 
@@ -18,9 +18,6 @@ def create_new_user(
     db: Session = Depends(get_db),
     current_admin: models.User = Depends(security.require_admin)
 ):
-    """
-    Create a new user. Only accessible by administrators.
-    """
     db_user = crud.get_user_by_username(db, username=user.username)
     if db_user:
         raise HTTPException(status_code=400, detail="Username already registered")
@@ -35,9 +32,6 @@ def create_new_user(
 
 @router.get("/users", response_model=List[schemas.User])
 def read_all_users(skip: int = 0, limit: int = 100, db: Session = Depends(get_db)):
-    """
-    Retrieve all users. Only accessible by administrators.
-    """
     users = crud.get_users(db, skip=skip, limit=limit)
     return users
 
@@ -48,9 +42,6 @@ def update_existing_user(
     db: Session = Depends(get_db),
     current_admin: models.User = Depends(security.require_admin)
 ):
-    """
-    Update a user's information. Only accessible by administrators.
-    """
     db_user = crud.get_user(db, user_id=user_id)
     if not db_user:
         raise HTTPException(status_code=404, detail="User not found")
@@ -69,9 +60,6 @@ def delete_existing_user(
     db: Session = Depends(get_db),
     current_admin: models.User = Depends(security.require_admin)
 ):
-    """
-    Delete a user. Only accessible by administrators.
-    """
     db_user = crud.get_user(db, user_id=user_id)
     if not db_user:
         raise HTTPException(status_code=404, detail="User not found")

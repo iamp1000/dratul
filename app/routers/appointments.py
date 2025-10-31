@@ -209,19 +209,35 @@ async def delete_appointment_endpoint(
                 models.AppointmentSlot.id == db_appointment.slot_id
             ).with_for_update().first()
 
-            # --- 3. Decrement strict count if it was a strict booking ---
-            if target_slot and db_appointment.booking_type == BookingType.strict:
-                target_slot.current_strict_appointments = max(0, target_slot.current_strict_appointments - 1)
-                
-                # If the slot was 'booked' (full), it is now 'available' again
-                if target_slot.status == SlotStatus.booked:
+            # --- 3. Robust Slot Status Update ---
+            if target_slot:
+                slot_updated = False
+
+                # Step 3a: Check for other active appointments on this slot
+                other_active_appointments_count = db.query(models.Appointment).filter(
+                    models.Appointment.slot_id == target_slot.id,
+                    models.Appointment.id != appointment_id, # Exclude the one we are about to delete
+                    models.Appointment.status != models.AppointmentStatus.cancelled
+                ).count()
+
+                print(f"DELETION CHECK: Found {other_active_appointments_count} other active appointments for slot {target_slot.id}.")
+
+                # Step 3b: Update strict counter if necessary
+                if db_appointment.booking_type == BookingType.strict:
+                    target_slot.current_strict_appointments = max(0, target_slot.current_strict_appointments - 1)
+                    slot_updated = True
+                    print(f"STRICT DELETION: Slot {target_slot.id} strict count decremented to {target_slot.current_strict_appointments}.")
+
+                # Step 3c: Update slot status only if this was the LAST appointment
+                if other_active_appointments_count == 0 and target_slot.status == SlotStatus.booked:
                     target_slot.status = SlotStatus.available
+                    # Reset counter to 0 if it's now available, just in case
+                    target_slot.current_strict_appointments = 0 
+                    slot_updated = True
+                    print(f"SLOT RESET: Slot {target_slot.id} status set to 'available' as no active appointments remain.")
                 
-                db.add(target_slot)
-                print(f"STRICT DELETION: Slot {target_slot.id} count decremented to {target_slot.current_strict_appointments}")
-            
-            elif db_appointment.booking_type == BookingType.walk_in:
-                print(f"WALK-IN DELETION: No change to slot capacity for {db_appointment.slot_id}")
+                if slot_updated:
+                    db.add(target_slot)
 
         # --- 4. Call the CRUD function to delete the appointment (handles GCal) ---
         # Pass the pre-fetched db_appointment to avoid a second query
