@@ -6,6 +6,12 @@ from datetime import datetime, timedelta, date, time, timezone # <-- Import time
 from typing import Optional, List, Dict, Any
 import secrets
 import logging
+import os
+import json
+import re
+import os
+import json
+import re
 import asyncio
 from . import models, schemas
 from .security import get_password_hash, verify_password, encryption_service, SecurityConfig
@@ -1271,6 +1277,162 @@ def get_consultations_for_patient(db: Session, patient_id: int, skip: int = 0, l
     except SQLAlchemyError as e:
         logger.error(f"Error fetching consultations for patient {patient_id}: {e}")
         raise CRUDError("A database error occurred while fetching consultations.")
+
+
+def _sanitize_filename(name: str) -> str:
+    """Converts a template name into a safe filename."""
+    name = name.lower().strip()
+    name = re.sub(r'\s+', '-', name) # replace spaces with hyphens
+    name = re.sub(r'[^\w\-]', '', name) # remove non-alphanumeric/hyphen
+    if not name:
+        name = "untitled"
+    return f"{name}.json"
+
+def save_consultation_template(template_data: schemas.ConsultationTemplateCreate) -> str:
+    """Saves a consultation template as a JSON file."""
+    
+    template_dir = "consultation_templates"
+    template_name = template_data.templateName
+    filename = _sanitize_filename(template_name)
+    filepath = os.path.join(template_dir, filename)
+
+    try:
+        # Ensure the directory exists
+        os.makedirs(template_dir, exist_ok=True)
+
+        # Serialize the Pydantic model to a dictionary
+        data_to_save = template_data.model_dump()
+        
+        # Add metadata consistent with the Response schema
+        data_to_save['id'] = template_name # Use name as ID
+        data_to_save['created_at'] = datetime.now(timezone.utc).isoformat()
+        data_to_save['updated_at'] = datetime.now(timezone.utc).isoformat()
+
+        # Write the data to the JSON file
+        with open(filepath, 'w', encoding='utf-8') as f:
+            json.dump(data_to_save, f, indent=4)
+        
+        logger.info(f"Successfully saved consultation template: {template_name} to {filepath}")
+        return template_name
+
+    except (IOError, OSError) as e:
+        logger.error(f"File I/O error saving template {template_name} to {filepath}: {e}", exc_info=True)
+        raise CRUDError(f"Failed to save template file: {e}")
+    except Exception as e:
+        logger.error(f"Unexpected error saving template {template_name}: {e}", exc_info=True)
+        raise CRUDError(f"An unexpected error occurred: {e}")
+
+
+def _sanitize_filename(name: str) -> str:
+    """Converts a template name into a safe filename."""
+    name = name.lower().strip()
+    name = re.sub(r'\s+', '-', name) # replace spaces with hyphens
+    name = re.sub(r'[^\w\-]', '', name) # remove non-alphanumeric/hyphen
+    if not name:
+        name = "untitled"
+    return f"{name}.json"
+
+def save_consultation_template(template_data: schemas.ConsultationTemplateCreate) -> str:
+    """Saves a consultation template as a JSON file."""
+    
+    template_dir = "consultation_templates"
+    template_name = template_data.templateName
+    filename = _sanitize_filename(template_name)
+    filepath = os.path.join(template_dir, filename)
+
+    try:
+        # Ensure the directory exists
+        os.makedirs(template_dir, exist_ok=True)
+
+        # Serialize the Pydantic model to a dictionary
+        data_to_save = template_data.model_dump()
+        
+        # Add metadata consistent with the Response schema
+        data_to_save['id'] = template_name # Use name as ID
+        data_to_save['created_at'] = datetime.now(timezone.utc).isoformat()
+        data_to_save['updated_at'] = datetime.now(timezone.utc).isoformat()
+
+        # Write the data to the JSON file
+        with open(filepath, 'w', encoding='utf-8') as f:
+            json.dump(data_to_save, f, indent=4)
+        
+        logger.info(f"Successfully saved consultation template: {template_name} to {filepath}")
+        return template_name
+
+    except (IOError, OSError) as e:
+        logger.error(f"File I/O error saving template {template_name} to {filepath}: {e}", exc_info=True)
+        raise CRUDError(f"Failed to save template file: {e}")
+    except Exception as e:
+        logger.error(f"Unexpected error saving template {template_name}: {e}", exc_info=True)
+        raise CRUDError(f"An unexpected error occurred: {e}")
+
+# --- Patient History (General) CRUD ---
+def get_patient_history(db: Session, patient_id: int) -> Optional[models.PatientHistory]:
+    """Get general medical history for a patient."""
+    try:
+        return db.query(models.PatientHistory).filter(models.PatientHistory.patient_id == patient_id).first()
+    except SQLAlchemyError as e:
+        logger.error(f"Error fetching general history for patient {patient_id}: {e}")
+        raise CRUDError("Database error fetching general history.")
+
+def create_or_update_patient_history(db: Session, patient_id: int, history_data: schemas.PatientHistoryCreate) -> models.PatientHistory:
+    """Create or update general medical history for a patient."""
+    try:
+        db_history = get_patient_history(db, patient_id)
+        if db_history:
+            # Update
+            update_data = history_data.dict(exclude_unset=True, by_alias=True)
+            update_data.pop('patient_id', None)
+            for key, value in update_data.items():
+                setattr(db_history, key, value)
+        else:
+            # Create
+            create_data = history_data.dict(by_alias=True)
+            create_data['patient_id'] = patient_id # Explicitly set patient_id
+            db_history = models.PatientHistory(**create_data)
+            db.add(db_history)
+        db.commit()
+        db.refresh(db_history)
+        return db_history
+    except SQLAlchemyError as e:
+        db.rollback()
+        logger.error(f"Error saving general history for patient {patient_id}: {e}")
+        raise CRUDError("Database error saving general history.")
+
+
+# --- Patient History (General) CRUD ---
+def get_patient_history(db: Session, patient_id: int) -> Optional[models.PatientHistory]:
+    """Get general medical history for a patient."""
+    try:
+        return db.query(models.PatientHistory).filter(models.PatientHistory.patient_id == patient_id).first()
+    except SQLAlchemyError as e:
+        logger.error(f"Error fetching general history for patient {patient_id}: {e}")
+        raise CRUDError("Database error fetching general history.")
+
+def create_or_update_patient_history(db: Session, patient_id: int, history_data: schemas.PatientHistoryCreate) -> models.PatientHistory:
+    """Create or update general medical history for a patient."""
+    try:
+        db_history = get_patient_history(db, patient_id)
+        if db_history:
+            # Update
+            update_data = history_data.dict(exclude_unset=True, by_alias=True)
+            update_data.pop('patient_id', None)
+            for key, value in update_data.items():
+                setattr(db_history, key, value)
+        else:
+            # Create
+            create_data = history_data.dict(by_alias=True)
+            create_data['patient_id'] = patient_id # Explicitly set patient_id
+            db_history = models.PatientHistory(**create_data)
+            db.add(db_history)
+        db.commit()
+        db.refresh(db_history)
+        return db_history
+    except SQLAlchemyError as e:
+        db.rollback()
+        logger.error(f"Error saving general history for patient {patient_id}: {e}")
+        raise CRUDError("Database error saving general history.")
+
 
 # --- Patient Menstrual History CRUD ---
 

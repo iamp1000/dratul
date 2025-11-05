@@ -308,6 +308,29 @@ class ConsultationMedication(Base):
     # Relationship
     consultation = relationship("Consultation", back_populates="medications")
 
+class PatientHistory(Base):
+    """Stores comprehensive medical history (Past, Family, Surgical, Allergies, Meds) for a patient (One-to-one with Patient)."""
+    __tablename__ = "patient_history"
+    id = Column(Integer, primary_key=True, index=True)
+    patient_id = Column(Integer, ForeignKey("patients.id"), nullable=False, unique=True)
+    
+    detailed_history = Column(Text, nullable=True)
+    chronic_illnesses = Column(Text, nullable=True)
+    family_history_narrative = Column(Text, nullable=True)
+    smoking_status = Column(String(20), nullable=True)
+    alcohol_status = Column(String(20), nullable=True)
+    social_factors = Column(Text, nullable=True)
+    allergies = Column(Text, nullable=True)
+    current_medications = Column(Text, nullable=True)
+    
+    # Timestamps
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+
+    # Relationship
+    patient = relationship("Patient", back_populates="history")
+
+
 class PatientMenstrualHistory(Base):
     """Stores menstrual history for a patient (One-to-one with Patient)."""
     __tablename__ = "patient_menstrual_history"
@@ -445,6 +468,7 @@ class Patient(Base):
     remarks = relationship("Remark", back_populates="patient", cascade="all, delete-orphan")
     consultations = relationship("Consultation", back_populates="patient", cascade="all, delete-orphan")
     menstrual_history = relationship("PatientMenstrualHistory", back_populates="patient", uselist=False, cascade="all, delete-orphan")
+    history = relationship("PatientHistory", back_populates="patient", uselist=False, cascade="all, delete-orphan")
 
 class Appointment(Base):
     """Comprehensive Appointment model with calendar integration"""

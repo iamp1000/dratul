@@ -445,6 +445,241 @@ class TokenResponse(BaseSchema):
     expires_in: int
     user: UserResponse
 
+
+# --- Consultation Template Schemas ---
+# These schemas mirror the *frontend* state of the VisitPad (formData),
+# which is what we want to save as a template.
+
+class TemplateComplaint(BaseSchema):
+    complaint: Optional[str] = None
+    duration: Optional[str] = None
+    severity: Optional[str] = None
+
+class TemplateDiagnosis(BaseSchema):
+    code: Optional[str] = None
+    description: Optional[str] = None
+    type: Optional[str] = None
+    notes: Optional[str] = None
+
+class TemplateInvestigation(BaseSchema):
+    testName: Optional[str] = None
+    category: Optional[str] = None
+    urgency: Optional[str] = None
+    notes: Optional[str] = None
+
+class TemplatePrescription(BaseSchema):
+    medicine: Optional[str] = None
+    type: Optional[str] = None
+    dosage: Optional[str] = None
+    frequency: Optional[str] = None
+    duration: Optional[str] = None
+    instructions: Optional[str] = None
+    route: Optional[str] = None
+
+class TemplateHistory(BaseSchema):
+    past: Optional[str] = None
+    family: Optional[str] = None
+    surgical: Optional[str] = None
+    allergies: Optional[str] = None
+    currentMedications: Optional[str] = None
+
+class TemplateExaminationSection(BaseSchema):
+    # This schema captures a single *added* examination form
+    id: int # The frontend state includes a timestamp ID
+    templateName: str
+    fields: Dict[str, Any]
+
+# --- Vitals Schemas (Moved to ensure definition before usage in ConsultationTemplateCreate) ---
+class VitalsBase(BaseSchema):
+    bp_systolic: Optional[int] = None
+    bp_diastolic: Optional[int] = None
+    pulse: Optional[int] = None
+    height: Optional[float] = None
+    weight: Optional[float] = None
+    bmi: Optional[float] = None
+    waist: Optional[float] = None
+    hip: Optional[float] = None
+    temperature: Optional[float] = None
+    spo2: Optional[int] = None
+    # OB/GYN specific
+    lmp: Optional[date] = None
+    edd: Optional[date] = None
+    gestational_age_weeks: Optional[int] = None
+    gestational_age_days: Optional[int] = None
+
+
+class ConsultationTemplateCreate(BaseSchema):
+    templateName: str = Field(..., min_length=1)
+    
+    # Use existing VitalsBase
+    vitals: Optional[VitalsBase] = None 
+    
+    # Use the new template-specific schemas
+    complaints: Optional[List[TemplateComplaint]] = None
+    diagnosis: Optional[List[TemplateDiagnosis]] = None
+    history: Optional[TemplateHistory] = None
+    
+    # This field from the frontend state is an *array* of sections
+    examination_fields: Optional[List[TemplateExaminationSection]] = None
+    
+    investigations: Optional[List[TemplateInvestigation]] = None
+    
+    # The prescription list from the frontend matches this structure
+    prescriptions: Optional[List[TemplatePrescription]] = None
+    
+    advice: Optional[str] = None # This is the Quill HTML string
+
+class ConsultationTemplateResponse(ConsultationTemplateCreate):
+    # For now, the response is the same as the create, plus metadata
+    id: str # The templateName will act as the ID
+    created_at: datetime
+    updated_at: Optional[datetime] = None
+
+
+
+# --- Consultation Template Schemas (Correct Location) ---
+# These schemas mirror the *frontend* state of the VisitPad (formData),
+# which is what we want to save as a template.
+
+class TemplateComplaint(BaseSchema):
+    complaint: Optional[str] = None
+    duration: Optional[str] = None
+    severity: Optional[str] = None
+
+class TemplateDiagnosis(BaseSchema):
+    code: Optional[str] = None
+    description: Optional[str] = None
+    type: Optional[str] = None
+    notes: Optional[str] = None
+
+class TemplateInvestigation(BaseSchema):
+    testName: Optional[str] = None
+    category: Optional[str] = None
+    urgency: Optional[str] = None
+    notes: Optional[str] = None
+
+class TemplatePrescription(BaseSchema):
+    medicine: Optional[str] = None
+    type: Optional[str] = None
+    dosage: Optional[str] = None
+    frequency: Optional[str] = None
+    duration: Optional[str] = None
+    instructions: Optional[str] = None
+    route: Optional[str] = None
+
+class TemplateHistory(BaseSchema):
+    past: Optional[str] = None
+    family: Optional[str] = None
+    surgical: Optional[str] = None
+    allergies: Optional[str] = None
+    currentMedications: Optional[str] = None
+
+class TemplateExaminationSection(BaseSchema):
+    # This schema captures a single *added* examination form
+    id: int # The frontend state includes a timestamp ID
+    templateName: str
+    fields: Dict[str, Any]
+
+class ConsultationTemplateCreate(BaseSchema):
+    templateName: str = Field(..., min_length=1)
+    
+    # Use existing VitalsBase
+    vitals: Optional[VitalsBase] = None 
+    
+    # Use the new template-specific schemas
+    complaints: Optional[List[TemplateComplaint]] = None
+    diagnosis: Optional[List[TemplateDiagnosis]] = None
+    history: Optional[TemplateHistory] = None
+    
+    # This field from the frontend state is an *array* of sections
+    examination_fields: Optional[List[TemplateExaminationSection]] = None
+    
+    investigations: Optional[List[TemplateInvestigation]] = None
+    
+    # The prescription list from the frontend matches this structure
+    prescriptions: Optional[List[TemplatePrescription]] = None
+    
+    advice: Optional[str] = None # This is the Quill HTML string
+
+class ConsultationTemplateResponse(ConsultationTemplateCreate):
+    # For now, the response is the same as the create, plus metadata
+    id: str # The templateName will act as the ID
+    created_at: datetime
+    updated_at: Optional[datetime] = None
+
+
+
+# --- Consultation Template Schemas (Correct Location) ---
+# These schemas mirror the *frontend* state of the VisitPad (formData),
+# which is what we want to save as a template.
+
+class TemplateComplaint(BaseSchema):
+    complaint: Optional[str] = None
+    duration: Optional[str] = None
+    severity: Optional[str] = None
+
+class TemplateDiagnosis(BaseSchema):
+    code: Optional[str] = None
+    description: Optional[str] = None
+    type: Optional[str] = None
+    notes: Optional[str] = None
+
+class TemplateInvestigation(BaseSchema):
+    testName: Optional[str] = None
+    category: Optional[str] = None
+    urgency: Optional[str] = None
+    notes: Optional[str] = None
+
+class TemplatePrescription(BaseSchema):
+    medicine: Optional[str] = None
+    type: Optional[str] = None
+    dosage: Optional[str] = None
+    frequency: Optional[str] = None
+    duration: Optional[str] = None
+    instructions: Optional[str] = None
+    route: Optional[str] = None
+
+class TemplateHistory(BaseSchema):
+    past: Optional[str] = None
+    family: Optional[str] = None
+    surgical: Optional[str] = None
+    allergies: Optional[str] = None
+    currentMedications: Optional[str] = None
+
+class TemplateExaminationSection(BaseSchema):
+    # This schema captures a single *added* examination form
+    id: int # The frontend state includes a timestamp ID
+    templateName: str
+    fields: Dict[str, Any]
+
+class ConsultationTemplateCreate(BaseSchema):
+    templateName: str = Field(..., min_length=1)
+    
+    # Use existing VitalsBase
+    vitals: Optional[VitalsBase] = None 
+    
+    # Use the new template-specific schemas
+    complaints: Optional[List[TemplateComplaint]] = None
+    diagnosis: Optional[List[TemplateDiagnosis]] = None
+    history: Optional[TemplateHistory] = None
+    
+    # This field from the frontend state is an *array* of sections
+    examination_fields: Optional[List[TemplateExaminationSection]] = None
+    
+    investigations: Optional[List[TemplateInvestigation]] = None
+    
+    # The prescription list from the frontend matches this structure
+    prescriptions: Optional[List[TemplatePrescription]] = None
+    
+    advice: Optional[str] = None # This is the Quill HTML string
+
+class ConsultationTemplateResponse(ConsultationTemplateCreate):
+    # For now, the response is the same as the create, plus metadata
+    id: str # The templateName will act as the ID
+    created_at: datetime
+    updated_at: Optional[datetime] = None
+
+
 class MFAVerifyRequest(BaseSchema):
     mfa_token: str
     mfa_code: str = Field(..., min_length=6, max_length=6)
@@ -646,24 +881,6 @@ ComprehensiveLogEntry = Union[AuditLogEntry, HealthCheckEntry]
 
 # --- EMR / Consultation Schemas ---
 
-# --- Vitals ---
-class VitalsBase(BaseSchema):
-    bp_systolic: Optional[int] = None
-    bp_diastolic: Optional[int] = None
-    pulse: Optional[int] = None
-    height: Optional[float] = None
-    weight: Optional[float] = None
-    bmi: Optional[float] = None
-    waist: Optional[float] = None
-    hip: Optional[float] = None
-    temperature: Optional[float] = None
-    spo2: Optional[int] = None
-    # OB/GYN specific
-    lmp: Optional[date] = None
-    edd: Optional[date] = None
-    gestational_age_weeks: Optional[int] = None
-    gestational_age_days: Optional[int] = None
-
 class VitalsCreate(VitalsBase):
     # All fields optional during creation via Consultation
     pass
@@ -727,6 +944,37 @@ class ConsultationMedicationUpdate(BaseSchema):
 class ConsultationMedicationResponse(ConsultationMedicationBase):
     id: int
     consultation_id: int
+
+# --- Patient History (General - Aligned with UI) ---
+class PatientHistoryBase(BaseSchema):
+    detailed_history: Optional[str] = None # Past Surgeries, Major Injuries, Hospitalizations, Infectious Diseases
+    chronic_illnesses: Optional[str] = None # Chronic illnesses (e.g., diabetes, hypertension)
+    family_history_narrative: Optional[str] = None # Genetic/hereditary diseases
+    smoking_status: Optional[str] = None
+    alcohol_status: Optional[str] = None
+    social_factors: Optional[str] = None # Living situation, occupation, stressors
+    allergies: Optional[str] = None
+    current_medications: Optional[str] = Field(None, alias="currentMedications")
+
+class PatientHistoryCreate(PatientHistoryBase):
+    patient_id: int # Required on creation
+
+class PatientHistoryUpdate(BaseSchema):
+    detailed_history: Optional[str] = None
+    chronic_illnesses: Optional[str] = None
+    family_history_narrative: Optional[str] = None
+    smoking_status: Optional[str] = None
+    alcohol_status: Optional[str] = None
+    social_factors: Optional[str] = None
+    allergies: Optional[str] = None
+    current_medications: Optional[str] = Field(None, alias="currentMedications")
+
+class PatientHistoryResponse(PatientHistoryBase):
+    id: int
+    patient_id: int
+
+# --- Patient History (General - Aligned with UI) ---
+
 
 # --- Patient Menstrual History --- (Links to Patient, not Consultation)
 class PatientMenstrualHistoryBase(BaseSchema):
@@ -820,3 +1068,4 @@ class ConsultationResponse(ConsultationBase):
     medications: List[ConsultationMedicationResponse] = []
     patient: PatientResponse
     user: UserResponse
+

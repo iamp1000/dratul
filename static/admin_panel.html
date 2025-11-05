@@ -678,6 +678,7 @@
                 { id: 'patients', label: 'Patients', icon: 'fas fa-users' },
 
                 { id: 'consultation', label: 'Consultation', icon: 'fas fa-notes-medical', permission: 'can_edit_patient_info' },
+                { id: 'templates', label: 'Templates', icon: 'fas fa-file-medical-alt', permission: 'can_edit_patient_info' },
                 { id: 'users', label: 'Users', icon: 'fas fa-user-cog', permission: 'can_manage_users' },
                 { id: 'logs', label: 'Audit Logs', icon: 'fas fa-clipboard-list', permission: 'can_access_logs' }
             ];
@@ -2420,122 +2421,7 @@
             );
         };
 
-        const VitalsForm = ({ vitalsData, setVitalsData }) => {
-
-            const handleInputChange = (e) => {
-                const { name, value } = e.target;
-                const newData = { ...vitalsData, [name]: value };
-
-                if ((name === 'weight' || name === 'height') && newData.weight && newData.height) {
-                    const weightKg = parseFloat(newData.weight);
-                    const heightCm = parseFloat(newData.height);
-                    if (weightKg > 0 && heightCm > 0) {
-                        const heightM = heightCm / 100;
-                        newData.bmi = (weightKg / (heightM * heightM)).toFixed(2);
-                    } else {
-                        newData.bmi = '';
-                    }
-                }
-                setVitalsData(newData);
-            };
-
-            const handleDateChange = (name, dateStr) => {
-                setVitalsData(prev => ({ ...prev, [name]: dateStr }));
-            };
-
-            React.useEffect(() => {
-                if (window.flatpickr) {
-                    window.flatpickr(".vitals-date-picker", {
-                        dateFormat: "Y-m-d",
-                        allowInput: true,
-                        onChange: function (selectedDates, dateStr, instance) {
-
-                            const inputElement = instance.element;
-                            if (inputElement && inputElement.name) {
-                                handleDateChange(inputElement.name, dateStr);
-                            }
-                        }
-                    });
-                }
-            }, []);
-
-            return (
-                <div className="medical-card p-6 rounded-2xl">
-                    <h3 className="text-lg font-semibold text-medical-dark mb-4 border-b pb-2">Vitals</h3>
-                    <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4 text-sm">
-                        { }
-                        <div className="col-span-2 md:col-span-1">
-                            <label className="custom-label">BP (mmHg)</label>
-                            <div className="flex items-center space-x-2">
-                                <input type="number" name="bp_systolic" placeholder="Systolic" value={vitalsData.bp_systolic || ''} onChange={handleInputChange} className="form-input-themed w-1/2" />
-                                <span>/</span>
-                                <input type="number" name="bp_diastolic" placeholder="Diastolic" value={vitalsData.bp_diastolic || ''} onChange={handleInputChange} className="form-input-themed w-1/2" />
-                            </div>
-                        </div>
-                        { }
-                        <div>
-                            <label className="custom-label">Pulse (bpm)</label>
-                            <input type="number" name="pulse" value={vitalsData.pulse || ''} onChange={handleInputChange} className="form-input-themed" />
-                        </div>
-                        { }
-                        <div>
-                            <label className="custom-label">Height (cm)</label>
-                            <input type="number" step="0.1" name="height" value={vitalsData.height || ''} onChange={handleInputChange} className="form-input-themed" />
-                        </div>
-                        { }
-                        <div>
-                            <label className="custom-label">Weight (kg)</label>
-                            <input type="number" step="0.1" name="weight" value={vitalsData.weight || ''} onChange={handleInputChange} className="form-input-themed" />
-                        </div>
-                        { }
-                        <div>
-                            <label className="custom-label">BMI (kg/m²)</label>
-                            <input type="number" step="0.01" name="bmi" value={vitalsData.bmi || ''} onChange={handleInputChange} className="form-input-themed bg-gray-100" readOnly />
-                        </div>
-                        { }
-                        <div>
-                            <label className="custom-label">Waist (cm)</label>
-                            <input type="number" step="0.1" name="waist" value={vitalsData.waist || ''} onChange={handleInputChange} className="form-input-themed" />
-                        </div>
-                        { }
-                        <div>
-                            <label className="custom-label">Hip (cm)</label>
-                            <input type="number" step="0.1" name="hip" value={vitalsData.hip || ''} onChange={handleInputChange} className="form-input-themed" />
-                        </div>
-                        { }
-                        <div>
-                            <label className="custom-label">Temp (°F)</label>
-                            <input type="number" step="0.1" name="temperature" value={vitalsData.temperature || ''} onChange={handleInputChange} className="form-input-themed" />
-                        </div>
-                        { }
-                        <div>
-                            <label className="custom-label">SPO2 (%)</label>
-                            <input type="number" name="spo2" value={vitalsData.spo2 || ''} onChange={handleInputChange} className="form-input-themed" />
-                        </div>
-                        { }
-                        <div className="relative">
-                            <label className="custom-label">LMP</label>
-                            <input type="date" name="lmp" value={vitalsData.lmp || ''} className="form-input-themed vitals-date-picker pr-8" placeholder="Select date" />
-                            <i className="fas fa-calendar-alt absolute right-3 top-[34px] text-medical-gray pointer-events-none"></i>
-                        </div>
-                        { }
-                        <div className="relative">
-                            <label className="custom-label">EDD</label>
-                            <input type="date" name="edd" value={vitalsData.edd || ''} className="form-input-themed vitals-date-picker pr-8" placeholder="Select date" />
-                            <i className="fas fa-calendar-alt absolute right-3 top-[34px] text-medical-gray pointer-events-none"></i>
-                        </div>
-                        { }
-                        <div className="col-span-2 lg:col-span-1">
-                            <label className="custom-label">Gestational Age</label>
-                            <div className="flex items-center space-x-2">
-                                <input type="number" name="gestational_age_weeks" placeholder="Weeks" value={vitalsData.gestational_age_weeks || ''} onChange={handleInputChange} className="form-input-themed w-1/2" />
-                                <input type="number" name="gestational_age_days" placeholder="Days" value={vitalsData.gestational_age_days || ''} onChange={handleInputChange} className="form-input-themed w-1/2" />
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            );
-        };
+        // VitalsForm component removed, logic consolidated into VisitPadView for dynamic rendering.
 
         const ConsultationNotesForm = ({ notesData, setNotesData }) => {
             const quickNotesRef = React.useRef(null);
@@ -3368,6 +3254,11 @@
                 setView('visitpad');
             };
 
+            const handleOpenTemplateView = () => {
+                setSelectedPatient(null); // No patient for a template
+                setView('template');
+            };
+
             const handleBackToList = () => {
                 setView('list');
                 setSelectedPatient(null);
@@ -3393,23 +3284,19 @@
                             filterDate={filterDate}
                             setFilterDate={setFilterDate}
                             onOpenVisitPad={handleOpenVisitPad}
+                            onOpenTemplateView={handleOpenTemplateView} // <-- Add new prop
                             isLoading={isLoading}
                         />
                     ) : (
                         <VisitPadView
                             patient={selectedPatient}
                             onBack={handleBackToList}
+                            mode={view === 'visitpad' ? "consultation" : "template"} // <-- Make mode dynamic
                         />
                     )}
                 </div>
             );
         };
-
-        // ============================================================================
-        // PATIENT LIST VIEW COMPONENT
-        // Displays appointment dashboard with search and filtering
-        // Follows HealthPlix dashboard design patterns
-        // ============================================================================
 
         const PatientListView = ({
             patients,
@@ -3419,6 +3306,7 @@
             filterDate,
             setFilterDate,
             onOpenVisitPad,
+            onOpenTemplateView, // <-- Receive new prop
             isLoading
         }) => {
             // Calculate statistics
@@ -3494,6 +3382,13 @@
                             <button className="px-6 py-3 bg-white text-medical-blue rounded-lg font-semibold hover:bg-blue-50 hover:shadow-lg transition-all flex items-center gap-2">
                                 <i className="fas fa-plus"></i>
                                 New Patient
+                            </button>
+                            <button 
+                                id="consultation-template-btn" 
+                                onClick={onOpenTemplateView} // <-- Add onClick handler
+                                className="px-6 py-3 bg-white text-medical-blue rounded-lg font-semibold hover:bg-blue-50 hover:shadow-lg transition-all flex items-center gap-2">
+                                <i className="fas fa-file-medical-alt"></i>
+                                Templates
                             </button>
                         </div>
                     </div>
@@ -3620,13 +3515,305 @@
             );
         };
 
-        // ============================================================================
-        // VISIT PAD VIEW COMPONENT
-        // Comprehensive EMR form following HealthPlix design patterns
-        // Implements all required clinical documentation sections
-        // ============================================================================
+        const examinationTemplates = [
+            {
+                "templateName": "Diabetes (Standard Checkup)",
+                "fields": {
+                    "thyroid_palpation": "",
+                    "thyroid_consistency": "",
+                    "thyroid_lymph_nodes": "",
+                    "thyroid_notes": "N/A",
+                    "foot_right_visual": "Check for ulcers/callus",
+                    "foot_right_pulses": "Check DP/PT",
+                    "foot_left_visual": "Check for ulcers/callus",
+                    "foot_left_pulses": "Check DP/PT",
+                    "foot_exam_notes": "Assess footwear. Check for sensation.",
+                    "neuropathy_monofilament": "Perform 10g test",
+                    "neuropathy_vibration": "Check at ankles",
+                    "neuropathy_notes": "",
+                    "fundus_right_eye": "Check for retinopathy",
+                    "fundus_left_eye": "Check for retinopathy",
+                    "fundus_exam_notes": "Refer to ophthalmologist if new findings."
+                }
+            },
+            {
+                "templateName": "Hypothyroidism (Follow-up)",
+                "fields": {
+                    "thyroid_palpation": "Check for goiter/nodules",
+                    "thyroid_consistency": "Firm/Soft?",
+                    "thyroid_lymph_nodes": "Check cervical nodes",
+                    "thyroid_notes": "Assess for symptoms: fatigue, weight gain, hair loss.",
+                    "foot_right_visual": "N/A",
+                    "foot_right_pulses": "N/A",
+                    "foot_left_visual": "N/A",
+                    "foot_left_pulses": "N/A",
+                    "foot_exam_notes": "N/A",
+                    "neuropathy_monofilament": "N/A",
+                    "neuropathy_vibration": "N/A",
+                    "neuropathy_notes": "Check reflexes if symptomatic.",
+                    "fundus_right_eye": "N/A",
+                    "fundus_left_eye": "N/A",
+                    "fundus_exam_notes": "N/A"
+                }
+            },
+            {
+                "templateName": "Full Examination (Blank)",
+                "fields": {
+                    "thyroid_palpation": "",
+                    "thyroid_consistency": "",
+                    "thyroid_lymph_nodes": "",
+                    "thyroid_notes": "",
+                    "foot_right_visual": "",
+                    "foot_right_pulses": "",
+                    "foot_left_visual": "",
+                    "foot_left_pulses": "",
+                    "foot_exam_notes": "",
+                    "neuropathy_monofilament": "",
+                    "neuropathy_vibration": "",
+                    "neuropathy_notes": "",
+                    "fundus_right_eye": "",
+                    "fundus_left_eye": "",
+                    "fundus_exam_notes": ""
+                }
+            }
+        ];
 
-        const VisitPadView = ({ patient, onBack }) => {
+        const FormInput = ({ label, name, value, onChange, placeholder = "" }) => (
+            <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">{label}</label>
+                <input
+                    type="text"
+                    name={name}
+                    value={value || ''}
+                    onChange={onChange}
+                    placeholder={placeholder}
+                    className="w-full px-3 py-2 border-2 border-gray-200 rounded-lg focus:ring-2 focus:ring-teal-400 focus:border-transparent transition-all"
+                />
+            </div>
+        );
+
+        const FormTextArea = ({ label, name, value, onChange, placeholder = "", rows = 3 }) => (
+            <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">{label}</label>
+                <textarea
+                    name={name}
+                    value={value || ''}
+                    onChange={onChange}
+                    placeholder={placeholder}
+                    rows={rows}
+                    className="w-full px-3 py-2 border-2 border-gray-200 rounded-lg focus:ring-2 focus:ring-teal-400 focus:border-transparent transition-all"
+                ></textarea>
+            </div>
+        );
+
+        // This component renders one single added examination section
+        const EditableExamSection = ({ sectionData, onFieldChange, onRemove }) => {
+            const { templateName, fields } = sectionData;
+
+            const handleChange = (e) => {
+                const { name, value } = e.target;
+                onFieldChange(name, value);
+            };
+
+            return (
+                <div className="bg-gray-50 border border-gray-200 rounded-xl overflow-hidden">
+                    <div className="flex items-center justify-between p-3 bg-gray-100 border-b border-gray-200">
+                        <h4 className="font-bold text-medical-dark">{templateName}</h4>
+                        <button
+                            onClick={onRemove}
+                            className="text-red-500 hover:text-red-700 p-1 rounded-full hover:bg-red-100"
+                            title="Remove this section"
+                        >
+                            <i className="fas fa-trash-alt"></i>
+                        </button>
+                    </div>
+
+                    <div className="p-4 space-y-6">
+                        <fieldset className="p-4 border border-gray-200 rounded-lg bg-white">
+                            <legend className="px-2 font-semibold text-gray-800">Thyroid Examination</legend>
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                <FormInput label="Palpation" name="thyroid_palpation" value={fields.thyroid_palpation} onChange={handleChange} placeholder="e.g., Diffuse, Nodular" />
+                                <FormInput label="Consistency" name="thyroid_consistency" value={fields.thyroid_consistency} onChange={handleChange} placeholder="e.g., Firm, Soft" />
+                                <FormInput label="Lymph Nodes" name="thyroid_lymph_nodes" value={fields.thyroid_lymph_nodes} onChange={handleChange} placeholder="e.g., Palpable" />
+                            </div>
+                            <div className="mt-4">
+                                <FormTextArea label="Thyroid Notes" name="thyroid_notes" value={fields.thyroid_notes} onChange={handleChange} placeholder="Additional observations..." rows={2} />
+                            </div>
+                        </fieldset>
+
+                        <fieldset className="p-4 border border-gray-200 rounded-lg bg-white">
+                            <legend className="px-2 font-semibold text-gray-800">Foot Examination</legend>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div>
+                                    <label className="block text-sm font-semibold text-gray-700 mb-2">Right Foot</label>
+                                    <div className="space-y-3">
+                                        <FormInput label="Visual" name="foot_right_visual" value={fields.foot_right_visual} onChange={handleChange} placeholder="e.g., Color, Ulcers" />
+                                        <FormInput label="Pulses (DP/PT)" name="foot_right_pulses" value={fields.foot_right_pulses} onChange={handleChange} placeholder="e.g., 2+/2+" />
+                                    </div>
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-semibold text-gray-700 mb-2">Left Foot</label>
+                                    <div className="space-y-3">
+                                        <FormInput label="Visual" name="foot_left_visual" value={fields.foot_left_visual} onChange={handleChange} placeholder="e.g., Color, Ulcers" />
+                                        <FormInput label="Pulses (DP/PT)" name="foot_left_pulses" value={fields.foot_left_pulses} onChange={handleChange} placeholder="e.g., 2+/2+" />
+                                    </div>
+                                </div>
+                            </div>
+                            <div className="mt-4">
+                                <FormTextArea label="Foot Exam Notes" name="foot_exam_notes" value={fields.foot_exam_notes} onChange={handleChange} placeholder="Overall notes, footwear assessment..." rows={2} />
+                            </div>
+                        </fieldset>
+
+                        <fieldset className="p-4 border border-gray-200 rounded-lg bg-white">
+                            <legend className="px-2 font-semibold text-gray-800">Peripheral Neuropathy Assessment</legend>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <FormInput label="Monofilament Test (10g)" name="neuropathy_monofilament" value={fields.neuropathy_monofilament} onChange={handleChange} placeholder="e.g., R 8/10, L 9/10" />
+                                <FormInput label="Vibration (Tuning Fork)" name="neuropathy_vibration" value={fields.neuropathy_vibration} onChange={handleChange} placeholder="e.g., Diminished at ankles" />
+                            </div>
+                            <div className="mt-4">
+                                <FormTextArea label="Neuropathy Notes" name="neuropathy_notes" value={fields.neuropathy_notes} onChange={handleChange} placeholder="Additional findings, reflexes..." rows={2} />
+                            </div>
+                        </fieldset>
+
+                        <fieldset className="p-4 border border-gray-200 rounded-lg bg-white">
+                            <legend className="px-2 font-semibold text-gray-800">Fundus Exam</legend>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <FormInput label="Right Eye" name="fundus_right_eye" value={fields.fundus_right_eye} onChange={handleChange} placeholder="e.g., NPDR, PDR" />
+                                <FormInput label="Left Eye" name="fundus_left_eye" value={fields.fundus_left_eye} onChange={handleChange} placeholder="e.g., No retinopathy" />
+                            </div>
+                            <div className="mt-4">
+                                <FormTextArea label="Fundus Exam Notes" name="fundus_exam_notes" value={fields.fundus_exam_notes} onChange={handleChange} placeholder="e.g., Referred to ophthalmologist" rows={2} />
+                            </div>
+                        </fieldset>
+                    </div>
+                </div>
+            );
+        };
+
+        // 3. THE NEW DYNAMIC FORM COMPONENT
+        // [FIXED] Block C (Duplicate) - Commented out to fix syntax error
+        // [FIXED] Block C (Duplicate) - Commented out to fix syntax error
+        const ClinicalExaminationForm = ({ examData, setExamData }) => {
+            const [showTemplateModal, setShowTemplateModal] = React.useState(false);
+            // examData is now an array of sections, e.g., [ { id: 1, templateName: 'Diabetes', fields: {...} } ]
+            // We initialize it as an array if it's not.
+            const activeSections = Array.isArray(examData) ? examData : [];
+
+            const addSection = (template) => {
+                const newSection = {
+                    ...JSON.parse(JSON.stringify(template)), // Deep copy template
+                    id: Date.now() // Unique ID for React key
+                };
+                setExamData([...activeSections, newSection]);
+                setShowTemplateModal(false);
+            };
+
+            const removeSection = (idToRemove) => {
+                setExamData(activeSections.filter(section => section.id !== idToRemove));
+            };
+
+            const updateSectionField = (idToUpdate, fieldName, value) => {
+                setExamData(
+                    activeSections.map(section =>
+                        section.id === idToUpdate
+                            ? {
+                                ...section,
+                                fields: {
+                                    ...section.fields,
+                                    [fieldName]: value
+                                }
+                            }
+                            : section
+                    )
+                );
+            };
+
+            return (
+                <div className="space-y-4">
+                    {/* Render all added sections */}
+                    <div className="space-y-4">
+                        {activeSections.length > 0 ? (
+                            activeSections.map((section) => (
+                                <EditableExamSection
+                                    key={section.id}
+                                    sectionData={section}
+                                    onFieldChange={(fieldName, value) => updateSectionField(section.id, fieldName, value)}
+                                    onRemove={() => removeSection(section.id)}
+                                />
+                            ))
+                        ) : (
+                            <div className="text-center py-12 bg-teal-50 rounded-lg border-2 border-dashed border-teal-200">
+                                <i className="fas fa-file-plus text-5xl text-teal-300 mb-3"></i>
+                                <p className="text-gray-600 font-medium">No examination sections added</p>
+                                <p className="text-sm text-gray-500 mt-1">Click "Add Section" to load a template or start blank.</p>
+                            </div>
+                        )}
+                    </div>
+
+                    {/* Add Section Button */}
+                    <button
+                        type="button"
+                        onClick={() => setShowTemplateModal(true)}
+                        className="w-full px-4 py-3 bg-gradient-to-r from-teal-500 to-cyan-500 text-white rounded-lg hover:shadow-lg transition-all text-sm flex items-center justify-center gap-2 font-semibold"
+                    >
+                        <i className="fas fa-plus"></i>
+                        Add Examination Section
+                    </button>
+
+                    {/* Template Selection Modal */}
+                    {showTemplateModal && (
+                        <TemplateSearchModal
+                            onClose={() => setShowTemplateModal(false)}
+                            onSelectTemplate={addSection}
+                        />
+                    )}
+                </div>
+            );
+        };
+
+        const TemplateSearchModal = ({ onClose, onSelectTemplate }) => {
+            const [searchTerm, setSearchTerm] = React.useState('');
+
+            const filteredTemplates = examinationTemplates.filter(t =>
+                t.templateName.toLowerCase().includes(searchTerm.toLowerCase())
+            );
+
+            return (
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 modal-overlay">
+                    <div className="bg-white rounded-2xl shadow-2xl max-w-lg w-full max-h-[90vh] overflow-hidden animate-bounce-gentle flex flex-col">
+                        <div className="flex items-center justify-between p-4 border-b border-gray-200">
+                            <h2 className="text-lg font-bold text-medical-dark">Select Examination Template</h2>
+                            <button onClick={onClose} className="text-medical-gray hover:text-medical-dark">
+                                <i className="fas fa-times text-lg"></i>
+                            </button>
+                        </div>
+                        <div className="p-4">
+                            <input
+                                type="text"
+                                value={searchTerm}
+                                onChange={(e) => setSearchTerm(e.target.value)}
+                                placeholder="Search templates..."
+                                className="w-full px-3 py-2 border-2 border-gray-200 rounded-lg focus:ring-2 focus:ring-medical-accent focus:border-transparent"
+                                autoFocus
+                            />
+                        </div>
+                        <div className="flex-grow overflow-y-auto scroll-custom p-4 space-y-2">
+                            {filteredTemplates.map(template => (
+                                <button
+                                    key={template.templateName}
+                                    onClick={() => onSelectTemplate(template)}
+                                    className="w-full text-left p-4 bg-gray-50 hover:bg-medical-light border border-gray-200 hover:border-medical-accent rounded-lg transition-all"
+                                >
+                                    <span className="font-semibold text-medical-dark">{template.templateName}</span>
+                                </button>
+                            ))}
+                        </div>
+                    </div>
+                </div>
+            );
+        };
+
+        const VisitPadView = ({ patient, onBack, mode = "consultation" }) => {
             // ============================================================================
             // STATE MANAGEMENT
             // ============================================================================
@@ -3634,8 +3821,131 @@
             const [activeTab, setActiveTab] = React.useState('vitals');
             const [isSaving, setIsSaving] = React.useState(false);
             const [lastSaved, setLastSaved] = React.useState(null);
+            const [specialtyConfig, setSpecialtyConfig] = React.useState(null);
+            const [templateName, setTemplateName] = React.useState('');
 
-            // Form data state
+            // --- NEW: Load Patient History on Mount/Patient Change ---
+            React.useEffect(() => {
+                if (mode !== 'consultation' || !patient || !patient.id) return;
+
+                const fetchHistory = async () => {
+                    try {
+                        // 1. Fetch Patient History
+                        const historyData = await api(`/api/v1/patients/${patient.id}/history`);
+                        
+                        // 2. Update formData state
+                        setFormData(prev => ({
+                            ...prev,
+                            history: {
+                                id: historyData.id, // Store ID for PUT request
+                                detailed_history: historyData.detailed_history || '',
+                                allergies: historyData.allergies || '',
+                                currentMedications: historyData.current_medications || '' // Note: schema alias is currentMedications, but the response key might be current_medications
+                            }
+                        }));
+
+                        // 3. Load Quill Content
+                        if (historyEditorRef.current) {
+                            const Quill = window.Quill;
+                            if (Quill && historyData.detailed_history) {
+                                // Always prefer setting content via innerHTML for Quill, as it handles both plain text and HTML
+                                historyEditorRef.current.root.innerHTML = historyData.detailed_history;
+                            } else if (Quill) {
+                                // Clear editor for new entry
+                                historyEditorRef.current.setText('');
+                            }
+                        }
+                    } catch (error) {
+                        console.error('Failed to load patient history:', error);
+                        // Keep empty state if load fails
+                    }
+                };
+
+                fetchHistory();
+
+            }, [patient, mode]); // Re-run when patient changes or mode changes
+            // --- END: Load Patient History on Mount/Patient Change ---
+
+            React.useEffect(() => {
+                const fetchConfig = async () => {
+                    try {
+                        const res = await fetch('./endocrinology.json');
+                        if (!res.ok) throw new Error('Failed to load specialty config');
+                        const data = await res.json();
+                        setSpecialtyConfig(data);
+                    } catch (err) {
+                        console.error("Error loading specialty config:", err.message);
+                    }
+                };
+                fetchConfig();
+            }, []);
+
+            // --- NEW: State for dynamic vitals ---
+            const [visibleVitals, setVisibleVitals] = React.useState({});
+            const [showVitalsDropdown, setShowVitalsDropdown] = React.useState(false);
+            const vitalButtonRef = React.useRef(null);
+            const vitalDropdownRef = React.useRef(null);
+
+            React.useEffect(() => {
+                const handleClickOutside = (event) => {
+                    if (
+                        vitalButtonRef.current && !vitalButtonRef.current.contains(event.target) &&
+                        vitalDropdownRef.current && !vitalDropdownRef.current.contains(event.target)
+                    ) {
+                        setShowVitalsDropdown(false);
+                    }
+                };
+
+                if (showVitalsDropdown) {
+                    document.addEventListener('mousedown', handleClickOutside);
+                } else {
+                    document.removeEventListener('mousedown', handleClickOutside);
+                }
+
+                return () => {
+                    document.removeEventListener('mousedown', handleClickOutside);
+                };
+            }, [showVitalsDropdown]);
+
+            // Master configuration for all vitals
+            const vitalsConfig = {
+                // Core Vitals (Always Show)
+                bp: { label: 'Blood Pressure (mmHg)', icon: 'fas fa-tachometer-alt text-red-500' },
+                pulse: { label: 'Pulse (bpm)', icon: 'fas fa-heart text-pink-500' },
+                height: { label: 'Height (cm)', icon: 'fas fa-arrows-alt-v text-blue-500' },
+                weight: { label: 'Weight (kg)', icon: 'fas fa-weight text-purple-500' },
+                temp: { label: 'Temperature (°F)', icon: 'fas fa-thermometer-half text-orange-500' },
+                spo2: { label: 'SPO2 (%)', icon: 'fas fa-lungs text-cyan-500' },
+                resp_rate: { label: 'Resp. Rate (/min)', icon: 'fas fa-wind text-teal-500' },
+                bmi: { label: 'BMI', icon: 'fas fa-calculator text-indigo-500' },
+                // Optional Vitals (Add on demand)
+                waist: { label: 'Waist (cm)', icon: 'fas fa-ruler-horizontal text-gray-500', group: 'measurements' },
+                hip: { label: 'Hip (cm)', icon: 'fas fa-ruler-combined text-gray-500', group: 'measurements' },
+                waist_hip_ratio: { label: 'Waist/Hip Ratio', icon: 'fas fa-calculator text-indigo-500', group: 'measurements', readOnly: true, placeholder: 'Auto-calculated' },
+                lmp: { label: 'LMP', icon: 'fas fa-calendar-alt text-pink-500', group: 'obgyn', type: 'date' },
+                edd: { label: 'EDD', icon: 'fas fa-baby text-blue-500', group: 'obgyn', type: 'date' },
+                gestational_age: { label: 'Gestational Age', icon: 'fas fa-hourglass-half text-purple-500', group: 'obgyn', type: 'gestational' },
+            };
+
+            const toggleVital = (key) => {
+                setVisibleVitals(prev => ({
+                    ...prev,
+                    [key]: !prev[key]
+                }));
+                setShowVitalsDropdown(false); // Close dropdown after selection
+            };
+
+            const getAvailableVitals = () => {
+                return Object.keys(vitalsConfig).filter(key =>
+                    vitalsConfig[key].group && !visibleVitals[key]
+                );
+            };
+
+
+
+
+
+            // --- END: State for dynamic vitals ---
             const [formData, setFormData] = React.useState({
                 vitals: {
                     bp_systolic: '',
@@ -3651,30 +3961,28 @@
                 complaints: [],
                 diagnosis: [],
                 history: {
-                    past: '',
-                    family: '',
-                    surgical: '',
-                    allergies: patient.medicalHistory?.allergies?.join(', ') || '',
-                    currentMedications: patient.medicalHistory?.currentMedications?.join(', ') || ''
+                    detailed_history: '', // Used for Past Surgeries, Major Injuries, Infectious Diseases
+                    chronic_illnesses: '', // For Chronic illnesses
+                    family_history_narrative: '', // For Family History
+                    lifestyle_habits: 'none', // Smoking, alcohol, diet
+                    social_factors: '', // Living situation, stressors
+                    allergies: (mode === 'consultation' && patient.medicalHistory?.allergies?.join(', ')) || '',
+                    currentMedications: (mode === 'consultation' && patient.medicalHistory?.currentMedications?.join(', ')) || ''
                 },
-                examination: '',
+                examination_fields: [], // Changed to array for dynamic sections
                 investigations: [],
                 prescriptions: [],
                 advice: '',
                 followUp: '',
-                nextVisitDate: ''
+                nextVisitDate: '',
+                    referral_doctor_name: '',
+                    referral_speciality: '',
+                    referral_phone: '',
+                    referral_email: ''
             });
-
-            // Quill editor references
-            const examinationEditorRef = React.useRef(null);
+            const examinationEditorRefs = React.useRef({});
             const adviceEditorRef = React.useRef(null);
             const historyEditorRef = React.useRef(null);
-
-            // ============================================================================
-            // EFFECTS
-            // ============================================================================
-
-            // Initialize Quill editors
             React.useEffect(() => {
                 if (typeof Quill !== 'undefined') {
                     const toolbarOptions = [
@@ -3684,46 +3992,66 @@
                         ['clean']
                     ];
 
-                    if (!examinationEditorRef.current) {
-                        examinationEditorRef.current = new Quill('#examination-editor', {
-                            theme: 'snow',
-                            placeholder: 'Enter clinical examination findings...',
-                            modules: { toolbar: toolbarOptions }
-                        });
-                    }
-
+                    // Initialize static editors (Advice and History)
                     if (!adviceEditorRef.current) {
                         adviceEditorRef.current = new Quill('#advice-editor', {
                             theme: 'snow',
                             placeholder: 'Enter advice, diet recommendations, lifestyle modifications...',
                             modules: { toolbar: toolbarOptions }
                         });
+                        // Add listener to update formData
+                        adviceEditorRef.current.on('text-change', () => {
+                            setFormData(prev => ({ ...prev, advice: adviceEditorRef.current.root.innerHTML }));
+                        });
                     }
-
                     if (!historyEditorRef.current) {
                         historyEditorRef.current = new Quill('#history-editor', {
                             theme: 'snow',
                             placeholder: 'Enter detailed medical history...',
                             modules: { toolbar: toolbarOptions }
                         });
+                        // Add listener to update formData
+                        historyEditorRef.current.on('text-change', () => {
+                            setFormData(prev => ({ ...prev, history: { ...prev.history, detailed_history: historyEditorRef.current.root.innerHTML } }));
+                        });
+                    }
+
+                    // Initialize DYNAMIC examination editors based on specialty config
+                    if (specialtyConfig && specialtyConfig.custom_examination_fields) {
+                        // Clear any old refs
+                        examinationEditorRefs.current = {};
+
+                        specialtyConfig.custom_examination_fields.forEach(fieldName => {
+                            // Create a safe ID from the field name
+                            const safeId = fieldName.replace(/[^a-zA-Z0-9]/g, '-');
+                            const editorId = `#exam-field-${safeId}`;
+                            const element = document.querySelector(editorId);
+
+                            // Check if element exists AND is not already initialized
+                            if (element && !element.classList.contains('ql-container')) {
+                                const quill = new Quill(element, {
+                                    theme: 'snow',
+                                    placeholder: `Enter ${fieldName} findings...`,
+                                    modules: { toolbar: toolbarOptions }
+                                });
+
+                                quill.on('text-change', () => {
+                                    setFormData(prev => ({
+                                        ...prev,
+                                        examination_fields: {
+                                            ...prev.examination_fields,
+                                            [fieldName]: quill.root.innerHTML
+                                        }
+                                    }));
+                                });
+
+                                // Store the instance in our refs object
+                                examinationEditorRefs.current[fieldName] = quill;
+                            }
+                        });
                     }
                 }
-            }, []);
-
-            // Auto-calculate BMI
-            React.useEffect(() => {
-                const { height, weight } = formData.vitals;
-                if (height && weight && height > 0) {
-                    const heightInMeters = height / 100;
-                    const bmi = (weight / (heightInMeters * heightInMeters)).toFixed(1);
-                    setFormData(prev => ({
-                        ...prev,
-                        vitals: { ...prev.vitals, bmi }
-                    }));
-                }
-            }, [formData.vitals.height, formData.vitals.weight]);
-
-            // Auto-save functionality (every 30 seconds)
+            }, [specialtyConfig]); // Re-run this effect when specialtyConfig loads
             React.useEffect(() => {
                 const autoSaveInterval = setInterval(() => {
                     handleAutoSave();
@@ -3737,10 +4065,32 @@
             // ============================================================================
 
             const handleVitalsChange = (field, value) => {
-                setFormData(prev => ({
-                    ...prev,
-                    vitals: { ...prev.vitals, [field]: value }
-                }));
+                setFormData(prev => {
+                    const newData = { ...prev.vitals, [field]: value };
+
+                    // --- CONSOLIDATED CALCULATIONS ---
+
+                    // 1. Auto-calculate BMI
+                    const height = (field === 'height') ? parseFloat(value) : parseFloat(newData.height);
+                    const weight = (field === 'weight') ? parseFloat(value) : parseFloat(newData.weight);
+                    if (height > 0 && weight > 0) {
+                        const heightInMeters = height / 100;
+                        newData.bmi = (weight / (heightInMeters * heightInMeters)).toFixed(1);
+                    } else {
+                        newData.bmi = '';
+                    }
+
+                    // 2. Auto-calculate Waist/Hip Ratio
+                    const waistCm = (field === 'waist') ? parseFloat(value) : parseFloat(newData.waist);
+                    const hipCm = (field === 'hip') ? parseFloat(value) : parseFloat(newData.hip);
+                    if (waistCm > 0 && hipCm > 0) {
+                        newData.waist_hip_ratio = (waistCm / hipCm).toFixed(2);
+                    } else {
+                        newData.waist_hip_ratio = '';
+                    }
+
+                    return { ...prev, vitals: newData };
+                });
             };
 
             const addComplaint = () => {
@@ -3866,13 +4216,41 @@
             const handleSaveAndPrint = async () => {
                 setIsSaving(true);
 
+                // --- NEW: Step 1: Save Medical History (POST/PUT) ---
+                if (mode === 'consultation' && patient.id) {
+                    try {
+                        const historyPayload = {
+                            id: formData.history.id,
+                            allergies: formData.history.allergies,
+                            currentMedications: formData.history.currentMedications,
+                            detailed_history: historyEditorRef.current?.root.innerHTML || ''
+                        };
+                        
+                        const savedHistory = await api(`/api/v1/patients/${patient.id}/history`, {
+                            method: 'POST', // POST handles create or update via crud.create_or_update_patient_history
+                            body: JSON.stringify(historyPayload),
+                        });
+                        
+                        console.log('Medical History Saved/Updated:', savedHistory);
+                        // Update state with confirmed ID
+                        setFormData(prev => ({ ...prev, history: { ...prev.history, id: savedHistory.id } }));
+
+                    } catch (error) {
+                        alert('Error saving Medical History. Aborting consultation save.');
+                        console.error('Error saving Medical History:', error);
+                        setIsSaving(false);
+                        return; // ABORT
+                    }
+                }
+                // --- END NEW: Step 1: Save Medical History ---
+
                 // Collect data from Quill editors
                 const visitData = {
                     ...formData,
-                    examination: examinationEditorRef.current?.root.innerHTML || '',
+
                     advice: adviceEditorRef.current?.root.innerHTML || '',
                     medicalHistory: historyEditorRef.current?.root.innerHTML || '',
-                    patientId: patient.id,
+                    patientId: mode === 'consultation' ? patient.id : null,
                     visitDate: new Date().toISOString(),
                     doctorId: sessionStorage.getItem('userId')
                 };
@@ -3896,6 +4274,40 @@
                 }
             };
 
+            const handleSaveTemplate = async () => { // <-- Make async
+                if (!templateName) {
+                    alert('Please enter a name for the template.');
+                    return;
+                }
+            
+                // Gather all template data
+                const templateData = {
+                    templateName: templateName,
+                    vitals: formData.vitals,
+                    complaints: formData.complaints,
+                    diagnosis: formData.diagnosis,
+                    history: formData.history,
+                    examination_fields: formData.examination_fields,
+                    investigations: formData.investigations,
+                    prescriptions: formData.prescriptions,
+                    advice: adviceEditorRef.current?.root.innerHTML || '',
+                };
+            
+                // --- NEW: API call to save the template ---
+                try {
+                   await api('/api/v1/templates', { 
+                       method: 'POST', 
+                       body: JSON.stringify(templateData) 
+                   });
+                   toast('Template saved successfully!');
+                   onBack(); // Go back to list
+                } catch (err) {
+                   alert('Failed to save template: ' + err.message);
+                   console.error('Save template error:', err);
+                }
+                // --- END NEW ---
+            };
+
             const handleEndConsultation = () => {
                 if (confirm('Are you sure you want to end this consultation?')) {
                     handleSaveAndPrint();
@@ -3917,55 +4329,82 @@
                                 <button
                                     onClick={onBack}
                                     className="p-2 hover:bg-white/20 rounded-lg transition-colors"
-                                    title="Back to patient list"
+                                    title={mode === 'template' ? 'Back to Templates' : 'Back to patient list'}
                                 >
                                     <i className="fas fa-arrow-left text-xl"></i>
                                 </button>
-                                <div className="flex items-center gap-3">
-                                    <div className="w-12 h-12 bg-white/20 rounded-full flex items-center justify-center text-2xl font-bold border-2 border-white/30">
-                                        {patient.name.charAt(0)}
+                                {mode === 'consultation' && patient && (
+                                    <div className="flex items-center gap-3">
+                                        <div className="w-12 h-12 bg-white/20 rounded-full flex items-center justify-center text-2xl font-bold border-2 border-white/30">
+                                            {patient.name.charAt(0)}
+                                        </div>
+                                        <div>
+                                            <h2 className="text-xl font-bold flex items-center gap-2">
+                                                {patient.name}
+                                                {patient.medicalHistory?.allergies?.length > 0 && (
+                                                    <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-semibold bg-red-500 text-white">
+                                                        <i className="fas fa-exclamation-triangle mr-1"></i>
+                                                        Allergies
+                                                    </span>
+                                                )}
+                                            </h2>
+                                            <p className="text-sm text-blue-100">
+                                                ID: {patient.id} | {patient.age}Y/{patient.gender} | {patient.phone}
+                                            </p>
+                                        </div>
                                     </div>
-                                    <div>
-                                        <h2 className="text-xl font-bold flex items-center gap-2">
-                                            {patient.name}
-                                            {patient.medicalHistory?.allergies?.length > 0 && (
-                                                <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-semibold bg-red-500 text-white">
-                                                    <i className="fas fa-exclamation-triangle mr-1"></i>
-                                                    Allergies
-                                                </span>
-                                            )}
-                                        </h2>
-                                        <p className="text-sm text-blue-100">
-                                            ID: {patient.id} | {patient.age}Y/{patient.gender} | {patient.phone}
-                                        </p>
+                                )}
+                                {mode === 'template' && (
+                                    <div className="flex items-center gap-3">
+                                        <div className="w-12 h-12 bg-white/20 rounded-full flex items-center justify-center text-2xl font-bold border-2 border-white/30">
+                                            <i className="fas fa-file-medical-alt"></i>
+                                        </div>
+                                        <div>
+                                            <h2 className="text-xl font-bold">Template Editor</h2>
+                                            <p className="text-sm text-blue-100">Creating a new consultation template</p>
+                                        </div>
                                     </div>
-                                </div>
+                                )}
                             </div>
                             <div className="flex gap-2 items-center">
-                                {lastSaved && (
+                                {mode === 'consultation' && lastSaved && (
                                     <span className="text-xs text-blue-100 mr-2">
                                         <i className="fas fa-check-circle mr-1"></i>
                                         Last saved: {lastSaved.toLocaleTimeString()}
                                     </span>
                                 )}
-                                <button
-                                    onClick={handleSaveAndPrint}
-                                    disabled={isSaving}
-                                    className="px-4 py-2 bg-white text-medical-blue hover:bg-blue-50 rounded-lg flex items-center gap-2 transition-all font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
-                                >
-                                    {isSaving ? (
-                                        <><i className="fas fa-spinner fa-spin"></i> Saving...</>
-                                    ) : (
-                                        <><i className="fas fa-save"></i> Save & Print</>
-                                    )}
-                                </button>
-                                <button
-                                    onClick={handleEndConsultation}
-                                    className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg flex items-center gap-2 transition-colors font-semibold"
-                                >
-                                    <i className="fas fa-check-double"></i>
-                                    End Consultation
-                                </button>
+                                {mode === 'consultation' && (
+                                    <>
+                                        <button
+                                            onClick={handleSaveAndPrint}
+                                            disabled={isSaving}
+                                            className="px-4 py-2 bg-white text-medical-blue hover:bg-blue-50 rounded-lg flex items-center gap-2 transition-all font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
+                                        >
+                                            {isSaving ? (
+                                                <><i className="fas fa-spinner fa-spin"></i> Saving...</>
+                                            ) : (
+                                                <><i className="fas fa-save"></i> Save & Print</>
+                                            )}
+                                        </button>
+                                        <button
+                                            onClick={handleEndConsultation}
+                                            className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg flex items-center gap-2 transition-colors font-semibold"
+                                        >
+                                            <i className="fas fa-check-double"></i>
+                                            End Consultation
+                                        </button>
+                                    </>
+                                )}
+                                {mode === 'template' && (
+                                    <button
+                                        type="button"
+                                        onClick={handleSaveTemplate}
+                                        className="px-4 py-2 bg-white text-medical-blue hover:bg-blue-50 rounded-lg flex items-center gap-2 transition-all font-semibold"
+                                    >
+                                        <i className="fas fa-save"></i>
+                                        Save Template
+                                    </button>
+                                )}
                             </div>
                         </div>
                     </div>
@@ -3974,147 +4413,162 @@
                     <div className="flex-1 overflow-y-auto p-6 bg-gradient-to-br from-gray-50 to-blue-50/30">
                         <div className="max-w-7xl mx-auto space-y-6">
 
-                            {/* Vitals Section */}
-                            <div className="bg-white p-6 rounded-xl border border-blue-100 shadow-sm hover:shadow-md transition-shadow">
-                                <h3 className="text-lg font-bold text-medical-dark mb-4 flex items-center gap-2 pb-3 border-b-2 border-blue-100">
-                                    <div className="w-10 h-10 bg-gradient-to-br from-red-500 to-pink-500 rounded-lg flex items-center justify-center">
-                                        <i className="fas fa-heartbeat text-white"></i>
-                                    </div>
-                                    <span>Vitals</span>
-                                </h3>
-                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                                    {/* Blood Pressure */}
+                            {/* --- NEW: Template Name Input (Template Mode Only) --- */}
+                            {mode === 'template' && (
+                                <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm">
+                                    <h3 className="text-lg font-bold text-medical-dark mb-4 pb-3 border-b-2 border-gray-100">
+                                        Template Details
+                                    </h3>
                                     <div>
-                                        <label className="block text-sm font-semibold text-gray-700 mb-2">
-                                            <i className="fas fa-tachometer-alt text-red-500 mr-1"></i>
-                                            Blood Pressure (mmHg)
-                                        </label>
-                                        <div className="flex gap-2">
-                                            <input
-                                                type="number"
-                                                placeholder="Sys"
-                                                className="w-full px-3 py-2 border-2 border-gray-200 rounded-lg focus:ring-2 focus:ring-red-400 focus:border-transparent transition-all"
-                                                value={formData.vitals.bp_systolic}
-                                                onChange={(e) => handleVitalsChange('bp_systolic', e.target.value)}
-                                            />
-                                            <span className="text-gray-400 self-center">/</span>
-                                            <input
-                                                type="number"
-                                                placeholder="Dia"
-                                                className="w-full px-3 py-2 border-2 border-gray-200 rounded-lg focus:ring-2 focus:ring-red-400 focus:border-transparent transition-all"
-                                                value={formData.vitals.bp_diastolic}
-                                                onChange={(e) => handleVitalsChange('bp_diastolic', e.target.value)}
-                                            />
-                                        </div>
-                                    </div>
-
-                                    {/* Pulse */}
-                                    <div>
-                                        <label className="block text-sm font-semibold text-gray-700 mb-2">
-                                            <i className="fas fa-heart text-pink-500 mr-1"></i>
-                                            Pulse (bpm)
-                                        </label>
-                                        <input
-                                            type="number"
-                                            placeholder="e.g., 72"
-                                            className="w-full px-3 py-2 border-2 border-gray-200 rounded-lg focus:ring-2 focus:ring-pink-400 focus:border-transparent transition-all"
-                                            value={formData.vitals.pulse}
-                                            onChange={(e) => handleVitalsChange('pulse', e.target.value)}
-                                        />
-                                    </div>
-
-                                    {/* Height */}
-                                    <div>
-                                        <label className="block text-sm font-semibold text-gray-700 mb-2">
-                                            <i className="fas fa-arrows-alt-v text-blue-500 mr-1"></i>
-                                            Height (cm)
-                                        </label>
-                                        <input
-                                            type="number"
-                                            placeholder="e.g., 170"
-                                            className="w-full px-3 py-2 border-2 border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-400 focus:border-transparent transition-all"
-                                            value={formData.vitals.height}
-                                            onChange={(e) => handleVitalsChange('height', e.target.value)}
-                                        />
-                                    </div>
-
-                                    {/* Weight */}
-                                    <div>
-                                        <label className="block text-sm font-semibold text-gray-700 mb-2">
-                                            <i className="fas fa-weight text-purple-500 mr-1"></i>
-                                            Weight (kg)
-                                        </label>
-                                        <input
-                                            type="number"
-                                            placeholder="e.g., 65"
-                                            className="w-full px-3 py-2 border-2 border-gray-200 rounded-lg focus:ring-2 focus:ring-purple-400 focus:border-transparent transition-all"
-                                            value={formData.vitals.weight}
-                                            onChange={(e) => handleVitalsChange('weight', e.target.value)}
-                                        />
-                                    </div>
-
-                                    {/* Temperature */}
-                                    <div>
-                                        <label className="block text-sm font-semibold text-gray-700 mb-2">
-                                            <i className="fas fa-thermometer-half text-orange-500 mr-1"></i>
-                                            Temperature (°F)
-                                        </label>
-                                        <input
-                                            type="number"
-                                            step="0.1"
-                                            placeholder="e.g., 98.6"
-                                            className="w-full px-3 py-2 border-2 border-gray-200 rounded-lg focus:ring-2 focus:ring-orange-400 focus:border-transparent transition-all"
-                                            value={formData.vitals.temp}
-                                            onChange={(e) => handleVitalsChange('temp', e.target.value)}
-                                        />
-                                    </div>
-
-                                    {/* SPO2 */}
-                                    <div>
-                                        <label className="block text-sm font-semibold text-gray-700 mb-2">
-                                            <i className="fas fa-lungs text-cyan-500 mr-1"></i>
-                                            SPO2 (%)
-                                        </label>
-                                        <input
-                                            type="number"
-                                            placeholder="e.g., 98"
-                                            min="0"
-                                            max="100"
-                                            className="w-full px-3 py-2 border-2 border-gray-200 rounded-lg focus:ring-2 focus:ring-cyan-400 focus:border-transparent transition-all"
-                                            value={formData.vitals.spo2}
-                                            onChange={(e) => handleVitalsChange('spo2', e.target.value)}
-                                        />
-                                    </div>
-
-                                    {/* Respiratory Rate */}
-                                    <div>
-                                        <label className="block text-sm font-semibold text-gray-700 mb-2">
-                                            <i className="fas fa-wind text-teal-500 mr-1"></i>
-                                            Resp. Rate (/min)
-                                        </label>
-                                        <input
-                                            type="number"
-                                            placeholder="e.g., 16"
-                                            className="w-full px-3 py-2 border-2 border-gray-200 rounded-lg focus:ring-2 focus:ring-teal-400 focus:border-transparent transition-all"
-                                            value={formData.vitals.respiratoryRate}
-                                            onChange={(e) => handleVitalsChange('respiratoryRate', e.target.value)}
-                                        />
-                                    </div>
-
-                                    {/* BMI (Auto-calculated) */}
-                                    <div>
-                                        <label className="block text-sm font-semibold text-gray-700 mb-2">
-                                            <i className="fas fa-calculator text-indigo-500 mr-1"></i>
-                                            BMI
-                                        </label>
+                                        <label className="block text-sm font-semibold text-gray-700 mb-2">Template Name</label>
                                         <input
                                             type="text"
-                                            placeholder="Auto-calculated"
-                                            className="w-full px-3 py-2 border-2 border-gray-200 rounded-lg bg-gray-50 font-semibold text-indigo-600"
-                                            value={formData.vitals.bmi}
-                                            readOnly
+                                            placeholder="e.g., Diabetes Follow-up, First Gynae Visit"
+                                            className="w-full px-3 py-2 border-2 border-gray-200 rounded-lg focus:ring-2 focus:ring-medical-accent focus:border-transparent"
+                                            value={templateName}
+                                            onChange={(e) => setTemplateName(e.target.value)}
                                         />
                                     </div>
+                                </div>
+                            )}
+
+                            {/* --- NEW: Patient Info Section (Hidden in template mode) --- */}
+                            {mode === 'consultation' && patient && (
+                                <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm hover:shadow-md transition-shadow">
+                                    <h3 className="text-lg font-bold text-medical-dark mb-4 flex items-center gap-2 pb-3 border-b-2 border-gray-100">
+                                        <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-cyan-500 rounded-lg flex items-center justify-center">
+                                            <i className="fas fa-user-circle text-white"></i>
+                                        </div>
+                                        <span>Personal Information</span>
+                                    </h3>
+                                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-x-6 gap-y-4 text-sm">
+                                        <div>
+                                            <label className="block text-xs font-semibold text-gray-500 mb-1">Full Name</label>
+                                            <p className="text-gray-900 font-medium">{`${patient.first_name || ''} ${patient.last_name || ''}`}</p>
+                                        </div>
+                                        <div>
+                                            <label className="block text-xs font-semibold text-gray-500 mb-1">Patient ID</label>
+                                            <p className="text-gray-900 font-medium">#{patient.id}</p>
+                                        </div>
+                                        <div>
+                                            <label className="block text-xs font-semibold text-gray-500 mb-1">Phone Number</label>
+                                            <p className="text-gray-900 font-medium">{patient.phone_number || 'N/A'}</p>
+                                        </div>
+                                        <div>
+                                            <label className="block text-xs font-semibold text-gray-500 mb-1">Email</label>
+                                            <p className="text-gray-900 font-medium">{patient.email || 'N/A'}</p>
+                                        </div>
+                                        <div>
+                                            <label className="block text-xs font-semibold text-gray-500 mb-1">Date of Birth</label>
+                                            <p className="text-gray-900 font-medium">{patient.date_of_birth ? new Date(patient.date_of_birth).toLocaleDateString() : 'N/A'}</p>
+                                        </div>
+                                        <div>
+                                            <label className="block text-xs font-semibold text-gray-500 mb-1">Gender</label>
+                                            <p className="text-gray-900 font-medium">{patient.gender || 'N/A'}</p>
+                                        </div>
+                                        <div>
+                                            <label className="block text-xs font-semibold text-gray-500 mb-1">City</label>
+                                            <p className="text-gray-900 font-medium">{patient.city || 'N/A'}</p>
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
+                            {/* --- END: Patient Info Section --- */}
+
+                            {/* Vitals Section */}
+                            <div className="bg-white p-6 rounded-xl border border-blue-100 shadow-sm hover:shadow-md transition-shadow">
+                                <div className="flex items-center justify-between pb-3 border-b-2 border-blue-100">
+                                    <h3 className="text-lg font-bold text-medical-dark flex items-center gap-2">
+                                        <div className="w-10 h-10 bg-gradient-to-br from-red-500 to-pink-500 rounded-lg flex items-center justify-center">
+                                            <i className="fas fa-heartbeat text-white"></i>
+                                        </div>
+                                        <span>Vitals</span>
+                                    </h3>
+
+                                    {/* --- NEW: Dynamic Vitals Button --- */}
+                                    <div className="relative">
+                                        <button
+                                            ref={vitalButtonRef}
+                                            onClick={() => setShowVitalsDropdown(!showVitalsDropdown)}
+                                            className="px-4 py-2 bg-medical-light text-medical-blue rounded-lg font-semibold hover:bg-blue-100 transition-all text-sm flex items-center gap-2"
+                                        >
+                                            <i className="fas fa-plus"></i>
+                                            Add Vital
+                                        </button>
+                                        {showVitalsDropdown && (
+                                            <div ref={vitalDropdownRef} className="absolute right-0 mt-2 w-56 bg-white rounded-lg shadow-xl z-20 border border-gray-200">
+                                                {getAvailableVitals().length > 0 ? (
+                                                    getAvailableVitals().map(key => (
+                                                        <button
+                                                            key={key}
+                                                            onClick={() => toggleVital(key)}
+                                                            className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center gap-2"
+                                                        >
+                                                            <i className={`${vitalsConfig[key].icon} w-4`}></i>
+                                                            <span>{vitalsConfig[key].label}</span>
+                                                        </button>
+                                                    ))
+                                                ) : (
+                                                    <span className="block px-4 py-2 text-sm text-gray-400">All vitals added</span>
+                                                )}
+                                            </div>
+                                        )}
+                                    </div>
+                                    {/* --- END: Dynamic Vitals Button --- */}
+                                </div>
+
+                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mt-4">
+                                    {Object.entries(vitalsConfig).map(([key, config]) => {
+                                        const isVisible = !config.group || visibleVitals[key];
+                                        if (!isVisible) return null;
+
+                                        // Handle special BP input
+                                        if (key === 'bp') {
+                                            return (
+                                                <div key={key} className="md:col-span-1">
+                                                    <label className="block text-sm font-semibold text-gray-700 mb-2">
+                                                        <i className={config.icon + " mr-1"}></i>{config.label}
+                                                    </label>
+                                                    <div className="flex gap-2">
+                                                        <input type="number" placeholder="Sys" className="w-full px-3 py-2 border-2 border-gray-200 rounded-lg focus:ring-2 focus:ring-red-400 focus:border-transparent transition-all" value={formData.vitals.bp_systolic || ''} onChange={(e) => handleVitalsChange('bp_systolic', e.target.value)} />
+                                                        <span className="text-gray-400 self-center">/</span>
+                                                        <input type="number" placeholder="Dia" className="w-full px-3 py-2 border-2 border-gray-200 rounded-lg focus:ring-2 focus:ring-red-400 focus:border-transparent transition-all" value={formData.vitals.bp_diastolic || ''} onChange={(e) => handleVitalsChange('bp_diastolic', e.target.value)} />
+                                                    </div>
+                                                </div>
+                                            );
+                                        }
+
+                                        // Handle special Gestational Age input
+                                        if (key === 'gestational_age') {
+                                            return (
+                                                <div key={key} className="md:col-span-2 lg:col-span-1">
+                                                    <label className="block text-sm font-semibold text-gray-700 mb-2"><i className={config.icon + " mr-1"}></i>{config.label}</label>
+                                                    <div className="flex gap-2">
+                                                        <input type="number" placeholder="Weeks" className="w-full px-3 py-2 border-2 border-gray-200 rounded-lg focus:ring-2 focus:ring-purple-400 focus:border-transparent transition-all" value={formData.vitals.gestational_age_weeks || ''} onChange={(e) => handleVitalsChange('gestational_age_weeks', e.target.value)} />
+                                                        <input type="number" placeholder="Days" className="w-full px-3 py-2 border-2 border-gray-200 rounded-lg focus:ring-2 focus:ring-purple-400 focus:border-transparent transition-all" value={formData.vitals.gestational_age_days || ''} onChange={(e) => handleVitalsChange('gestational_age_days', e.target.value)} />
+                                                    </div>
+                                                </div>
+                                            );
+                                        }
+
+                                        // Default input rendering
+                                        return (
+                                            <div key={key} className={key === 'bmi' || key === 'waist_hip_ratio' ? 'lg:col-span-1' : ''}>
+                                                <label className="block text-sm font-semibold text-gray-700 mb-2">
+                                                    <i className={config.icon + " mr-1"}></i>{config.label}
+                                                </label>
+                                                <input
+                                                    type={config.type === 'date' ? 'date' : 'number'}
+                                                    step={key === 'temp' || key === 'height' || key === 'weight' || key === 'waist' || key === 'hip' ? "0.1" : key === 'bmi' || key === 'waist_hip_ratio' ? "0.01" : "1"}
+                                                    placeholder={config.readOnly ? config.placeholder : `e.g., ${key === 'pulse' ? '72' : key === 'height' ? '170' : '98'}`}
+                                                    className={`w-full px-3 py-2 border-2 border-gray-200 rounded-lg focus:ring-2 focus:ring-${config.icon.split(' ')[2].split('-')[0]}-400 focus:border-transparent transition-all ${config.readOnly ? 'bg-gray-50 font-semibold' : ''}`}
+                                                    value={formData.vitals[key] || ''}
+                                                    onChange={config.readOnly ? undefined : (e) => handleVitalsChange(key, e.target.value)}
+                                                    readOnly={config.readOnly}
+                                                />
+                                            </div>
+                                        );
+                                    })}
                                 </div>
                             </div>
 
@@ -4164,9 +4618,100 @@
                                     <div>
                                         <label className="block text-sm font-semibold text-gray-700 mb-2">
                                             <i className="fas fa-file-medical text-amber-500 mr-1"></i>
-                                            Detailed Medical History
+                                            Past Medical History (Surgeries, Major Injuries, Hospitalizations)
                                         </label>
-                                        <div id="history-editor" className="border-2 border-gray-200 rounded-lg" style={{ minHeight: '150px' }}></div>
+                                        <div id="history-editor" className="border-2 border-gray-200 rounded-lg" style={{ minHeight: '100px' }}></div>
+                                    </div>
+
+                                    <div>
+                                        <label className="block text-sm font-semibold text-gray-700 mb-2">
+                                            <i className="fas fa-notes-medical text-purple-500 mr-1"></i>
+                                            Chronic Illnesses
+                                        </label>
+                                        <textarea
+                                            placeholder="e.g., Diabetes Type 2, Hypertension, Asthma..."
+                                            className="w-full px-3 py-2 border-2 border-gray-200 rounded-lg focus:ring-2 focus:ring-purple-400 focus:border-transparent"
+                                            rows="2"
+                                            value={formData.history.chronic_illnesses}
+                                            onChange={(e) => setFormData(prev => ({
+                                                ...prev,
+                                                history: { ...prev.history, chronic_illnesses: e.target.value }
+                                            }))}
+                                        ></textarea>
+                                    </div>
+
+                                    <div>
+                                        <label className="block text-sm font-semibold text-gray-700 mb-2">
+                                            <i className="fas fa-users text-blue-500 mr-1"></i>
+                                            Family History
+                                        </label>
+                                        <textarea
+                                            placeholder="e.g., Father had heart disease at 55, Mother is diabetic..."
+                                            className="w-full px-3 py-2 border-2 border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-400 focus:border-transparent"
+                                            rows="2"
+                                            value={formData.history.family_history_narrative}
+                                            onChange={(e) => setFormData(prev => ({
+                                                ...prev,
+                                                history: { ...prev.history, family_history_narrative: e.target.value }
+                                            }))}
+                                        ></textarea>
+                                    </div>
+
+                                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                        <div>
+                                            <label className="block text-sm font-semibold text-gray-700 mb-2">
+                                                <i className="fas fa-smoking text-gray-700 mr-1"></i>
+                                                Smoking Status
+                                            </label>
+                                            <select
+                                                className="w-full px-3 py-2 border-2 border-gray-200 rounded-lg focus:ring-2 focus:ring-gray-400 focus:border-transparent"
+                                                value={formData.history.smoking_status}
+                                                onChange={(e) => setFormData(prev => ({
+                                                    ...prev,
+                                                    history: { ...prev.history, smoking_status: e.target.value }
+                                                }))}
+                                            >
+                                                <option value="none">Never Smoked</option>
+                                                <option value="past">Ex-Smoker</option>
+                                                <option value="current">Current Smoker</option>
+                                            </select>
+                                        </div>
+                                        <div>
+                                            <label className="block text-sm font-semibold text-gray-700 mb-2">
+                                                <i className="fas fa-wine-glass-alt text-red-500 mr-1"></i>
+                                                Alcohol Use
+                                            </label>
+                                            <select
+                                                className="w-full px-3 py-2 border-2 border-gray-200 rounded-lg focus:ring-2 focus:ring-red-400 focus:border-transparent"
+                                                value={formData.history.alcohol_status}
+                                                onChange={(e) => setFormData(prev => ({
+                                                    ...prev,
+                                                    history: { ...prev.history, alcohol_status: e.target.value }
+                                                }))}
+                                            >
+                                                <option value="none">None</option>
+                                                <option value="social">Social</option>
+                                                <option value="daily">Daily</option>
+                                                <option value="heavy">Heavy</option>
+                                            </select>
+                                        </div>
+                                    </div>
+                                    
+                                    <div>
+                                        <label className="block text-sm font-semibold text-gray-700 mb-2">
+                                            <i className="fas fa-home text-teal-500 mr-1"></i>
+                                            Social / Environmental Factors
+                                        </label>
+                                        <textarea
+                                            placeholder="e.g., Living situation, Occupation, Recent stressors..."
+                                            className="w-full px-3 py-2 border-2 border-gray-200 rounded-lg focus:ring-2 focus:ring-teal-400 focus:border-transparent"
+                                            rows="3"
+                                            value={formData.history.social_factors}
+                                            onChange={(e) => setFormData(prev => ({
+                                                ...prev,
+                                                history: { ...prev.history, social_factors: e.target.value }
+                                            }))}
+                                        ></textarea>
                                     </div>
                                 </div>
                             </div>
@@ -4246,7 +4791,15 @@
                                     </div>
                                     <span>Clinical Examination</span>
                                 </h3>
-                                <div id="examination-editor" className="border-2 border-gray-200 rounded-lg" style={{ minHeight: '200px' }}></div>
+                                <ClinicalExaminationForm
+                                    examData={formData.examination_fields}
+                                    setExamData={(updater) => {
+                                        setFormData(prev => ({
+                                            ...prev,
+                                            examination_fields: typeof updater === 'function' ? updater(prev.examination_fields) : updater
+                                        }));
+                                    }}
+                                />
                             </div>
 
                             {/* Diagnosis Section */}
@@ -4266,65 +4819,88 @@
                                         Add Diagnosis
                                     </button>
                                 </div>
-                                {formData.diagnosis.length === 0 ? (
-                                    <div className="text-center py-12 bg-indigo-50 rounded-lg border-2 border-dashed border-indigo-200">
-                                        <i className="fas fa-diagnoses text-5xl text-indigo-300 mb-3"></i>
-                                        <p className="text-gray-600 font-medium">No diagnosis added yet</p>
-                                        <p className="text-sm text-gray-500 mt-1">Click "Add Diagnosis" to record provisional or final diagnosis</p>
-                                    </div>
-                                ) : (
-                                    <div className="space-y-3">
+
+                                <div className="space-y-4">
+                                    <div className="flex flex-wrap items-center gap-2 p-2 border-2 border-indigo-200 rounded-lg min-h-[48px]">
                                         {formData.diagnosis.map((diag, index) => (
-                                            <div key={index} className="p-4 bg-gradient-to-r from-indigo-50 to-blue-50 rounded-lg border border-indigo-200 hover:shadow-md transition-shadow">
-                                                <div className="flex items-start gap-3">
-                                                    <div className="flex-1 space-y-3">
-                                                        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                                                            <input
-                                                                type="text"
-                                                                placeholder="ICD Code (e.g., J00)"
-                                                                className="px-3 py-2 border-2 border-indigo-200 rounded-lg focus:ring-2 focus:ring-indigo-400 focus:border-transparent"
-                                                                value={diag.code}
-                                                                onChange={(e) => updateDiagnosis(index, 'code', e.target.value)}
-                                                            />
-                                                            <input
-                                                                type="text"
-                                                                placeholder="Diagnosis description"
-                                                                className="px-3 py-2 border-2 border-indigo-200 rounded-lg focus:ring-2 focus:ring-indigo-400 focus:border-transparent md:col-span-2"
-                                                                value={diag.description}
-                                                                onChange={(e) => updateDiagnosis(index, 'description', e.target.value)}
-                                                            />
-                                                        </div>
-                                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                                                            <select
-                                                                className="px-3 py-2 border-2 border-indigo-200 rounded-lg focus:ring-2 focus:ring-indigo-400 focus:border-transparent"
-                                                                value={diag.type}
-                                                                onChange={(e) => updateDiagnosis(index, 'type', e.target.value)}
-                                                            >
-                                                                <option value="provisional">Provisional Diagnosis</option>
-                                                                <option value="final">Final Diagnosis</option>
-                                                                <option value="differential">Differential Diagnosis</option>
-                                                            </select>
-                                                            <input
-                                                                type="text"
-                                                                placeholder="Additional notes"
-                                                                className="px-3 py-2 border-2 border-indigo-200 rounded-lg focus:ring-2 focus:ring-indigo-400 focus:border-transparent"
-                                                                value={diag.notes}
-                                                                onChange={(e) => updateDiagnosis(index, 'notes', e.target.value)}
-                                                            />
-                                                        </div>
-                                                    </div>
-                                                    <button
-                                                        onClick={() => removeDiagnosis(index)}
-                                                        className="p-2 text-red-500 hover:bg-red-100 rounded-lg transition-colors"
-                                                        title="Remove diagnosis"
-                                                    >
-                                                        <i className="fas fa-trash"></i>
-                                                    </button>
-                                                </div>
+                                            <div key={index} className="inline-flex items-center bg-indigo-100 text-indigo-700 text-sm font-medium px-3 py-1 rounded-full">
+                                                {diag.description || diag.code || 'New Diagnosis'}
+                                                <button
+                                                    type="button"
+                                                    onClick={() => removeDiagnosis(index)}
+                                                    className="ml-2 text-indigo-700 hover:text-red-600"
+                                                >
+                                                    <i className="fas fa-times-circle text-xs"></i>
+                                                </button>
                                             </div>
                                         ))}
+                                        <button
+                                            onClick={addDiagnosis}
+                                            className="text-indigo-700 hover:text-indigo-900 text-sm font-medium p-1 rounded-lg border border-indigo-200 hover:bg-indigo-50 transition-colors"
+                                        >
+                                            <i className="fas fa-plus mr-1 text-xs"></i> Add New
+                                        </button>
                                     </div>
-                                )}
+                                
+                                    {formData.diagnosis.length === 0 ? (
+                                        <div className="text-center py-4 text-indigo-500 bg-indigo-50 rounded-lg border border-dashed border-indigo-200">
+                                            No active diagnoses. Add one above.
+                                        </div>
+                                    ) : (
+                                        <div className="space-y-3 p-4 border border-indigo-200 rounded-lg bg-indigo-50/50">
+                                            <h4 className="font-bold text-medical-dark">Edit Active Diagnoses:</h4>
+                                            {formData.diagnosis.map((diag, index) => (
+                                                <div key={index} className="p-4 bg-white rounded-lg shadow-sm border border-indigo-100">
+                                                    <div className="flex items-start gap-3">
+                                                        <div className="flex-1 space-y-3">
+                                                            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                                                                <input
+                                                                    type="text"
+                                                                    placeholder="ICD Code (e.g., J00)"
+                                                                    className="px-3 py-2 border-2 border-indigo-200 rounded-lg focus:ring-2 focus:ring-indigo-400 focus:border-transparent"
+                                                                    value={diag.code}
+                                                                    onChange={(e) => updateDiagnosis(index, 'code', e.target.value)}
+                                                                />
+                                                                <input
+                                                                    type="text"
+                                                                    placeholder="Diagnosis description"
+                                                                    className="px-3 py-2 border-2 border-indigo-200 rounded-lg focus:ring-2 focus:ring-indigo-400 focus:border-transparent md:col-span-2"
+                                                                    value={diag.description}
+                                                                    onChange={(e) => updateDiagnosis(index, 'description', e.target.value)}
+                                                                />
+                                                            </div>
+                                                            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                                                <select
+                                                                    className="px-3 py-2 border-2 border-indigo-200 rounded-lg focus:ring-2 focus:ring-indigo-400 focus:border-transparent"
+                                                                    value={diag.type}
+                                                                    onChange={(e) => updateDiagnosis(index, 'type', e.target.value)}
+                                                                >
+                                                                    <option value="provisional">Provisional Diagnosis</option>
+                                                                    <option value="final">Final Diagnosis</option>
+                                                                    <option value="differential">Differential Diagnosis</option>
+                                                                </select>
+                                                                <input
+                                                                    type="text"
+                                                                    placeholder="Additional notes"
+                                                                    className="px-3 py-2 border-2 border-indigo-200 rounded-lg focus:ring-2 focus:ring-indigo-400 focus:border-transparent"
+                                                                    value={diag.notes}
+                                                                    onChange={(e) => updateDiagnosis(index, 'notes', e.target.value)}
+                                                                />
+                                                            </div>
+                                                        </div>
+                                                        <button
+                                                            onClick={() => removeDiagnosis(index)}
+                                                            className="p-2 text-red-500 hover:bg-red-100 rounded-lg transition-colors"
+                                                            title="Remove diagnosis"
+                                                        >
+                                                            <i className="fas fa-trash"></i>
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    )}
+                                </div>
                             </div>
 
                             {/* Investigations Section */}
@@ -4435,74 +5011,11 @@
                                 ) : (
                                     <div className="space-y-4">
                                         {formData.prescriptions.map((prescription, index) => (
-                                            <div key={index} className="p-4 bg-gradient-to-r from-green-50 to-emerald-50 rounded-lg border-2 border-green-200 hover:shadow-md transition-shadow">
-                                                <div className="flex items-start gap-3">
-                                                    <div className="flex-1 space-y-3">
-                                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                                                            <input
-                                                                type="text"
-                                                                placeholder="Medicine name"
-                                                                className="px-3 py-2 border-2 border-green-200 rounded-lg focus:ring-2 focus:ring-green-400 focus:border-transparent font-medium"
-                                                                value={prescription.medicine}
-                                                                onChange={(e) => updatePrescription(index, 'medicine', e.target.value)}
-                                                            />
-                                                            <select
-                                                                className="px-3 py-2 border-2 border-green-200 rounded-lg focus:ring-2 focus:ring-green-400 focus:border-transparent"
-                                                                value={prescription.type}
-                                                                onChange={(e) => updatePrescription(index, 'type', e.target.value)}
-                                                            >
-                                                                <option value="branded">Branded</option>
-                                                                <option value="generic">Generic</option>
-                                                            </select>
-                                                        </div>
-                                                        <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
-                                                            <input
-                                                                type="text"
-                                                                placeholder="Dosage (e.g., 500mg)"
-                                                                className="px-3 py-2 border-2 border-green-200 rounded-lg focus:ring-2 focus:ring-green-400 focus:border-transparent"
-                                                                value={prescription.dosage}
-                                                                onChange={(e) => updatePrescription(index, 'dosage', e.target.value)}
-                                                            />
-                                                            <select
-                                                                className="px-3 py-2 border-2 border-green-200 rounded-lg focus:ring-2 focus:ring-green-400 focus:border-transparent"
-                                                                value={prescription.frequency}
-                                                                onChange={(e) => updatePrescription(index, 'frequency', e.target.value)}
-                                                            >
-                                                                <option value="">Select Frequency</option>
-                                                                <option value="od">Once Daily (OD)</option>
-                                                                <option value="bd">Twice Daily (BD)</option>
-                                                                <option value="tds">Three Times Daily (TDS)</option>
-                                                                <option value="qid">Four Times Daily (QID)</option>
-                                                                <option value="sos">SOS (When Required)</option>
-                                                                <option value="stat">STAT (Immediately)</option>
-                                                            </select>
-                                                            <select
-                                                                className="px-3 py-2 border-2 border-green-200 rounded-lg focus:ring-2 focus:ring-green-400 focus:border-transparent"
-                                                                value={prescription.route}
-                                                                onChange={(e) => updatePrescription(index, 'route', e.target.value)}
-                                                            >
-                                                                <option value="oral">Oral</option>
-                                                                <option value="topical">Topical</option>
-                                                                <option value="iv">IV</option>
-                                                                <option value="im">IM</option>
-                                                                <option value="sc">SC</option>
-                                                            </select>
-                                                            <input
-                                                                type="text"
-                                                                placeholder="Duration (e.g., 7 days)"
-                                                                className="px-3 py-2 border-2 border-green-200 rounded-lg focus:ring-2 focus:ring-green-400 focus:border-transparent"
-                                                                value={prescription.duration}
-                                                                onChange={(e) => updatePrescription(index, 'duration', e.target.value)}
-                                                            />
-                                                        </div>
-                                                        <textarea
-                                                            placeholder="Special instructions (e.g., Take after meals, Avoid alcohol)"
-                                                            className="w-full px-3 py-2 border-2 border-green-200 rounded-lg focus:ring-2 focus:ring-green-400 focus:border-transparent"
-                                                            rows="2"
-                                                            value={prescription.instructions}
-                                                            onChange={(e) => updatePrescription(index, 'instructions', e.target.value)}
-                                                        ></textarea>
-                                                    </div>
+                                            <div key={index} className="p-4 bg-white rounded-xl shadow-md border border-green-200">
+                                                <div className="flex items-center justify-between mb-3 border-b pb-2">
+                                                    <h4 className="font-bold text-lg text-green-700">
+                                                        {index + 1}. {prescription.medicine || 'New Medication'}
+                                                    </h4>
                                                     <button
                                                         onClick={() => removePrescription(index)}
                                                         className="p-2 text-red-500 hover:bg-red-100 rounded-lg transition-colors"
@@ -4510,6 +5023,109 @@
                                                     >
                                                         <i className="fas fa-trash"></i>
                                                     </button>
+                                                </div>
+                                                
+                                                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                                                    {/* Row 1: Name and Type */}
+                                                    <div className="lg:col-span-2">
+                                                        <label className="block text-xs font-semibold text-gray-500 mb-1">Medicine Name</label>
+                                                        <input
+                                                            type="text"
+                                                            placeholder="e.g., Amoxicillin"
+                                                            className="w-full px-3 py-2 border-2 border-green-200 rounded-lg focus:ring-2 focus:ring-green-400 font-medium"
+                                                            value={prescription.medicine}
+                                                            onChange={(e) => updatePrescription(index, 'medicine', e.target.value)}
+                                                        />
+                                                    </div>
+                                                    <div>
+                                                        <label className="block text-xs font-semibold text-gray-500 mb-1">Form/Type</label>
+                                                        <select
+                                                            className="w-full px-3 py-2 border-2 border-green-200 rounded-lg focus:ring-2 focus:ring-green-400"
+                                                            value={prescription.type}
+                                                            onChange={(e) => updatePrescription(index, 'type', e.target.value)}
+                                                        >
+                                                            <option value="branded">Branded</option>
+                                                            <option value="generic">Generic</option>
+                                                        </select>
+                                                    </div>
+                                                    <div>
+                                                         <label className="block text-xs font-semibold text-gray-500 mb-1">Dosage</label>
+                                                        <input
+                                                            type="text"
+                                                            placeholder="e.g., 500mg"
+                                                            className="w-full px-3 py-2 border-2 border-green-200 rounded-lg focus:ring-2 focus:ring-green-400"
+                                                            value={prescription.dosage}
+                                                            onChange={(e) => updatePrescription(index, 'dosage', e.target.value)}
+                                                        />
+                                                    </div>
+
+                                                    {/* Row 2: Frequency, Route, Duration */}
+                                                    <div>
+                                                        <label className="block text-xs font-semibold text-gray-500 mb-1">Frequency</label>
+                                                        <select
+                                                            className="w-full px-3 py-2 border-2 border-green-200 rounded-lg focus:ring-2 focus:ring-green-400"
+                                                            value={prescription.frequency}
+                                                            onChange={(e) => updatePrescription(index, 'frequency', e.target.value)}
+                                                        >
+                                                            <option value="">Select Freq</option>
+                                                            <option value="od">Once Daily (OD)</option>
+                                                            <option value="bd">Twice Daily (BD)</option>
+                                                            <option value="tds">Three Times Daily (TDS)</option>
+                                                            <option value="qid">Four Times Daily (QID)</option>
+                                                            <option value="sos">SOS</option>
+                                                            <option value="stat">STAT</option>
+                                                        </select>
+                                                    </div>
+                                                    <div>
+                                                        <label className="block text-xs font-semibold text-gray-500 mb-1">Route</label>
+                                                        <select
+                                                            className="w-full px-3 py-2 border-2 border-green-200 rounded-lg focus:ring-2 focus:ring-green-400"
+                                                            value={prescription.route}
+                                                            onChange={(e) => updatePrescription(index, 'route', e.target.value)}
+                                                        >
+                                                            <option value="oral">Oral</option>
+                                                            <option value="topical">Topical</option>
+                                                            <option value="iv">IV</option>
+                                                            <option value="im">IM</option>
+                                                            <option value="sc">SC</option>
+                                                        </select>
+                                                    </div>
+                                                    <div>
+                                                        <label className="block text-xs font-semibold text-gray-500 mb-1">Duration</label>
+                                                        <input
+                                                            type="text"
+                                                            placeholder="e.g., 7 days"
+                                                            className="w-full px-3 py-2 border-2 border-green-200 rounded-lg focus:ring-2 focus:ring-green-400"
+                                                            value={prescription.duration}
+                                                            onChange={(e) => updatePrescription(index, 'duration', e.target.value)}
+                                                        />
+                                                    </div>
+                                                    <div className="sm:col-span-2 lg:col-span-1">
+                                                        <label className="block text-xs font-semibold text-gray-500 mb-1">When</label>
+                                                        <select
+                                                            className="w-full px-3 py-2 border-2 border-green-200 rounded-lg focus:ring-2 focus:ring-green-400"
+                                                            value={prescription.when}
+                                                            onChange={(e) => updatePrescription(index, 'when', e.target.value)}
+                                                        >
+                                                            <option value="">Select When</option>
+                                                            <option value="Before Food">Before Food</option>
+                                                            <option value="After Food">After Food</option>
+                                                            <option value="With Food">With Food</option>
+                                                            <option value="Bed Time">Bed Time</option>
+                                                        </select>
+                                                    </div>
+
+                                                    {/* Row 3: Instructions */}
+                                                    <div className="lg:col-span-4">
+                                                        <label className="block text-xs font-semibold text-gray-500 mb-1">Instructions</label>
+                                                        <textarea
+                                                            placeholder="Special instructions (e.g., Take after meals, Avoid alcohol)"
+                                                            className="w-full px-3 py-2 border-2 border-green-200 rounded-lg focus:ring-2 focus:ring-green-400"
+                                                            rows="2"
+                                                            value={prescription.instructions}
+                                                            onChange={(e) => updatePrescription(index, 'instructions', e.target.value)}
+                                                        ></textarea>
+                                                    </div>
                                                 </div>
                                             </div>
                                         ))}
@@ -4527,27 +5143,103 @@
                                 </h3>
                                 <div className="space-y-4">
                                     <div id="advice-editor" className="border-2 border-gray-200 rounded-lg" style={{ minHeight: '200px' }}></div>
+                                    {/* --- START: Structured Follow-up/Next Visit --- */}
                                     <div>
                                         <label className="block text-sm font-semibold text-gray-700 mb-2">
                                             <i className="fas fa-calendar-check text-blue-500 mr-1"></i>
-                                            Next Follow-up Date
+                                            Next Visit / Follow-up
                                         </label>
-                                        <input
-                                            type="date"
-                                            className="px-4 py-2 border-2 border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-400 focus:border-transparent"
-                                            value={formData.nextVisitDate}
-                                            onChange={(e) => setFormData(prev => ({
-                                                ...prev,
-                                                nextVisitDate: e.target.value
-                                            }))}
-                                            min={new Date().toISOString().split('T')[0]}
-                                        />
+                                        <div className="flex items-center space-x-2">
+                                            <select
+                                                className="w-full px-3 py-2 border-2 border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-400 focus:border-transparent"
+                                                value={formData.nextVisitType || 'duration'}
+                                                onChange={(e) => setFormData(prev => ({ ...prev, nextVisitType: e.target.value }))}
+                                            >
+                                                <option value="duration">Duration (e.g., 3 weeks)</option>
+                                                <option value="date">Specific Date</option>
+                                            </select>
+                                        </div>
+                                        {formData.nextVisitType === 'duration' || !formData.nextVisitType ? (
+                                            <div className="flex items-center space-x-2 mt-2">
+                                                <input
+                                                    type="number"
+                                                    placeholder="No. of"
+                                                    className="w-20 px-3 py-2 border-2 border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-400 focus:border-transparent"
+                                                    value={formData.nextVisitValue || ''}
+                                                    onChange={(e) => setFormData(prev => ({ ...prev, nextVisitValue: e.target.value, nextVisitInstructions: `${e.target.value} ${formData.nextVisitUnit || 'Days'}` }))}
+                                                />
+                                                <select
+                                                    className="w-28 px-3 py-2 border-2 border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-400 focus:border-transparent"
+                                                    value={formData.nextVisitUnit || 'Days'}
+                                                    onChange={(e) => setFormData(prev => ({ ...prev, nextVisitUnit: e.target.value, nextVisitInstructions: `${formData.nextVisitValue || ''} ${e.target.value}` }))}
+                                                >
+                                                    <option>Days</option>
+                                                    <option>Weeks</option>
+                                                    <option>Months</option>
+                                                </select>
+                                                <span className="text-sm text-gray-600">({formData.nextVisitInstructions || 'e.g., 3 Weeks'})</span>
+                                            </div>
+                                        ) : (
+                                            <input
+                                                type="date"
+                                                className="w-full px-3 py-2 border-2 border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-400 focus:border-transparent mt-2"
+                                                value={formData.nextVisitDate}
+                                                onChange={(e) => setFormData(prev => ({ ...prev, nextVisitDate: e.target.value }))}
+                                                min={new Date().toISOString().split('T')[0]}
+                                            />
+                                        )}
+                                        <input type="hidden" value={formData.nextVisitInstructions || ''} name="next_visit_instructions" />
+                                        <input type="hidden" value={formData.nextVisitDate || ''} name="next_visit_date" />
                                     </div>
+                                    {/* --- END: Structured Follow-up/Next Visit --- */}
+
+                                    {/* --- START: Referral Section --- */}
+                                    <div>
+                                        <label className="block text-sm font-semibold text-gray-700 mb-2">
+                                            <i className="fas fa-user-md text-gray-600 mr-1"></i>
+                                            Referred To (Optional)
+                                        </label>
+                                        <div className="grid grid-cols-1 md:grid-cols-4 gap-2 border p-3 rounded-lg bg-gray-50">
+                                            <input 
+                                                type="text" 
+                                                name="referral_doctor_name" 
+                                                value={formData.referral_doctor_name || ''} 
+                                                onChange={(e) => setFormData(prev => ({ ...prev, referral_doctor_name: e.target.value }))}
+                                                className="form-input-themed" 
+                                                placeholder="Doctor Name" 
+                                            />
+                                            <input 
+                                                type="text" 
+                                                name="referral_speciality" 
+                                                value={formData.referral_speciality || ''} 
+                                                onChange={(e) => setFormData(prev => ({ ...prev, referral_speciality: e.target.value }))}
+                                                className="form-input-themed" 
+                                                placeholder="Speciality" 
+                                            />
+                                            <input 
+                                                type="tel" 
+                                                name="referral_phone" 
+                                                value={formData.referral_phone || ''} 
+                                                onChange={(e) => setFormData(prev => ({ ...prev, referral_phone: e.target.value }))}
+                                                className="form-input-themed" 
+                                                placeholder="Phone No" 
+                                            />
+                                            <input 
+                                                type="email" 
+                                                name="referral_email" 
+                                                value={formData.referral_email || ''} 
+                                                onChange={(e) => setFormData(prev => ({ ...prev, referral_email: e.target.value }))}
+                                                className="form-input-themed" 
+                                                placeholder="Email" 
+                                            />
+                                        </div>
+                                    </div>
+                                    {/* --- END: Referral Section --- */}
                                 </div>
                             </div>
 
                             {/* Previous Prescriptions Section */}
-                            {patient.previousVisits && patient.previousVisits.length > 0 && (
+                            {mode === 'consultation' && patient.previousVisits && patient.previousVisits.length > 0 && (
                                 <div className="bg-white p-6 rounded-xl border border-violet-100 shadow-sm hover:shadow-md transition-shadow">
                                     <h3 className="text-lg font-bold text-medical-dark mb-4 flex items-center gap-2 pb-3 border-b-2 border-violet-100">
                                         <div className="w-10 h-10 bg-gradient-to-br from-violet-500 to-purple-500 rounded-lg flex items-center justify-center">
@@ -4603,9 +5295,76 @@
         // Set the main export
         const ConsultationEditor = ConsultationView;
 
+        // ============================================================================
+        // NEW: TEMPLATE EDITOR VIEW
+        // ============================================================================
+        const TemplateEditorView = () => {
+            return (
+                <div className="space-y-6 animate-fade-in">
+                    <h2 className="text-2xl font-bold text-medical-dark font-primary">Consultation Templates</h2>
+
+                    <div className="medical-card p-6 rounded-2xl">
+                        <div className="flex justify-between items-center mb-4">
+                            <h3 className="text-xl font-bold text-medical-dark">Create New Template</h3>
+                        </div>
+                        <p className="text-medical-gray mb-4">
+                            Use the form below to create a new template. Fill in any fields you want to be pre-loaded when you select this template during a consultation.
+                        </p>
+
+                        <div className="space-y-4">
+                            <div>
+                                <label className="custom-label required">Template Name</label>
+                                <input
+                                    type="text"
+                                    placeholder="e.g., Diabetes Follow-up, First Visit Gynae"
+                                    className="form-input-themed"
+                                />
+                            </div>
+
+                            <button className="medical-button px-6 py-3 text-white rounded-xl font-secondary flex items-center gap-2 relative z-10">
+                                <i className="fas fa-save"></i>
+                                <span>Save New Template</span>
+                            </button>
+                        </div>
+                    </div>
+
+                    <div className="medical-card p-6 rounded-2xl">
+                        <h3 className="text-xl font-bold text-medical-dark mb-4">Existing Templates</h3>
+                        <p className="text-medical-gray">
+                            (This area will show a list of your saved templates.)
+                        </p>
+                    </div>
+                </div>
+            );
+        };
+
 
         const Users = ({ user: loggedInUser }) => {
             const [users, setUsers] = React.useState([]);
+
+            const handleResetPassword = (user) => {
+                if (confirm(`Are you sure you want to open the password reset modal for user ${user.username}?`)) {
+                    // Pass the user to UserEditor to open the modal
+                    handleEditUser(user);
+                }
+            };
+
+            const handleDeleteUser = async (userId, username) => {
+                if (confirm(`WARNING: Are you sure you want to delete the user ${username} (ID: ${userId})? This action cannot be undone.`)) {
+                    try {
+                        // The backend crud.py already contains SuperAdmin protection logic (ID 1 cannot be deleted)
+                        await api(`/api/v1/users/${userId}`, {
+                            method: 'DELETE'
+                        });
+                        toast(`User ${username} deleted successfully.`);
+                        fetchUsers(); // Refresh the list
+                    } catch (err) {
+                        console.error('Delete user error:', err);
+                        toast(`Deletion failed: ${err.message || 'An unexpected error occurred.'}`);
+                    }
+                }
+            };
+
             const [loading, setLoading] = React.useState(true);
             const [showModal, setShowModal] = React.useState(false);
             const [editingUser, setEditingUser] = React.useState(null);
@@ -4717,10 +5476,19 @@
                                                         >
                                                             <i className="fas fa-edit"></i>
                                                         </button>
-                                                        <button className="text-medical-success hover:text-green-700" title="Reset Password">
+                                                        {/* The key button opens the editor for password update */}
+                                                        <button
+                                                            onClick={() => handleResetPassword(user)}
+                                                            className="text-medical-success hover:text-green-700"
+                                                            title="Reset Password/Edit User"
+                                                        >
                                                             <i className="fas fa-key"></i>
                                                         </button>
-                                                        <button className="text-medical-error hover:text-red-700" title="Delete User">
+                                                        <button
+                                                            onClick={() => handleDeleteUser(user.id, user.username)}
+                                                            className="text-medical-error hover:text-red-700"
+                                                            title="Delete User"
+                                                        >
                                                             <i className="fas fa-trash"></i>
                                                         </button>
                                                     </div>
@@ -4741,10 +5509,10 @@
                         title={editingUser ? 'Edit User' : 'Add New User'}
                     >
                         {/* Pass the currently logged-in user's ID to check for self-editing */}
-                        <UserEditor 
-                            user={editingUser} 
-                            onClose={handleCloseModal} 
-                            refreshUsers={fetchUsers} 
+                        <UserEditor
+                            user={editingUser}
+                            onClose={handleCloseModal}
+                            refreshUsers={fetchUsers}
                             loggedInUser={loggedInUser}
                         />
                     </Modal>
@@ -5309,7 +6077,7 @@
 
             const isDisabled = (key) => {
                 // Block editing own permissions to prevent self-lockout
-                return isEditingOwnAccount && key !== 'can_manage_appointments'; 
+                return isEditingOwnAccount && key !== 'can_manage_appointments';
             };
 
             return (
@@ -5349,7 +6117,7 @@
             const [password, setPassword] = React.useState('');
             const [isActive, setIsActive] = React.useState(user ? user.is_active : true);
             const [error, setError] = React.useState('');
-            
+
             // NEW: State for current permissions (used for PUT payload)
             const [permissions, setPermissions] = React.useState(user?.permissions || {});
 
@@ -5359,7 +6127,7 @@
 
             const handleSubmit = async () => {
                 setError('');
-                
+
                 // Prevent editing of SuperAdmin permissions/role in the UI
                 if (isSuperAdmin && role !== user.role) {
                     setError('Cannot change the role of the SuperAdmin account.');
@@ -5369,13 +6137,13 @@
                     setError('Cannot modify the permissions of the SuperAdmin account.');
                     return;
                 }
-                
+
                 // Prevent Admin from stripping their own admin/logs/user management permissions
                 if (isEditingOwnAccount && !isSuperAdmin && user && user.role === 'admin') {
                     // If they remove can_manage_users or can_access_logs, prevent save.
                     if (!permissions.can_manage_users || !permissions.can_access_logs) {
-                         setError('Cannot remove critical administrative permissions from your own account.');
-                         return;
+                        setError('Cannot remove critical administrative permissions from your own account.');
+                        return;
                     }
                 }
 
@@ -5452,8 +6220,7 @@
                             >
                                 <option value="staff">Staff</option>
                                 <option value="doctor">Doctor</option>
-                                <option value="nurse">Nurse</option>
-                                <option value="receptionist">Receptionist</option>
+                                <option value="viewer">Viewer</option>
                                 <option value="admin">Admin</option>
                             </select>
                         </div>
@@ -6125,6 +6892,8 @@
                         return <Patients user={user} />;
                     case 'consultation':
                         return <ConsultationEditor />;
+                    case 'templates':
+                        return <TemplateEditorView />;
 
                     case 'users':
                         return user.role === 'admin' ? <Users user={user} /> : <Dashboard />;

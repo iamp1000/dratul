@@ -5,11 +5,11 @@ import json
 import asyncio
 from datetime import datetime, timedelta
 from typing import Optional, Dict, Any, List
-from twilio.rest import Client
-from twilio.base.exceptions import TwilioRestException
+import httpx # NEW: for Meta API async calls
 import logging
 from sqlalchemy.orm import Session
 from fastapi import HTTPException, status
+from twilio.rest import Client # Added this import
 
 from ..config import get_settings
 from ..database import get_db
@@ -59,35 +59,43 @@ class WhatsAppChatbot:
                 return True
         return DummyRateLimiter()
 
-    # --- Twilio Template Configuration (Using Content SIDs) ---
-    TWILIO_TEMPLATE_MAP = {
-        # Main Menu (Quick Reply Template) - Used for all greeting scenarios
-        "main_menu": "HX6b5090f45b65017fa3daef3891546e9e", # Friendly name: dr_atul_greeting_menu
-        
-        # Key Utility Notifications
-        "session_timeout_notification": "HX531f659e8dc4109c88724fe46495cdb3", 
-        "appointment_reminder": "HXdbad01a1384577e2b67ec5189f3e4601", 
-        "appointment_cancelled": "HX32e6abae32b235a26a52af860c3d1314",
-        "go_back": "HX4bfdf8320c91e8f40095b0a49816a297", 
-        
-        # Confirmation Flow (Yes/No)
-        "confirmation_yes_no": "HXd98dddd02075ca508627e934b3810d3e", # Friendly name: dr_atul_confirmation_yes_no
+    # --- Meta Template Configuration (Using Template Names) ---
+    META_TEMPLATE_MAP = {
+        # Keys used by the chatbot logic, mapped to user's approved template names
+        "language_selection": "language_selection_menu",
+        "main_menu": "dr_atul_greeting_menu",
+        "session_timeout_notification": "dr_atul_timeout_notification",
+        "appointment_reminder": "dr_atul_appointment_reminder",
+        "confirmation_yes_no": "dr_atul_confirmation",
+
+        # User did not provide these, but they were in the old map. 
+        # We can add them back later if needed.
+        # "appointment_cancelled": "...", 
+        # "go_back": "...", 
     }
 
-    def _get_template_message(self, template_key: str, parameters: List[str] = None) -> Dict[str, Any]:
-        """Generates a structured dict for sending a Twilio template message.
+    def _get_template_message(self, template_key: str, parameters: List[str] = None, language_code: str = "en") -> Dict[str, Any]:
+        """Generates a structured dict for sending a Meta/WhatsApp Cloud API template message.
 
-        Note: Twilio requires an approved template name and optional body parameters.
+        Note: Meta requires the template name and optional body parameters.
         """
         if parameters is None:
             parameters = []
             
-        template_name = self.TWILIO_TEMPLATE_MAP.get(template_key, template_key)
+        template_name = self.META_TEMPLATE_MAP.get(template_key, template_key)
         
+        # Meta expects a locale code (e.g., en_US, hi), not just a two-letter code.
+        # We map simple codes to locales for compliance.
+        locale_map = {
+            "en": "en", # Use general 'English', not 'English (US)'
+            "hi": "hi" # Assuming Meta supports 'hi' or 'hi_IN'
+        }
+        final_locale = locale_map.get(language_code, "en_US") # Default to en_US
+
+        # This function returns the 'template' object which is used inside the message dict later
         return {
-            "type": "template",
             "name": template_name,
-            "language": {"code": "en"}, # Hardcoded language for simplicity
+            "language": {"code": final_locale}, # Use the resolved locale code
             "components": [{
                 "type": "body",
                 "parameters": [{"type": "text", "text": p} for p in parameters]
@@ -125,15 +133,12 @@ class WhatsAppChatbot:
                 session_data["current_flow"] = "greeting"
                 session_data.pop("current_step", None) # Clear any sub-step
                 
-                # Send the approved template for out-of-session notification
-                timeout_template = self._get_template_message(
-                    "session_timeout_notification", 
-                    parameters=["15 minutes"]
-                )
+                # TEMPORARY: Use plain text message to avoid unapproved template crash
+                timeout_message = "Your session timed out after 15 minutes of inactivity. Please reply 'hi' or 'menu' to restart the conversation."
                 
-                # Return ONLY the template message, ensuring compliance. The user must reply 'hi' to get the menu.
+                # Return ONLY the text message
                 return {
-                    "message": timeout_template,
+                    "message": timeout_message,
                     "session_data": session_data
                 }
         
@@ -235,7 +240,7 @@ class WhatsAppChatbot:
                 if message_text == "main_menu":
                     next_flow = "greeting"
                     # Show the general menu using the approved Quick Reply template
-                    response_message = self._get_template_message("main_menu")
+                    response_message = self._get_template_message("main_menu", parameters=[patient.name])
 
             else:
                 # --- Scenario B: Existing Patient, No Upcoming Appointment ---
@@ -257,7 +262,7 @@ class WhatsAppChatbot:
                 else:
                 # Show the menu using the approved Quick Reply template
                 # The template handles the fixed text and buttons; no dynamic parameters needed here.
-                    response_message = self._get_template_message("main_menu")
+                    response_message = self._get_template_message("main_menu", parameters=[patient.name])
 
         else:
             # --- Scenario A: New Number ---
@@ -274,7 +279,7 @@ class WhatsAppChatbot:
                 next_flow = "staff_transfer"
             else:
                 # Show the menu using the approved Quick Reply template
-                response_message = self._get_template_message("main_menu")
+                response_message = self._get_template_message("main_menu", parameters=["there"]) # New patient, use 'there'
 
         # Update session data
         session_data["current_flow"] = next_flow
@@ -894,100 +899,79 @@ class WhatsAppChatbot:
 
 
 class WhatsAppService:
-    """Twilio-based WhatsApp service"""
+    """Meta-based WhatsApp service using Cloud API"""
 
     def __init__(self):
         settings = get_settings()
-        self.account_sid = os.getenv("TWILIO_ACCOUNT_SID")
-        self.auth_token = os.getenv("TWILIO_AUTH_TOKEN")
-        self.from_number = os.getenv("TWILIO_WHATSAPP_FROM")
-
-        self.enabled = bool(self.account_sid and self.auth_token and self.from_number)
+        self.api_token = os.getenv("META_WHATSAPP_TOKEN")
+        self.phone_number_id = os.getenv("META_WHATSAPP_PHONE_ID")
+        # API URL for sending messages
+        self.api_url = f"https://graph.facebook.com/v19.0/{self.phone_number_id}/messages"
+        self.enabled = bool(self.api_token and self.phone_number_id)
 
         if self.enabled:
-            self.client = Client(self.account_sid, self.auth_token)
-            logger.info("✅ Twilio WhatsApp Service - ENABLED")
+            logger.info("✅ Meta WhatsApp Service - ENABLED")
         else:
-            logger.warning("⚠️ Twilio WhatsApp not configured - Service disabled")
-            self.client = None
+            logger.warning("⚠️ Meta WhatsApp not configured - Service disabled")
 
         self.chatbot = WhatsAppChatbot()
+        self.http_client = httpx.AsyncClient(headers={"Authorization": f"Bearer {self.api_token}"})
 
     async def send_message(self, phone_number: str, message_content: Any) -> Dict[str, Any]:
-        """Send a WhatsApp message, handling both text and interactive types."""
+        """Send a WhatsApp message, handling both text and interactive types via Meta API."""
         if not self.enabled:
             logger.info(f"📱 [SIMULATED] Would send to {phone_number}: {json.dumps(message_content) if isinstance(message_content, dict) else message_content}")
             return {"success": True, "message": "Message sent (simulated)", "message_id": "sim_" + str(datetime.now().timestamp())}
 
-        # Prepare recipient number format
-        if not phone_number.startswith('whatsapp:'):
-            to_number = f"whatsapp:{phone_number}"
-        else:
-            to_number = phone_number
-
-        message_params = {
-            "from_": self.from_number,
-            "to": to_number
+        # Meta API recipient format is just the raw phone number (no 'whatsapp:')
+        to_number = phone_number.replace("whatsapp:", "")
+        
+        message_data = {
+            "messaging_product": "whatsapp",
+            "recipient_type": "individual",
+            "to": to_number,
         }
-
+        
         try:
             if isinstance(message_content, str):
                 # Send plain text message
-                message_params["body"] = message_content
+                message_data["type"] = "text"
+                message_data["text"] = {"body": message_content}
                 logger.debug(f"Sending TEXT message to {to_number}: {message_content}")
 
-            elif isinstance(message_content, dict) and message_content.get("type") == "template":
-                # Send template message using ContentSid and ContentVariables (as per Twilio docs)
-                template = message_content
-                message_params["content_sid"] = template["name"]
-
-                # Extract body parameters correctly
-                body_params = []
-                components_list = template.get("components", [])
-                for component in components_list:
-                    if component.get("type") == "body":
-                        body_params = [p.get("text") for p in component.get("parameters", []) if p.get("type") == "text"]
-                        break
-                
-                # Use the correct 'content_variables' parameter
-                # Twilio expects variables keyed by number, e.g., {"1": "value1", "2": "value2"}
-                variables_dict = {str(i+1): param for i, param in enumerate(body_params)}
-                # ONLY add content_variables parameter if variables actually exist
-                if variables_dict:
-                    message_params["content_variables"] = json.dumps(variables_dict)
-                    logger.debug(f"Sending TEMPLATE message {template['name']} to {to_number} with ContentVariables: {message_params['content_variables']}")
-                else:
-                    logger.debug(f"Sending TEMPLATE message {template['name']} to {to_number} with ContentSid ONLY (no variables).")
+            elif isinstance(message_content, dict) and message_content.get("name"):
+                # Send template message (message_content is the 'template' object returned by _get_template_message)
+                message_data["type"] = "template"
+                message_data["template"] = message_content # message_content is already the structured template object
+                logger.debug(f"Sending TEMPLATE message {message_content['name']} to {to_number}")
                 
             elif isinstance(message_content, dict) and message_content.get("type") in ["list", "button"]:
-                # WARNING: The 'list' and 'button' types rely on non-standard 'persistent_action' and are likely to fail.
-                # We keep the code here, but rely on the new text menus instead.
-                interactive_data = {
-                    "type": message_content["type"],
-                    "header": message_content.get("header"), # Optional
-                    # Ensure the body text is correctly extracted from the nested dictionary structure (e.g., {"body": {"text": "..."}})
-                    "body": {"text": message_content.get("body", {}).get("text", "Please make a selection.")},
-                    "footer": message_content.get("footer"), # Optional
-                    "action": message_content["action"]
-                }
-                # persistent_action expects a JSON string within a list, prefixed with 'whatsapp:'
-                message_params["persistent_action"] = [f"whatsapp:{json.dumps(interactive_data)}"]
-                # Fallback body text is still needed for the main message body parameter
-                message_params["body"] = interactive_data["body"]["text"]
-                logger.debug(f"Sending INTERACTIVE message via persistent_action to {to_number}: {message_params['persistent_action']}")
+                # Send interactive messages (List/Button Messages)
+                message_data["type"] = "interactive"
+                # The structure is already correct for Meta API interactive messages
+                message_data["interactive"] = message_content
+                logger.debug(f"Sending INTERACTIVE message to {to_number}: {message_content['type']}")
 
             else:
                 logger.error(f"Unknown message content type for {to_number}: {type(message_content)}")
                 return {"success": False, "error": "Invalid message content type"}
 
-            # Create the message using Twilio client
-            sent_message = self.client.messages.create(**message_params)
+            # Send the API request
+            # We use the persistent client 'self.http_client' directly, without 'async with' which closes it.
+            response = await self.http_client.post(self.api_url, json=message_data)
             
-            return {"success": True, "message": "Message sent successfully", "message_id": sent_message.sid}
+            # Handle response and error status codes
+            response.raise_for_status() # Raise exception for bad status codes
+
+            response_json = response.json()
+            message_id = response_json.get("messages", [{}])[0].get("id")
+            
+            return {"success": True, "message": "Message sent successfully", "message_id": message_id}
         
-        except TwilioRestException as e:
-            logger.error(f"Twilio API Error sending to {to_number}: {e}")
-            return {"success": False, "error": f"Twilio Error: {e.status} - {e.msg}"}
+        except httpx.HTTPStatusError as e:
+            error_details = e.response.json().get("error", {}) if e.response.content else {}
+            logger.error(f"Meta API HTTP Error sending to {to_number}: {error_details}")
+            return {"success": False, "error": f"Meta API Error: {e.response.status_code} - {error_details.get('message', 'Unknown error')}"}
         except Exception as e:
             logger.error(f"General Error sending WhatsApp message to {to_number}: {e}", exc_info=True)
             return {"success": False, "error": str(e)}
@@ -1021,27 +1005,31 @@ class WhatsAppService:
     async def process_incoming_message(self, message_data: Dict[str, Any], db: Session):
         """Process individual incoming message"""
         try:
+            # Meta webhooks use 'from' field for the sender's phone number
             phone_number = message_data.get("from")
             message_text = ""
 
-            # Extract message text
+            # Extract message text (This logic is robust for Meta/Twilio-like structures)
             if message_data.get("type") == "text":
                 message_text = message_data.get("text", {}).get("body", "")
             elif message_data.get("type") == "button":
+                # For quick reply buttons
                 message_text = message_data.get("button", {}).get("text", "")
             elif message_data.get("type") == "interactive":
                 interactive = message_data.get("interactive", {})
                 if "button_reply" in interactive:
-                    # Get the ID of the clicked button
+                    # Get the ID of the clicked quick reply button
                     message_text = interactive["button_reply"].get("id", "")
                 elif "list_reply" in interactive:
                     # Get the ID of the clicked list item
                     message_text = interactive["list_reply"].get("id", "")
+            # If a media type is sent, message_text will remain "" and we ignore it
 
             if not phone_number or not message_text:
                 return
 
             # Get or create WhatsApp session
+            # Note: Meta provides the raw number, which is assumed to be hash-compatible
             session = crud.get_whatsapp_session(db, phone_number)
             if not session:
                 session = crud.create_whatsapp_session(db, phone_number)
@@ -1062,7 +1050,7 @@ class WhatsAppService:
             # Send response
             await self.send_message(phone_number, response["message"])
 
-            # Log communication
+            # Log communication (Keeping existing robust logging)
             crud.create_communication_log(db, schemas.CommunicationLogCreate(
                 patient_id=session.patient_id,
                 communication_type="whatsapp",

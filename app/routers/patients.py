@@ -4,7 +4,7 @@ from sqlalchemy.orm import Session
 from typing import List, Optional
 
 from .. import crud, schemas, security, models
-from ..schemas import PatientMenstrualHistoryResponse, PatientMenstrualHistoryUpdate, PatientMenstrualHistoryCreate
+from ..schemas import PatientMenstrualHistoryResponse, PatientMenstrualHistoryUpdate, PatientMenstrualHistoryCreate, PatientHistoryResponse, PatientHistoryUpdate, PatientHistoryCreate
 from ..database import get_db
 
 from fastapi import File, UploadFile, Form
@@ -152,6 +152,57 @@ def get_patient_remarks(
     """
     try:
         return crud.get_remarks_for_patient(db=db, patient_id=patient_id)
+    except crud.CRUDError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+
+@router.get("/patients/{patient_id}/history", response_model=schemas.PatientHistoryResponse)
+def get_patient_history_endpoint(
+    patient_id: int,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(security.get_current_user)
+):
+    """
+    Get the comprehensive medical history (Past, Family, Surgical, Allergies, Meds) for a specific patient.
+    """
+    history = crud.get_patient_history(db, patient_id=patient_id)
+    if not history:
+        # Return a default empty response instead of 404
+        return schemas.PatientHistoryResponse(
+            id=-1, # Signal 'new'
+            patient_id=patient_id
+        )
+    return history
+
+
+@router.post("/patients/{patient_id}/history", response_model=schemas.PatientHistoryResponse)
+def create_or_update_patient_history_endpoint(
+    patient_id: int,
+    history_data: schemas.PatientHistoryUpdate, # Use Update schema for the body
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(security.get_current_user)
+):
+    """
+    Create or update the comprehensive medical history for a specific patient.
+    """
+    # Manually create the 'Create' schema required by the CRUD function
+    history_create_schema = schemas.PatientHistoryCreate(
+        **history_data.dict(exclude_unset=True, by_alias=True),
+        patient_id=patient_id
+    )
+
+    try:
+        history = crud.create_or_update_patient_history(
+            db=db,
+            patient_id=patient_id,
+            history_data=history_create_schema
+        )
+        crud.create_audit_log(
+            db=db, user_id=current_user.id, action="UPDATE", category="PATIENT_HISTORY", 
+            resource_id=patient_id, details=f"Updated general medical history for patient ID {patient_id}"
+        )
+        return history
     except crud.CRUDError as e:
         raise HTTPException(status_code=400, detail=str(e))
 
