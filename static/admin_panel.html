@@ -14,9 +14,7 @@
         rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link href="https://cdn.quilljs.com/1.3.7/quill.snow.css" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
-    <link rel="stylesheet" type="text/css" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/themes/material_blue.css">
-    <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+    
     <script>
         tailwind.config = {
             theme: {
@@ -464,6 +462,8 @@
             margin-top: 4px;
             font-family: 'Inter', sans-serif;
         }
+        .hide-scrollbar::-webkit-scrollbar { display: none; }
+        .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
     </style>
 
 </head>
@@ -588,27 +588,122 @@
             );
         };
 
+        const TimeRangePicker = ({ isOpen, onClose, onConfirm, initialStartTime, initialEndTime }) => {
+            const startHourRef = React.useRef(null);
+            const startMinRef = React.useRef(null);
+            const endHourRef = React.useRef(null);
+            const endMinRef = React.useRef(null);
+
+            const hours = Array.from({ length: 24 }, (_, i) => i.toString().padStart(2, "0"));
+            const minutes = Array.from({ length: 12 }, (_, i) => (i * 5).toString().padStart(2, "0")); // 00, 05, ... 55
+
+            // Set initial scroll position
+            React.useEffect(() => {
+                if (isOpen && startHourRef.current && startMinRef.current && endHourRef.current && endMinRef.current) {
+                    try {
+                        const [startH, startM] = (initialStartTime || '09:00').split(':');
+                        const startHourIndex = Math.max(0, hours.indexOf(startH));
+                        const startMinuteIndex = Math.max(0, minutes.indexOf(startM?.substring(0, 2)));
+                        startHourRef.current.scrollTop = startHourIndex * 44;
+                        startMinRef.current.scrollTop = startMinuteIndex * 44;
+
+                        const [endH, endM] = (initialEndTime || '17:00').split(':');
+                        const endHourIndex = Math.max(0, hours.indexOf(endH));
+                        const endMinuteIndex = Math.max(0, minutes.indexOf(endM?.substring(0, 2)));
+                        endHourRef.current.scrollTop = endHourIndex * 44;
+                        endMinRef.current.scrollTop = endMinuteIndex * 44;
+                    } catch (e) {
+                        console.error("Error setting initial time:", e);
+                    }
+                }
+            }, [isOpen, initialStartTime, initialEndTime]);
+
+            const handleConfirm = () => {
+                const startHourIndex = Math.round(startHourRef.current.scrollTop / 44);
+                const startHour = hours[startHourIndex] || '00';
+                const startMinuteIndex = Math.round(startMinRef.current.scrollTop / 44);
+                const startMinute = minutes[startMinuteIndex] || '00';
+
+                const endHourIndex = Math.round(endHourRef.current.scrollTop / 44);
+                const endHour = hours[endHourIndex] || '00';
+                const endMinuteIndex = Math.round(endMinRef.current.scrollTop / 44);
+                const endMinute = minutes[endMinuteIndex] || '00';
+
+                onConfirm({ startTime: `${startHour}:${startMinute}`, endTime: `${endHour}:${endMinute}` });
+            };
+
+            if (!isOpen) return null;
+
+            return (
+                <div className="fixed inset-0 z-50 flex items-center justify-center modal-overlay" onClick={onClose}>
+                    <div className="w-auto mx-auto p-6 rounded-2xl bg-white shadow-lg border border-gray-200 text-medical-dark" onClick={(e) => e.stopPropagation()}>
+                        <h2 className="text-center text-xl font-bold text-medical-dark mb-4">Pick Time Range</h2>
+                        <div className="flex justify-around gap-6">
+                            {/* Start Time Picker */}
+                            <div>
+                                <label className="text-center block font-semibold text-medical-accent mb-2">Start Time</label>
+                                <div className="flex justify-center gap-4">
+                                    <div className="relative h-40 w-16 overflow-y-scroll scroll-smooth snap-y snap-mandatory hide-scrollbar" ref={startHourRef}>
+                                        <div className="absolute top-1/2 left-0 right-0 h-9 bg-medical-accent/10 rounded-md -translate-y-1/2 pointer-events-none"></div>
+                                        <div className="flex flex-col items-center text-lg font-medium space-y-2 pt-16 pb-16">
+                                            {hours.map(h => (
+                                                <div key={`start-h-${h}`} className="snap-center h-9 leading-9 text-medical-gray cursor-pointer hover:text-medical-dark">{h}</div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                    <span className="text-3xl font-thin text-medical-gray/70 pt-16">:</span>
+                                    <div className="relative h-40 w-16 overflow-y-scroll scroll-smooth snap-y snap-mandatory hide-scrollbar" ref={startMinRef}>
+                                        <div className="absolute top-1/2 left-0 right-0 h-9 bg-medical-accent/10 rounded-md -translate-y-1/2 pointer-events-none"></div>
+                                        <div className="flex flex-col items-center text-lg font-medium space-y-2 pt-16 pb-16">
+                                            {minutes.map(m => (
+                                                <div key={`start-m-${m}`} className="snap-center h-9 leading-9 text-medical-gray cursor-pointer hover:text-medical-dark">{m}</div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* End Time Picker */}
+                            <div>
+                                <label className="text-center block font-semibold text-medical-accent mb-2">End Time</label>
+                                <div className="flex justify-center gap-4">
+                                    <div className="relative h-40 w-16 overflow-y-scroll scroll-smooth snap-y snap-mandatory hide-scrollbar" ref={endHourRef}>
+                                        <div className="absolute top-1/2 left-0 right-0 h-9 bg-medical-accent/10 rounded-md -translate-y-1/2 pointer-events-none"></div>
+                                        <div className="flex flex-col items-center text-lg font-medium space-y-2 pt-16 pb-16">
+                                            {hours.map(h => (
+                                                <div key={`end-h-${h}`} className="snap-center h-9 leading-9 text-medical-gray cursor-pointer hover:text-medical-dark">{h}</div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                    <span className="text-3xl font-thin text-medical-gray/70 pt-16">:</span>
+                                    <div className="relative h-40 w-16 overflow-y-scroll scroll-smooth snap-y snap-mandatory hide-scrollbar" ref={endMinRef}>
+                                        <div className="absolute top-1/2 left-0 right-0 h-9 bg-medical-accent/10 rounded-md -translate-y-1/2 pointer-events-none"></div>
+                                        <div className="flex flex-col items-center text-lg font-medium space-y-2 pt-16 pb-16">
+                                            {minutes.map(m => (
+                                                <div key={`end-m-${m}`} className="snap-center h-9 leading-9 text-medical-gray cursor-pointer hover:text-medical-dark">{m}</div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <button onClick={handleConfirm} className="mt-6 w-full medical-button text-white font-semibold rounded-xl py-2 transition relative z-10">Confirm</button>
+                    </div>
+                </div>
+            );
+        };
+
         const EmergencyBlockModal = ({ onClose }) => {
             const [blockDate, setBlockDate] = React.useState(new Date().toISOString().split('T')[0]);
             const [reason, setReason] = React.useState('');
             const [error, setError] = React.useState('');
+            const [pickerOpen, setPickerOpen] = React.useState(null); // { locId: 1|2 }
+            const dayScheduleRef = React.useRef(null);
+
+            // Flatpickr hook removed
             const [successMessage, setSuccessMessage] = React.useState('');
 
-            React.useEffect(() => {
-
-                if (window.flatpickr) {
-                    window.flatpickr("#emergency-block-date-picker", {
-                        dateFormat: "Y-m-d",
-                        allowInput: true,
-                        defaultDate: blockDate,
-
-                        onChange: function (selectedDates, dateStr, instance) {
-                            setBlockDate(dateStr);
-                        }
-                    });
-                }
-
-            }, []);
+            // Flatpickr hook removed
 
             const handleSubmit = async () => {
                 setError('');
@@ -639,7 +734,7 @@
             };
 
             return (
-                <div className="space-y-6">
+                <div className="space-y-6" ref={scheduleContainerRef}>
                     { }
                     {error && (
                         <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded-lg mb-4">
@@ -654,7 +749,14 @@
                     </div>
                     <div>
                         <label className="block text-sm font-medium text-medical-gray mb-2">Date to Block</label>
-                        <input type="date" id="emergency-block-date-picker" value={blockDate} onChange={(e) => setBlockDate(e.target.value)} className="form-input-themed" />
+                        <div class="relative">
+                        <div className="absolute inset-y-0 end-0 top-0 flex items-center pe-3.5 pointer-events-none">
+                            <svg className="w-4 h-4 text-gray-500 dark:text-gray-400" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="currentColor" viewBox="0 0 20 20">
+                                <path d="M20 4a2 2 0 0 0-2-2h-2V1a1 1 0 0 0-2 0v1h-3V1a1 1 0 0 0-2 0v1H6V1a1 1 0 0 0-2 0v1H2a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V4Zm-2 13H4V8h14v9Z"/>
+                            </svg>
+                        </div>
+                        <input type="date" id="emergency-block-date-picker" value={blockDate} onChange={(e) => setBlockDate(e.target.value)} className="form-input-themed custom-datetime" />
+                    </div>
                     </div>
                     <div>
                         <label className="block text-sm font-medium text-medical-gray mb-2">Reason for Emergency</label>
@@ -1334,7 +1436,7 @@
         };
 
         const AppointmentDetails = ({ appointment }) => (
-            <div className="space-y-6">
+            <div className="space-y-6" ref={dayScheduleRef}>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div>
                         <h4 className="font-semibold text-medical-dark mb-3">Appointment Information</h4>
@@ -1548,21 +1650,7 @@
             const [currentDate, setCurrentDate] = React.useState(new Date());
             const [unavailablePeriods, setUnavailablePeriods] = React.useState({ 1: [], 2: [] });
 
-            React.useEffect(() => {
-                const initPickers = () => {
-                    if (window.flatpickr) {
-
-                        window.flatpickr("input[type='datetime-local'].form-input-themed", { enableTime: true, dateFormat: "Y-m-d H:i", allowInput: true });
-                    }
-                };
-
-                initPickers();
-
-                const observer = new MutationObserver(() => initPickers());
-                observer.observe(document.body, { childList: true, subtree: true });
-
-                return () => observer.disconnect();
-            }, []);
+            // Flatpickr hook removed
             const [modalTitle, setModalTitle] = React.useState('');
 
             const fetchSchedulesAndLocations = async () => {
@@ -1750,9 +1838,12 @@
 
         const ScheduleEditor = ({ schedules, locations, onSaveSuccess, onClose }) => {
             const [localSchedules, setLocalSchedules] = React.useState({});
-            const scheduleContainerRef = React.useRef(null);
             const [saveError, setSaveError] = React.useState('');
             const [isSaving, setIsSaving] = React.useState(false);
+            const [pickerOpen, setPickerOpen] = React.useState(null); 
+            const scheduleContainerRef = React.useRef(null);
+
+            // Flatpickr hook removed
 
             React.useEffect(() => {
 
@@ -1946,23 +2037,35 @@
                                 <h4 className="font-semibold text-medical-dark">{dayName}</h4>
                                 <div>
                                     <label className="block text-xs font-medium text-medical-gray mb-1">Start Time</label>
-                                    <input
-                                        type="time"
-                                        value={dayData?.start_time?.substring(0, 5) || ''}
-                                        onChange={(e) => handleTimeChange(activeLocationId, dayIndex, 'start_time', e.target.value)}
-                                        className="form-input-themed"
-                                        disabled={!dayData?.is_available}
-                                    />
+                                    <div className="relative">
+                                        <div className="absolute inset-y-0 end-0 top-0 flex items-center pe-3.5 pointer-events-none">
+                                            <svg className="w-4 h-4 text-gray-500 dark:text-gray-400" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="currentColor" viewBox="0 0 24 24">
+                                                <path fill-rule="evenodd" d="M2 12C2 6.477 6.477 2 12 2s10 4.477 10 10-4.477 10-10 10S2 17.523 2 12Zm11-4a1 1 0 1 0-2 0v4a1 1 0 0 0 .293.707l3 3a1 1 0 0 0 1.414-1.414L13 11.586V8Z" clip-rule="evenodd"/>
+                                            </svg>
+                                        </div>
+                                        <div
+                                            onClick={() => !dayData?.is_available ? null : setPickerOpen({ dayIndex, locId: activeLocationId })}
+                                            className={`form-input-themed custom-datetime ${!dayData?.is_available ? 'bg-gray-100 cursor-not-allowed' : 'cursor-pointer'}`}
+                                        >
+                                            {dayData?.start_time?.substring(0, 5) || 'Start time'}
+                                        </div>
+                                    </div>
                                 </div>
                                 <div>
                                     <label className="block text-xs font-medium text-medical-gray mb-1">End Time</label>
-                                    <input
-                                        type="time"
-                                        value={dayData?.end_time?.substring(0, 5) || ''}
-                                        onChange={(e) => handleTimeChange(activeLocationId, dayIndex, 'end_time', e.target.value)}
-                                        className="form-input-themed"
-                                        disabled={!dayData?.is_available}
-                                    />
+                                    <div className="relative">
+                                        <div className="absolute inset-y-0 end-0 top-0 flex items-center pe-3.5 pointer-events-none">
+                                            <svg className="w-4 h-4 text-gray-500 dark:text-gray-400" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="currentColor" viewBox="0 0 24 24">
+                                                <path fill-rule="evenodd" d="M2 12C2 6.477 6.477 2 12 2s10 4.477 10 10-4.477 10-10 10S2 17.523 2 12Zm11-4a1 1 0 1 0-2 0v4a1 1 0 0 0 .293.707l3 3a1 1 0 0 0 1.414-1.414L13 11.586V8Z" clip-rule="evenodd"/>
+                                            </svg>
+                                        </div>
+                                        <div
+                                            onClick={() => !dayData?.is_available ? null : setPickerOpen({ dayIndex, locId: activeLocationId })}
+                                            className={`form-input-themed custom-datetime ${!dayData?.is_available ? 'bg-gray-100 cursor-not-allowed' : 'cursor-pointer'}`}
+                                        >
+                                            {dayData?.end_time?.substring(0, 5) || 'End time'}
+                                        </div>
+                                    </div>
                                 </div>
                                 <div className="flex items-center justify-center">
                                     <label className="flex flex-wrap items-center gap-2 cursor-pointer">
@@ -2015,6 +2118,20 @@
                             {isSaving ? 'Saving...' : 'Save Schedule'}
                         </button>
                     </div>
+
+                    {pickerOpen && pickerOpen.locId === activeLocationId && (
+                        <TimeRangePicker
+                            isOpen={true}
+                            onClose={() => setPickerOpen(null)}
+                            onConfirm={({ startTime, endTime }) => {
+                                handleTimeChange(activeLocationId, pickerOpen.dayIndex, 'start_time', startTime);
+                                handleTimeChange(activeLocationId, pickerOpen.dayIndex, 'end_time', endTime);
+                                setPickerOpen(null);
+                            }}
+                            initialStartTime={activeSchedule[pickerOpen.dayIndex]?.start_time}
+                            initialEndTime={activeSchedule[pickerOpen.dayIndex]?.end_time}
+                        />
+                    )}
                 </div>
             )
         };
@@ -2383,7 +2500,7 @@
                                             <textarea
                                                 value={newRemark}
                                                 onChange={(e) => setNewRemark(e.target.value)}
-                                                className="form-input-themed"
+                                                className="custom-textarea"
                                                 rows="3"
                                                 placeholder="Add a new remark..."
                                             ></textarea>
@@ -2739,17 +2856,7 @@
                 };
             }, []);
 
-            React.useEffect(() => {
-                if (window.flatpickr) {
-                    window.flatpickr("#next-visit-date-picker", {
-                        dateFormat: "Y-m-d",
-                        allowInput: true,
-                        onChange: function (selectedDates, dateStr, instance) {
-                            handleInputChange({ target: { name: 'next_visit_date', value: dateStr } });
-                        }
-                    });
-                }
-            }, []);
+            // Flatpickr hook removed
 
             const handleInputChange = (e) => {
                 const { name, value } = e.target;
@@ -2951,16 +3058,7 @@
                 setHistory(prev => ({ ...prev, [name]: dateStr }));
             };
 
-            React.useEffect(() => {
-                if (history && window.flatpickr) {
-                    window.flatpickr(".menstrual-lmp-picker", {
-                        dateFormat: "Y-m-d",
-                        allowInput: true,
-                        defaultDate: history.lmp || null,
-                        onChange: (selectedDates, dateStr) => handleDateChange('lmp', dateStr)
-                    });
-                }
-            }, [history]); // Re-run if history loads
+            // Flatpickr hook removed
 
             if (loading) return <div className="p-4"><LoadingSpinner /></div>;
             if (error) return <div className="p-4 text-red-500">{error}</div>;
@@ -2976,7 +3074,14 @@
                         </div>
                         <div className="grid grid-cols-3 items-center gap-4">
                             <label className="custom-label col-span-1">LMP</label>
-                            <input type="date" name="lmp" value={history.lmp || ''} className="form-input-themed custom-datetime menstrual-lmp-picker col-span-2" placeholder="Select date" />
+                            <div class="relative col-span-2">
+                            <div class="absolute inset-y-0 end-0 top-0 flex items-center pe-3.5 pointer-events-none">
+                                <svg class="w-4 h-4 text-gray-500 dark:text-gray-400" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="currentColor" viewBox="0 0 20 20">
+                                    <path d="M20 4a2 2 0 0 0-2-2h-2V1a1 1 0 0 0-2 0v1h-3V1a1 1 0 0 0-2 0v1H6V1a1 1 0 0 0-2 0v1H2a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V4Zm-2 13H4V8h14v9Z"/>
+                                </svg>
+                            </div>
+                            <input type="date" name="lmp" value={history.lmp || ''} className="form-input-themed custom-datetime menstrual-lmp-picker" placeholder="Select date" />
+                        </div>
                         </div>
                         <div className="grid grid-cols-3 items-center gap-4">
                             <label className="custom-label col-span-1">Regularity of Cycle</label>
@@ -3373,12 +3478,19 @@
                                     </button>
                                 )}
                             </div>
-                            <input
-                                type="date"
-                                value={filterDate}
-                                onChange={(e) => setFilterDate(e.target.value)}
-                                className="px-4 py-3 rounded-lg bg-white/20 backdrop-blur-sm text-white border border-white/30 focus:outline-none focus:ring-2 focus:ring-white/50"
-                            />
+                            <div class="relative">
+                                <div class="absolute inset-y-0 end-0 top-0 flex items-center pe-3.5 pointer-events-none">
+                                    <svg className="w-4 h-4 text-blue-200" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="currentColor" viewBox="0 0 20 20">
+                                        <path d="M20 4a2 2 0 0 0-2-2h-2V1a1 1 0 0 0-2 0v1h-3V1a1 1 0 0 0-2 0v1H6V1a1 1 0 0 0-2 0v1H2a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V4Zm-2 13H4V8h14v9Z"/>
+                                    </svg>
+                                </div>
+                                <input
+                                    type="date"
+                                    value={filterDate}
+                                    onChange={(e) => setFilterDate(e.target.value)}
+                                    className="px-4 py-3 pe-10 rounded-lg bg-white/20 backdrop-blur-sm text-white border border-white/30 focus:outline-none focus:ring-2 focus:ring-white/50"
+                                />
+                            </div>
                             <button className="px-6 py-3 bg-white text-medical-blue rounded-lg font-semibold hover:bg-blue-50 hover:shadow-lg transition-all flex items-center gap-2">
                                 <i className="fas fa-plus"></i>
                                 New Patient
@@ -3692,85 +3804,429 @@
 
         // 3. THE NEW DYNAMIC FORM COMPONENT
         // [FIXED] Block C (Duplicate) - Commented out to fix syntax error
-        // [FIXED] Block C (Duplicate) - Commented out to fix syntax error
-        const ClinicalExaminationForm = ({ examData, setExamData }) => {
-            const [showTemplateModal, setShowTemplateModal] = React.useState(false);
-            // examData is now an array of sections, e.g., [ { id: 1, templateName: 'Diabetes', fields: {...} } ]
-            // We initialize it as an array if it's not.
-            const activeSections = Array.isArray(examData) ? examData : [];
+        const InvestigationResultsContent = ({ resultsData, setResultsData, testDictionary, isLoading, searchTerm }) => {
+            // testDictionary and isLoading are now passed as props.
 
-            const addSection = (template) => {
-                const newSection = {
-                    ...JSON.parse(JSON.stringify(template)), // Deep copy template
-                    id: Date.now() // Unique ID for React key
-                };
-                setExamData([...activeSections, newSection]);
-                setShowTemplateModal(false);
+            const handleChange = (category, testName, value) => {
+                setResultsData(prev => ({
+                    ...prev,
+                    [category]: {
+                        ...(prev[category] || {}),
+                        [testName]: value
+                    }
+                }));
             };
 
-            const removeSection = (idToRemove) => {
-                setExamData(activeSections.filter(section => section.id !== idToRemove));
+            // TODO: Implement this
+            const getResultStatus = (value, normalRange) => {
+                // Basic check, can be expanded
+                try {
+                    const val = parseFloat(value);
+                    if (isNaN(val)) return 'text-medical-dark'; 
+                    const [low, high] = normalRange.split('-').map(Number);
+                    if (!isNaN(low) && !isNaN(high)) {
+                        if (val < low || val > high) return 'text-red-500 font-bold';
+                    }
+                } catch {}
+                return 'text-medical-dark'; 
             };
 
-            const updateSectionField = (idToUpdate, fieldName, value) => {
-                setExamData(
-                    activeSections.map(section =>
-                        section.id === idToUpdate
-                            ? {
-                                ...section,
-                                fields: {
-                                    ...section.fields,
-                                    [fieldName]: value
-                                }
-                            }
-                            : section
-                    )
-                );
-            };
+
 
             return (
-                <div className="space-y-4">
-                    {/* Render all added sections */}
-                    <div className="space-y-4">
-                        {activeSections.length > 0 ? (
-                            activeSections.map((section) => (
-                                <EditableExamSection
-                                    key={section.id}
-                                    sectionData={section}
-                                    onFieldChange={(fieldName, value) => updateSectionField(section.id, fieldName, value)}
-                                    onRemove={() => removeSection(section.id)}
-                                />
-                            ))
-                        ) : (
-                            <div className="text-center py-12 bg-teal-50 rounded-lg border-2 border-dashed border-teal-200">
-                                <i className="fas fa-file-plus text-5xl text-teal-300 mb-3"></i>
-                                <p className="text-gray-600 font-medium">No examination sections added</p>
-                                <p className="text-sm text-gray-500 mt-1">Click "Add Section" to load a template or start blank.</p>
+                <div className="w-full space-y-3">
+                    {/* Test Accordions */}
+                    {isLoading && <LoadingSpinner />}
+                    {!isLoading && testDictionary
+                        .map(group => ({
+                            ...group,
+                            tests: group.tests.filter(test => 
+                                !searchTerm || test.name.toLowerCase().includes(searchTerm.toLowerCase())
+                            )
+                        }))
+                        .filter(group => group.tests.length > 0)
+                        .map((group, i) => (
+                        <details key={i} className="mb-2 bg-white border border-gray-200 rounded-lg open:shadow-md transition-shadow">
+                            <summary className="font-semibold text-medical-dark cursor-pointer p-4 text-base flex justify-between items-center">
+                                {group.category}
+                                <i className="fas fa-chevron-down transform transition-transform group-open:rotate-180"></i>
+                            </summary>
+                            <div className="pt-0 p-4 border-t border-gray-100 grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-x-4 gap-y-4 text-sm text-medical-dark">
+                                {/* Header Row */}
+                                <span className="md:col-span-2 font-semibold text-medical-gray text-xs uppercase">Test/Investigations</span>
+                                <span className="font-semibold text-medical-gray text-xs uppercase">Result</span>
+                                <span className="font-semibold text-medical-gray text-xs uppercase">Units (Normal Range)</span>
+                                {group.tests.map((t, idx) => (
+                                    <React.Fragment key={idx}>
+                                        <span className="md:col-span-2 font-medium self-center text-medical-dark">{t.name}</span>
+                                        <input
+                                            type="text"
+                                            className={`form-input-themed py-2 px-2 text-sm ${getResultStatus(resultsData[group.category]?.[t.name], t.normal_range)}`}
+                                            placeholder="Value..."
+                                            value={resultsData[group.category]?.[t.name] || ""}
+                                            onChange={(e) =>
+                                                handleChange(group.category, t.name, e.target.value)
+                                            }
+                                            disabled={t.calculated}
+                                        />
+                                        <span className="text-medical-gray text-xs self-center">
+                                            {t.unit} {t.normal_range && `(${t.normal_range})`}
+                                        </span>
+                                    </React.Fragment>
+                                ))}
                             </div>
-                        )}
-                    </div>
-
-                    {/* Add Section Button */}
-                    <button
-                        type="button"
-                        onClick={() => setShowTemplateModal(true)}
-                        className="w-full px-4 py-3 bg-gradient-to-r from-teal-500 to-cyan-500 text-white rounded-lg hover:shadow-lg transition-all text-sm flex items-center justify-center gap-2 font-semibold"
-                    >
-                        <i className="fas fa-plus"></i>
-                        Add Examination Section
-                    </button>
-
-                    {/* Template Selection Modal */}
-                    {showTemplateModal && (
-                        <TemplateSearchModal
-                            onClose={() => setShowTemplateModal(false)}
-                            onSelectTemplate={addSection}
-                        />
+                        </details>
+                        ))}
+                    {!isLoading && testDictionary.length === 0 && (
+                        <p className="text-medical-gray text-center p-4">No test results to display.</p>
                     )}
                 </div>
             );
         };
 
+        const InvestigationResultsModal = ({ isOpen, onClose, onSave, initialResultsData }) => {
+            const [activeTab, setActiveTab] = React.useState('common');
+            const [commonTests, setCommonTests] = React.useState([]);
+            const [additionalTests, setAdditionalTests] = React.useState([]);
+            const [searchTerm, setSearchTerm] = React.useState('');
+            const [resultsData, setResultsData] = React.useState(initialResultsData || {});
+            const [isLoading, setIsLoading] = React.useState(true);
+
+            React.useEffect(() => {
+                if (isOpen) {
+                    setIsLoading(true);
+                    Promise.all([
+                        fetch("./static/investigations_dictionary.json").then(res => res.json()),
+                        fetch("./static/additional_tests_db.json").then(res => res.json())
+                    ]).then(([common, additional]) => {
+                        setCommonTests(common);
+                        setAdditionalTests(additional);
+                        setIsLoading(false);
+                    }).catch(err => {
+                        console.error("Failed to load test lists:", err);
+                        setIsLoading(false);
+                    });
+                } else {
+                    setSearchTerm('');
+                    setActiveTab('common');
+                }
+            }, [isOpen]);
+
+            const handleSave = () => {
+                onSave(resultsData);
+            };
+
+            const filteredAdditionalTests = React.useMemo(() => {
+                if (!searchTerm) return additionalTests;
+                const lowerSearch = searchTerm.toLowerCase();
+                return additionalTests.filter(test => 
+                    test.toLowerCase().includes(lowerSearch)
+                );
+            }, [searchTerm, additionalTests]);
+
+            // This is the component that holds the accordion view
+            const renderCommonTests = () => (
+                <InvestigationResultsContent 
+                    resultsData={resultsData} 
+                    setResultsData={setResultsData} 
+                    testDictionary={commonTests}
+                    isLoading={isLoading}
+                    searchTerm={searchTerm}
+                />
+            );
+
+            // This component will render the searchable list for adding results
+            const renderAdditionalTests = () => {
+                if (isLoading) return <LoadingSpinner />;
+                
+                // Create a temporary dictionary for any ad-hoc tests found in resultsData but not in the main lists
+                const adHocTestsInResults = Object.values(resultsData).flatMap(category => Object.keys(category))
+                    .filter(testName => 
+                        !commonTests.some(g => g.tests.some(t => t.name === testName)) && 
+                        !additionalTests.includes(testName)
+                    );
+
+                const adHocTestGroup = {
+                    category: "OTHER TESTS",
+                    tests: [...new Set(adHocTestsInResults)].map((name, i) => ({ id: `adhoc-${i}`, name, unit: '', normal_range: '' }))
+                };
+
+                const additionalTestGroups = [
+                    {
+                        category: "ALL ADDITIONAL TESTS",
+                        tests: filteredAdditionalTests.map((name, i) => ({ id: i, name, unit: 'N/A', normal_range: 'N/A' }))
+                    }
+                ];
+
+                return (
+                    <InvestigationResultsContent 
+                        resultsData={resultsData} 
+                        setResultsData={setResultsData} 
+                        testDictionary={adHocTestGroup.tests.length > 0 ? additionalTestGroups.concat(adHocTestGroup) : additionalTestGroups}
+                        isLoading={isLoading}
+                        searchTerm={searchTerm}
+                    />
+                );
+            };
+
+            if (!isOpen) return null;
+
+            return (
+                <div className="fixed inset-0 z-50 flex items-center justify-center modal-overlay" onClick={onClose}>
+                    <div 
+                        className="medical-card rounded-2xl shadow-2xl w-full max-w-4xl max-h-[80vh] overflow-hidden flex flex-col animate-bounce-gentle"
+                        onClick={(e) => e.stopPropagation()}
+                    >
+                        {/* Header */}
+                        <div className="flex items-center justify-between p-4 border-b border-gray-200 flex-shrink-0">
+                            <h2 className="text-xl font-bold text-medical-dark font-primary flex items-center">
+                                <i className="fas fa-microscope text-medical-accent mr-3"></i>
+                                Investigation Results
+                            </h2>
+                            <div className="flex items-center space-x-4">
+                                <div className="flex items-center space-x-2">
+                                    <span className="text-sm font-medium text-medical-gray">Auto Calculate</span>
+                                    <label className="relative inline-flex items-center cursor-pointer">
+                                        <input type="checkbox" value="" className="sr-only peer" defaultChecked />
+                                        <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-medical-accent"></div>
+                                    </label>
+                                </div>
+                                <button onClick={onClose} className="text-medical-gray hover:text-medical-dark">
+                                    <i className="fas fa-times text-xl"></i>
+                                </button>
+                            </div>
+                        </div>
+
+                        {/* Tabs & Search */}
+                        <div className="p-4 border-b border-gray-200 flex-shrink-0">
+                            <div className="flex flex-col sm:flex-row items-center justify-between">
+                                <div className="flex space-x-1 bg-gray-100 p-1 rounded-lg">
+                                    <button 
+                                        onClick={() => setActiveTab('common')}
+                                        className={`px-6 py-2 rounded-md font-medium text-sm ${activeTab === 'common' ? 'bg-white shadow text-medical-accent' : 'text-medical-gray'}`}
+                                    >
+                                        Common Tests
+                                    </button>
+                                    <button 
+                                        onClick={() => setActiveTab('additional')}
+                                        className={`px-6 py-2 rounded-md font-medium text-sm ${activeTab === 'additional' ? 'bg-white shadow text-medical-accent' : 'text-medical-gray'}`}
+                                    >
+                                        Additional Tests
+                                    </button>
+                                </div>
+                                <div className="flex items-center space-x-2 mt-3 sm:mt-0">
+                                    <div className="relative">
+                                        <input 
+                                            type="text" 
+                                            placeholder="Search test name..." 
+                                            className="form-input-themed pl-10 py-2 w-full sm:w-64"
+                                            value={searchTerm}
+                                            onChange={(e) => setSearchTerm(e.target.value)} 
+                                        />
+                                        <i className="fas fa-search absolute left-3 top-1/2 transform -translate-y-1/2 text-medical-gray"></i>
+                                    </div>
+                                    <button className="px-4 py-2 bg-white border border-gray-300 rounded-lg text-sm text-medical-dark font-medium hover:bg-gray-100 flex items-center">
+                                        <i className="fas fa-calendar-alt mr-2 text-medical-accent"></i> Date
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Content Area */}
+                        <div className="p-4 overflow-y-auto scroll-custom flex-grow bg-gray-50">
+                            {activeTab === 'common' ? renderCommonTests() : renderAdditionalTests()}
+                        </div>
+
+                        {/* Footer */}
+                        <div className="p-4 border-t border-gray-200 flex-shrink-0 flex justify-end items-center bg-white">
+                            <button 
+                                onClick={handleSave}
+                                className="medical-button px-6 py-2 text-white rounded-lg font-secondary flex items-center gap-2 relative z-10"
+                            >
+                                <i className="fas fa-save"></i>
+                                <span>Save Results</span>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            );
+        };
+
+        const InvestigationSelectModal = ({ isOpen, onClose, onConfirm }) => {
+            const [activeTab, setActiveTab] = React.useState('common');
+            const [commonTests, setCommonTests] = React.useState([]);
+            const [additionalTests, setAdditionalTests] = React.useState([]);
+            const [searchTerm, setSearchTerm] = React.useState('');
+            const [selectedTests, setSelectedTests] = React.useState([]);
+
+            React.useEffect(() => {
+                if (isOpen) {
+                    // Fetch common tests from the dictionary
+                    fetch("./static/investigations_dictionary.json")
+                        .then(res => res.json())
+                        .then(data => setCommonTests(data))
+                        .catch(err => console.error("Failed to load common tests:", err));
+
+                    // Fetch additional tests
+                    fetch("./static/additional_tests_db.json")
+                        .then(res => res.json())
+                        .then(data => setAdditionalTests(data))
+                        .catch(err => console.error("Failed to load additional tests:", err));
+                }
+            }, [isOpen]);
+
+            const filteredAdditionalTests = React.useMemo(() => {
+                if (!searchTerm) return additionalTests;
+                const lowerSearch = searchTerm.toLowerCase();
+                return additionalTests.filter(test => 
+                    test.toLowerCase().includes(lowerSearch)
+                );
+            }, [searchTerm, additionalTests]);
+
+            const handleToggleTest = (testName) => {
+                setSelectedTests(prev => {
+                    if (prev.includes(testName)) {
+                        return prev.filter(t => t !== testName);
+                    } else {
+                        return [...prev, testName];
+                    }
+                });
+            };
+
+            const handleConfirm = () => {
+                onConfirm(selectedTests);
+                setSelectedTests([]); // Clear selection after confirming
+            };
+
+            if (!isOpen) return null;
+
+            return (
+                <div className="fixed inset-0 z-50 flex items-center justify-center modal-overlay" onClick={onClose}>
+                    <div 
+                        className="medical-card rounded-2xl shadow-2xl w-full max-w-3xl max-h-[80vh] overflow-hidden flex flex-col animate-bounce-gentle"
+                        onClick={(e) => e.stopPropagation()}
+                    >
+                        {/* Header */}
+                        <div className="flex items-center justify-between p-4 border-b border-gray-200 flex-shrink-0">
+                            <h2 className="text-xl font-bold text-medical-dark font-primary">Investigations</h2>
+                            <div className="flex items-center space-x-4">
+                                { /* Auto Calculate Toggle */}
+                                <div className="flex items-center space-x-2">
+                                    <span className="text-sm font-medium text-medical-gray">Auto Calculate</span>
+                                    <label className="relative inline-flex items-center cursor-pointer">
+                                        <input type="checkbox" value="" className="sr-only peer" defaultChecked />
+                                        <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-medical-accent"></div>
+                                    </label>
+                                </div>
+                                <button onClick={onClose} className="text-medical-gray hover:text-medical-dark">
+                                    <i className="fas fa-times text-xl"></i>
+                                </button>
+                            </div>
+                        </div>
+
+                        {/* Tabs */}
+                        <div className="p-4 border-b border-gray-200 flex-shrink-0">
+                            <div className="flex items-center justify-between">
+                                <div className="flex space-x-1 bg-gray-100 p-1 rounded-lg">
+                                    <button 
+                                        onClick={() => setActiveTab('common')}
+                                        className={`px-6 py-2 rounded-md font-medium text-sm ${activeTab === 'common' ? 'bg-white shadow text-medical-accent' : 'text-medical-gray'}`}
+                                    >
+                                        Common Tests
+                                    </button>
+                                    <button 
+                                        onClick={() => setActiveTab('additional')}
+                                        className={`px-6 py-2 rounded-md font-medium text-sm ${activeTab === 'additional' ? 'bg-white shadow text-medical-accent' : 'text-medical-gray'}`}
+                                    >
+                                        Additional Tests
+                                    </button>
+                                </div>
+                                <button className="px-4 py-2 bg-white border border-gray-300 rounded-lg text-sm text-medical-dark font-medium hover:bg-gray-100 flex items-center">
+                                    <i className="fas fa-calendar-alt mr-2 text-medical-accent"></i> Date
+                                </button>
+                            </div>
+                            {activeTab === 'additional' && (
+                                <div className="relative mt-4">
+                                    <input 
+                                        type="text" 
+                                        placeholder="Search test name..." 
+                                        className="form-input-themed pl-10 py-2 w-full"
+                                        value={searchTerm}
+                                        onChange={(e) => setSearchTerm(e.target.value)} 
+                                    />
+                                    <i className="fas fa-search absolute left-3 top-1/2 transform -translate-y-1/2 text-medical-gray"></i>
+                                </div>
+                            )}
+                        </div>
+
+                        {/* Content Area */}
+                        <div className="p-4 overflow-y-auto scroll-custom flex-grow bg-gray-50">
+                            {activeTab === 'common' && (
+                                <div className="space-y-2">
+                                    {commonTests.map((group, i) => (
+                                        <details key={i} className="bg-white border border-gray-200 rounded-lg">
+                                            <summary className="font-semibold text-medical-dark cursor-pointer p-3 flex justify-between items-center">
+                                                {group.category}
+                                                <i className="fas fa-chevron-down transform transition-transform group-open:rotate-180"></i>
+                                            </summary>
+                                            <div className="p-3 border-t border-gray-100 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
+                                                {group.tests.map((test, idx) => (
+                                                    <label key={idx} className="flex items-center space-x-2 p-2 rounded-lg hover:bg-gray-100 cursor-pointer">
+                                                        <input 
+                                                            type="checkbox" 
+                                                            className="w-4 h-4 text-medical-accent rounded focus:ring-medical-accent"
+                                                            checked={selectedTests.includes(test.name)}
+                                                            onChange={() => handleToggleTest(test.name)}
+                                                        />
+                                                        <span className="text-sm text-medical-dark">{test.name}</span>
+                                                    </label>
+                                                ))}
+                                            </div>
+                                        </details>
+                                    ))}
+                                </div>
+                            )}
+                            {activeTab === 'additional' && (
+                                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
+                                    {filteredAdditionalTests.map((testName, idx) => (
+                                        <label key={idx} className="flex items-center space-x-2 p-2 rounded-lg bg-white border border-gray-200 hover:bg-gray-100 cursor-pointer">
+                                            <input 
+                                                type="checkbox" 
+                                                className="w-4 h-4 text-medical-accent rounded focus:ring-medical-accent"
+                                                checked={selectedTests.includes(testName)}
+                                                onChange={() => handleToggleTest(testName)}
+                                            />
+                                            <span className="text-sm text-medical-dark">{testName}</span>
+                                        </label>
+                                    ))}
+                                    {filteredAdditionalTests.length === 0 && (
+                                        <p className="text-medical-gray col-span-full text-center p-4">No tests found for "{searchTerm}"</p>
+                                    )}
+                                </div>
+                            )}
+                        </div>
+
+                        {/* Footer */}
+                        <div className="p-4 border-t border-gray-200 flex-shrink-0 flex justify-between items-center bg-white">
+                            <span className="text-sm font-medium text-medical-accent">
+                                {selectedTests.length} test{selectedTests.length !== 1 ? 's' : ''} selected
+                            </span>
+                            <button 
+                                onClick={handleConfirm}
+                                className="medical-button px-6 py-2 text-white rounded-lg font-secondary flex items-center gap-2 relative z-10"
+                                disabled={selectedTests.length === 0}
+                            >
+                                <i className="fas fa-plus"></i>
+                                <span>Add Selected Tests</span>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            );
+        };
+
+
+        
         const TemplateSearchModal = ({ onClose, onSelectTemplate }) => {
             const [searchTerm, setSearchTerm] = React.useState('');
 
@@ -3819,6 +4275,8 @@
             // ============================================================================
 
             const [activeTab, setActiveTab] = React.useState('vitals');
+            const [isInvestigationModalOpen, setIsInvestigationModalOpen] = React.useState(false);
+            const [isResultsModalOpen, setIsResultsModalOpen] = React.useState(false);
             const [isSaving, setIsSaving] = React.useState(false);
             const [lastSaved, setLastSaved] = React.useState(null);
             const [specialtyConfig, setSpecialtyConfig] = React.useState(null);
@@ -3970,6 +4428,7 @@
                     currentMedications: (mode === 'consultation' && patient.medicalHistory?.currentMedications?.join(', ')) || ''
                 },
                 examination_fields: [], // Changed to array for dynamic sections
+                investigationResults: {},
                 investigations: [],
                 prescriptions: [],
                 advice: '',
@@ -4148,11 +4607,11 @@
                 }));
             };
 
-            const addInvestigation = () => {
+            const addInvestigation = (testName = '') => {
                 setFormData(prev => ({
                     ...prev,
                     investigations: [...prev.investigations, {
-                        testName: '',
+                        testName: testName,
                         category: '',
                         urgency: 'routine',
                         notes: ''
@@ -4629,14 +5088,14 @@
                                             Chronic Illnesses
                                         </label>
                                         <textarea
-                                            placeholder="e.g., Diabetes Type 2, Hypertension, Asthma..."
-                                            className="w-full px-3 py-2 border-2 border-gray-200 rounded-lg focus:ring-2 focus:ring-purple-400 focus:border-transparent"
-                                            rows="2"
-                                            value={formData.history.chronic_illnesses}
-                                            onChange={(e) => setFormData(prev => ({
-                                                ...prev,
-                                                history: { ...prev.history, chronic_illnesses: e.target.value }
-                                            }))}
+                                        placeholder="e.g., Diabetes Type 2, Hypertension, Asthma..."
+                                        className="custom-textarea"
+                                        rows="2"
+                                        value={formData.history.chronic_illnesses}
+                                        onChange={(e) => setFormData(prev => ({
+                                        ...prev,
+                                        history: { ...prev.history, chronic_illnesses: e.target.value }
+                                        }))}
                                         ></textarea>
                                     </div>
 
@@ -4647,7 +5106,7 @@
                                         </label>
                                         <textarea
                                             placeholder="e.g., Father had heart disease at 55, Mother is diabetic..."
-                                            className="w-full px-3 py-2 border-2 border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-400 focus:border-transparent"
+                                            className="custom-textarea"
                                             rows="2"
                                             value={formData.history.family_history_narrative}
                                             onChange={(e) => setFormData(prev => ({
@@ -4704,7 +5163,7 @@
                                         </label>
                                         <textarea
                                             placeholder="e.g., Living situation, Occupation, Recent stressors..."
-                                            className="w-full px-3 py-2 border-2 border-gray-200 rounded-lg focus:ring-2 focus:ring-teal-400 focus:border-transparent"
+                                            className="custom-textarea"
                                             rows="3"
                                             value={formData.history.social_factors}
                                             onChange={(e) => setFormData(prev => ({
@@ -4781,25 +5240,6 @@
                                         ))}
                                     </div>
                                 )}
-                            </div>
-
-                            {/* Clinical Examination Section */}
-                            <div className="bg-white p-6 rounded-xl border border-teal-100 shadow-sm hover:shadow-md transition-shadow">
-                                <h3 className="text-lg font-bold text-medical-dark mb-4 flex items-center gap-2 pb-3 border-b-2 border-teal-100">
-                                    <div className="w-10 h-10 bg-gradient-to-br from-teal-500 to-cyan-500 rounded-lg flex items-center justify-center">
-                                        <i className="fas fa-user-md text-white"></i>
-                                    </div>
-                                    <span>Clinical Examination</span>
-                                </h3>
-                                <ClinicalExaminationForm
-                                    examData={formData.examination_fields}
-                                    setExamData={(updater) => {
-                                        setFormData(prev => ({
-                                            ...prev,
-                                            examination_fields: typeof updater === 'function' ? updater(prev.examination_fields) : updater
-                                        }));
-                                    }}
-                                />
                             </div>
 
                             {/* Diagnosis Section */}
@@ -4903,7 +5343,29 @@
                                 </div>
                             </div>
 
-                            {/* Investigations Section */}
+                            {/* Investigation Results Section */}
+                            <div className="bg-white p-6 rounded-xl border border-cyan-100 shadow-sm hover:shadow-md transition-shadow">
+                                <div className="flex items-center justify-between mb-4 pb-3 border-b-2 border-cyan-100">
+                                    <h3 className="text-lg font-bold text-medical-dark flex items-center gap-2">
+                                        <div className="w-10 h-10 bg-gradient-to-br from-cyan-500 to-teal-500 rounded-lg flex items-center justify-center">
+                                            <i className="fas fa-microscope text-white"></i>
+                                        </div>
+                                        <span>Investigation Results</span>
+                                    </h3>
+                                    <div className="flex space-x-2">
+                                        <button
+                                            onClick={() => setIsResultsModalOpen(true)}
+                                            className="px-4 py-2 bg-white border border-medical-accent text-medical-accent rounded-lg hover:bg-medical-accent/10 transition-all text-sm flex items-center gap-2 font-semibold"
+                                        >
+                                            <i className="fas fa-microscope"></i>
+                                            Enter Lab Results
+                                        </button>
+                                    </div>
+                                </div>
+                                {/* This inline card is now removed and replaced by a modal */}
+                            </div>
+
+                            {/* Investigations (To Order) Section */}
                             <div className="bg-white p-6 rounded-xl border border-cyan-100 shadow-sm hover:shadow-md transition-shadow">
                                 <div className="flex items-center justify-between mb-4 pb-3 border-b-2 border-cyan-100">
                                     <h3 className="text-lg font-bold text-medical-dark flex items-center gap-2">
@@ -4912,13 +5374,15 @@
                                         </div>
                                         <span>Investigations / Lab Tests</span>
                                     </h3>
-                                    <button
-                                        onClick={addInvestigation}
-                                        className="px-4 py-2 bg-gradient-to-r from-cyan-500 to-teal-500 text-white rounded-lg hover:shadow-lg transition-all text-sm flex items-center gap-2 font-semibold"
-                                    >
-                                        <i className="fas fa-plus"></i>
-                                        Add Investigation
-                                    </button>
+                                    <div className="flex space-x-2">
+                                        <button
+                                            onClick={() => setIsInvestigationModalOpen(true)}
+                                            className="px-4 py-2 bg-gradient-to-r from-cyan-500 to-teal-500 text-white rounded-lg hover:shadow-lg transition-all text-sm flex items-center gap-2 font-semibold"
+                                        >
+                                            <i className="fas fa-plus"></i>
+                                            Add Investigation
+                                        </button>
+                                    </div>
                                 </div>
                                 {formData.investigations.length === 0 ? (
                                     <div className="text-center py-12 bg-cyan-50 rounded-lg border-2 border-dashed border-cyan-200">
@@ -4927,57 +5391,76 @@
                                         <p className="text-sm text-gray-500 mt-1">Click "Add Investigation" to order lab tests or imaging</p>
                                     </div>
                                 ) : (
-                                    <div className="space-y-3">
+                                    <div className="space-y-4">
                                         {formData.investigations.map((inv, index) => (
-                                            <div key={index} className="p-4 bg-gradient-to-r from-cyan-50 to-teal-50 rounded-lg border border-cyan-200 hover:shadow-md transition-shadow">
-                                                <div className="flex items-start gap-3">
-                                                    <div className="flex-1 grid grid-cols-1 md:grid-cols-4 gap-3">
-                                                        <input
-                                                            type="text"
-                                                            placeholder="Test Name"
-                                                            className="px-3 py-2 border-2 border-cyan-200 rounded-lg focus:ring-2 focus:ring-cyan-400 focus:border-transparent"
-                                                            value={inv.testName}
-                                                            onChange={(e) => updateInvestigation(index, 'testName', e.target.value)}
-                                                        />
-                                                        <select
-                                                            className="px-3 py-2 border-2 border-cyan-200 rounded-lg focus:ring-2 focus:ring-cyan-400 focus:border-transparent"
-                                                            value={inv.category}
-                                                            onChange={(e) => updateInvestigation(index, 'category', e.target.value)}
-                                                        >
-                                                            <option value="">Category</option>
-                                                            <option value="blood">Blood Test</option>
-                                                            <option value="urine">Urine Test</option>
-                                                            <option value="xray">X-Ray</option>
-                                                            <option value="ultrasound">Ultrasound</option>
-                                                            <option value="mri">MRI</option>
-                                                            <option value="ct">CT Scan</option>
-                                                            <option value="ecg">ECG</option>
-                                                            <option value="other">Other</option>
-                                                        </select>
-                                                        <select
-                                                            className="px-3 py-2 border-2 border-cyan-200 rounded-lg focus:ring-2 focus:ring-cyan-400 focus:border-transparent"
-                                                            value={inv.urgency}
-                                                            onChange={(e) => updateInvestigation(index, 'urgency', e.target.value)}
-                                                        >
-                                                            <option value="routine">Routine</option>
-                                                            <option value="urgent">Urgent</option>
-                                                            <option value="stat">STAT</option>
-                                                        </select>
-                                                        <input
-                                                            type="text"
-                                                            placeholder="Notes"
-                                                            className="px-3 py-2 border-2 border-cyan-200 rounded-lg focus:ring-2 focus:ring-cyan-400 focus:border-transparent"
-                                                            value={inv.notes}
-                                                            onChange={(e) => updateInvestigation(index, 'notes', e.target.value)}
-                                                        />
+                                            <div key={index} className="p-4 bg-white rounded-xl shadow-md border border-cyan-200">
+                                                <div className="flex items-start gap-4">
+                                                    <div className="flex-1 grid grid-cols-1 md:grid-cols-3 gap-4">
+                                                        {/* Test Name */}
+                                                        <div>
+                                                            <label className="block text-xs font-semibold text-gray-500 mb-1">Test Name</label>
+                                                            <input
+                                                                type="text"
+                                                                placeholder="e.g., CBC, Thyroid Profile"
+                                                                className="w-full px-3 py-2 border-2 border-cyan-200 rounded-lg focus:ring-2 focus:ring-cyan-400 font-medium"
+                                                                value={inv.testName}
+                                                                onChange={(e) => updateInvestigation(index, 'testName', e.target.value)}
+                                                            />
+                                                        </div>
+                                                        {/* Category */}
+                                                        <div>
+                                                            <label className="block text-xs font-semibold text-gray-500 mb-1">Category</label>
+                                                            <select
+                                                                className="w-full px-3 py-2 border-2 border-cyan-200 rounded-lg focus:ring-2 focus:ring-cyan-400"
+                                                                value={inv.category}
+                                                                onChange={(e) => updateInvestigation(index, 'category', e.target.value)}
+                                                            >
+                                                                <option value="">Category</option>
+                                                                <option value="blood">Blood Test</option>
+                                                                <option value="urine">Urine Test</option>
+                                                                <option value="imaging_xray">X-Ray</option>
+                                                                <option value="imaging_usg">Ultrasound</option>
+                                                                <option value="imaging_mri">MRI</option>
+                                                                <option value="imaging_ct">CT Scan</option>
+                                                                <option value="cardiology_ecg">ECG</option>
+                                                                <option value="other">Other</option>
+                                                            </select>
+                                                        </div>
+                                                        {/* Urgency */}
+                                                        <div>
+                                                            <label className="block text-xs font-semibold text-gray-500 mb-1">Urgency</label>
+                                                            <select
+                                                                className="w-full px-3 py-2 border-2 border-cyan-200 rounded-lg focus:ring-2 focus:ring-cyan-400"
+                                                                value={inv.urgency}
+                                                                onChange={(e) => updateInvestigation(index, 'urgency', e.target.value)}
+                                                            >
+                                                                <option value="routine">Routine</option>
+                                                                <option value="urgent">Urgent</option>
+                                                                <option value="stat">STAT</option>
+                                                            </select>
+                                                        </div>
+                                                        {/* Notes */}
+                                                        <div className="md:col-span-3">
+                                                            <label className="block text-xs font-semibold text-gray-500 mb-1">Notes / Instructions</label>
+                                                            <input
+                                                                type="text"
+                                                                placeholder="e.g., Fasting required, Contrast study"
+                                                                className="w-full px-3 py-2 border-2 border-cyan-200 rounded-lg focus:ring-2 focus:ring-cyan-400"
+                                                                value={inv.notes}
+                                                                onChange={(e) => updateInvestigation(index, 'notes', e.g.target.value)}
+                                                            />
+                                                        </div>
                                                     </div>
-                                                    <button
-                                                        onClick={() => removeInvestigation(index)}
-                                                        className="p-2 text-red-500 hover:bg-red-100 rounded-lg transition-colors"
-                                                        title="Remove investigation"
-                                                    >
-                                                        <i className="fas fa-trash"></i>
-                                                    </button>
+                                                    {/* Remove Button */}
+                                                    <div>
+                                                        <button
+                                                            onClick={() => removeInvestigation(index)}
+                                                            className="p-2 text-red-500 hover:bg-red-100 rounded-lg transition-colors"
+                                                            title="Remove investigation"
+                                                        >
+                                                            <i className="fas fa-trash"></i>
+                                                        </button>
+                                                    </div>
                                                 </div>
                                             </div>
                                         ))}
@@ -5120,7 +5603,7 @@
                                                         <label className="block text-xs font-semibold text-gray-500 mb-1">Instructions</label>
                                                         <textarea
                                                             placeholder="Special instructions (e.g., Take after meals, Avoid alcohol)"
-                                                            className="w-full px-3 py-2 border-2 border-green-200 rounded-lg focus:ring-2 focus:ring-green-400"
+                                                            className="custom-textarea"
                                                             rows="2"
                                                             value={prescription.instructions}
                                                             onChange={(e) => updatePrescription(index, 'instructions', e.target.value)}
@@ -5180,13 +5663,20 @@
                                                 <span className="text-sm text-gray-600">({formData.nextVisitInstructions || 'e.g., 3 Weeks'})</span>
                                             </div>
                                         ) : (
-                                            <input
-                                                type="date"
-                                                className="w-full px-3 py-2 border-2 border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-400 focus:border-transparent mt-2"
-                                                value={formData.nextVisitDate}
-                                                onChange={(e) => setFormData(prev => ({ ...prev, nextVisitDate: e.target.value }))}
-                                                min={new Date().toISOString().split('T')[0]}
-                                            />
+                                            <div class="relative mt-2">
+                                                <div class="absolute inset-y-0 end-0 top-0 flex items-center pe-3.5 pointer-events-none">
+                                                    <svg class="w-4 h-4 text-gray-500 dark:text-gray-400" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="currentColor" viewBox="0 0 20 20">
+                                                        <path d="M20 4a2 2 0 0 0-2-2h-2V1a1 1 0 0 0-2 0v1h-3V1a1 1 0 0 0-2 0v1H6V1a1 1 0 0 0-2 0v1H2a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V4Zm-2 13H4V8h14v9Z"/>
+                                                    </svg>
+                                                </div>
+                                                <input
+                                                    type="date"
+                                                    className="form-input-themed custom-datetime"
+                                                    value={formData.nextVisitDate}
+                                                    onChange={(e) => setFormData(prev => ({ ...prev, nextVisitDate: e.target.value }))}
+                                                    min={new Date().toISOString().split('T')[0]}
+                                                />
+                                            </div>
                                         )}
                                         <input type="hidden" value={formData.nextVisitInstructions || ''} name="next_visit_instructions" />
                                         <input type="hidden" value={formData.nextVisitDate || ''} name="next_visit_date" />
@@ -5237,6 +5727,30 @@
                                     {/* --- END: Referral Section --- */}
                                 </div>
                             </div>
+
+                            {isInvestigationModalOpen && (
+                                <InvestigationSelectModal
+                                    isOpen={isInvestigationModalOpen}
+                                    onClose={() => setIsInvestigationModalOpen(false)}
+                                    onConfirm={(testsToAdd) => {
+                                        testsToAdd.forEach(testName => addInvestigation(testName));
+                                        setIsInvestigationModalOpen(false);
+                                    }}
+                                />
+                            )}
+                            
+                            {isResultsModalOpen && (
+                                <InvestigationResultsModal
+                                    isOpen={isResultsModalOpen}
+                                    onClose={() => setIsResultsModalOpen(false)}
+                                    initialResultsData={formData.investigationResults}
+                                    onSave={(newResults) => {
+                                        setFormData(prev => ({ ...prev, investigationResults: newResults }));
+                                        setIsResultsModalOpen(false);
+                                        toast('Lab results saved.');
+                                    }}
+                                />
+                            )}
 
                             {/* Previous Prescriptions Section */}
                             {mode === 'consultation' && patient.previousVisits && patient.previousVisits.length > 0 && (
@@ -5836,7 +6350,14 @@
                                 </div>
                                 <div>
                                     <label className="block text-sm font-medium text-medical-gray mb-2">Date of Birth <span className="text-red-500">*</span></label>
-                                    <input type="date" value={dob} onChange={(e) => setDob(e.target.value)} className="form-input-themed" />
+                                    <div className="relative">
+                                    <div className="absolute inset-y-0 end-0 top-0 flex items-center pe-3.5 pointer-events-none">
+                                        <svg className="w-4 h-4 text-gray-500 dark:text-gray-400" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="currentColor" viewBox="0 0 20 20">
+                                            <path d="M20 4a2 2 0 0 0-2-2h-2V1a1 1 0 0 0-2 0v1h-3V1a1 1 0 0 0-2 0v1H6V1a1 1 0 0 0-2 0v1H2a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V4Zm-2 13H4V8h14v9Z"/>
+                                        </svg>
+                                    </div>
+                                    <input type="date" value={dob} onChange={(e) => setDob(e.target.value)} className="form-input-themed custom-datetime" />
+                                </div>
                                 </div>
                                 <div>
                                     <label className="block text-sm font-medium text-medical-gray mb-2">City</label>
@@ -5924,14 +6445,21 @@
                             { }
                             <div>
                                 <label className="custom-label required">Date</label>
-                                <input
-                                    type="date"
-                                    value={appointmentDate}
-                                    onChange={(e) => { const newDate = e.target.value; console.log('[AppointmentEditor] Date changed:', newDate); setAppointmentDate(newDate); }}
-                                    className="custom-datetime"
-                                    min={new Date().toISOString().split('T')[0]}
-                                    disabled={isWalkIn}
-                                />
+                                <div className="relative">
+                                    <div className="absolute inset-y-0 end-0 top-0 flex items-center pe-3.5 pointer-events-none">
+                                        <svg className="w-4 h-4 text-gray-500 dark:text-gray-400" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="currentColor" viewBox="0 0 20 20">
+                                            <path d="M20 4a2 2 0 0 0-2-2h-2V1a1 1 0 0 0-2 0v1h-3V1a1 1 0 0 0-2 0v1H6V1a1 1 0 0 0-2 0v1H2a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V4Zm-2 13H4V8h14v9Z"/>
+                                        </svg>
+                                    </div>
+                                    <input
+                                        type="date"
+                                        value={appointmentDate}
+                                        onChange={(e) => { const newDate = e.target.value; console.log('[AppointmentEditor] Date changed:', newDate); setAppointmentDate(newDate); }}
+                                        className="form-input-themed custom-datetime"
+                                        min={new Date().toISOString().split('T')[0]}
+                                        disabled={isWalkIn}
+                                    />
+                                </div>
                             </div>
                             <div className={`md:col-span-3 ${isWalkIn ? 'opacity-50' : ''}`}> { }
                                 <label className={`custom-label ${!isWalkIn ? 'required' : ''}`}>Time</label> { }
@@ -5968,7 +6496,7 @@
                         </div>
                         <div>
                             <label className="block text-sm font-medium text-medical-gray mb-2">Reason for Visit</label>
-                            <textarea value={reason} onChange={(e) => setReason(e.target.value)} className="form-input-themed" rows="3" placeholder="Enter reason for appointment"></textarea>
+                            <textarea value={reason} onChange={(e) => setReason(e.target.value)} className="custom-textarea" rows="3" placeholder="Enter reason for appointment"></textarea>
                         </div>
                     </div>
 
@@ -6369,11 +6897,25 @@
                         <div className="grid grid-cols-3 gap-4 items-center">
                             <div>
                                 <label className="block text-xs font-medium text-medical-gray mb-1">Start Time</label>
-                                <input type="time" value={homeClinic.start_time.substring(0, 5)} onChange={(e) => setHomeClinic(p => ({ ...p, start_time: e.target.value }))} className="form-input-themed" disabled={!homeClinic.is_available} />
+                                <div className="relative">
+                                    <div className="absolute inset-y-0 end-0 top-0 flex items-center pe-3.5 pointer-events-none">
+                                        <svg className="w-4 h-4 text-gray-500 dark:text-gray-400" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="currentColor" viewBox="0 0 24 24">
+                                            <path fill-rule="evenodd" d="M2 12C2 6.477 6.477 2 12 2s10 4.477 10 10-4.477 10-10 10S2 17.523 2 12Zm11-4a1 1 0 1 0-2 0v4a1 1 0 0 0 .293.707l3 3a1 1 0 0 0 1.414-1.414L13 11.586V8Z" clip-rule="evenodd"/>
+                                        </svg>
+                                    </div>
+                                    <div onClick={() => !homeClinic.is_available ? null : setPickerOpen({ locId: 1 })} className={`form-input-themed custom-datetime ${!homeClinic.is_available ? 'bg-gray-100 cursor-not-allowed' : 'cursor-pointer'}`}>{homeClinic.start_time.substring(0, 5) || 'Start time'}</div>
+                                </div>
                             </div>
                             <div>
                                 <label className="block text-xs font-medium text-medical-gray mb-1">End Time</label>
-                                <input type="time" value={homeClinic.end_time.substring(0, 5)} onChange={(e) => setHomeClinic(p => ({ ...p, end_time: e.target.value }))} className="form-input-themed" disabled={!homeClinic.is_available} />
+                                <div className="relative">
+                                    <div className="absolute inset-y-0 end-0 top-0 flex items-center pe-3.5 pointer-events-none">
+                                        <svg className="w-4 h-4 text-gray-500 dark:text-gray-400" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="currentColor" viewBox="0 0 24 24">
+                                            <path fill-rule="evenodd" d="M2 12C2 6.477 6.477 2 12 2s10 4.477 10 10-4.477 10-10 10S2 17.523 2 12Zm11-4a1 1 0 1 0-2 0v4a1 1 0 0 0 .293.707l3 3a1 1 0 0 0 1.414-1.414L13 11.586V8Z" clip-rule="evenodd"/>
+                                        </svg>
+                                    </div>
+                                    <div onClick={() => !homeClinic.is_available ? null : setPickerOpen({ locId: 1 })} className={`form-input-themed custom-datetime ${!homeClinic.is_available ? 'bg-gray-100 cursor-not-allowed' : 'cursor-pointer'}`}>{homeClinic.end_time.substring(0, 5) || 'End time'}</div>
+                                </div>
                             </div>
                             <label className="flex flex-wrap items-center gap-2 cursor-pointer mt-5">
                                 <input type="checkbox" checked={homeClinic.is_available} onChange={(e) => setHomeClinic(p => ({ ...p, is_available: e.target.checked }))} className="w-4 h-4 text-medical-accent rounded" />
@@ -6387,11 +6929,25 @@
                         <div className="grid grid-cols-3 gap-4 items-center">
                             <div>
                                 <label className="block text-xs font-medium text-medical-gray mb-1">Start Time</label>
-                                <input type="time" value={hospital.start_time.substring(0, 5)} onChange={(e) => setHospital(p => ({ ...p, start_time: e.target.value }))} className="form-input-themed" disabled={!hospital.is_available} />
+                                <div className="relative">
+                                    <div className="absolute inset-y-0 end-0 top-0 flex items-center pe-3.5 pointer-events-none">
+                                        <svg className="w-4 h-4 text-gray-500 dark:text-gray-400" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="currentColor" viewBox="0 0 24 24">
+                                            <path fill-rule="evenodd" d="M2 12C2 6.477 6.477 2 12 2s10 4.477 10 10-4.477 10-10 10S2 17.523 2 12Zm11-4a1 1 0 1 0-2 0v4a1 1 0 0 0 .293.707l3 3a1 1 0 0 0 1.414-1.414L13 11.586V8Z" clip-rule="evenodd"/>
+                                        </svg>
+                                    </div>
+                                    <div onClick={() => !hospital.is_available ? null : setPickerOpen({ locId: 2 })} className={`form-input-themed custom-datetime ${!hospital.is_available ? 'bg-gray-100 cursor-not-allowed' : 'cursor-pointer'}`}>{hospital.start_time.substring(0, 5) || 'Start time'}</div>
+                                </div>
                             </div>
                             <div>
                                 <label className="block text-xs font-medium text-medical-gray mb-1">End Time</label>
-                                <input type="time" value={hospital.end_time.substring(0, 5)} onChange={(e) => setHospital(p => ({ ...p, end_time: e.target.value }))} className="form-input-themed" disabled={!hospital.is_available} />
+                                <div className="relative">
+                                    <div className="absolute inset-y-0 end-0 top-0 flex items-center pe-3.5 pointer-events-none">
+                                        <svg className="w-4 h-4 text-gray-500 dark:text-gray-400" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="currentColor" viewBox="0 0 24 24">
+                                            <path fill-rule="evenodd" d="M2 12C2 6.477 6.477 2 12 2s10 4.477 10 10-4.477 10-10 10S2 17.523 2 12Zm11-4a1 1 0 1 0-2 0v4a1 1 0 0 0 .293.707l3 3a1 1 0 0 0 1.414-1.414L13 11.586V8Z" clip-rule="evenodd"/>
+                                        </svg>
+                                    </div>
+                                    <div onClick={() => !hospital.is_available ? null : setPickerOpen({ locId: 2 })} className={`form-input-themed custom-datetime ${!hospital.is_available ? 'bg-gray-100 cursor-not-allowed' : 'cursor-pointer'}`}>{hospital.end_time.substring(0, 5) || 'End time'}</div>
+                                </div>
                             </div>
                             <label className="flex flex-wrap items-center gap-2 cursor-pointer mt-5">
                                 <input type="checkbox" checked={hospital.is_available} onChange={(e) => setHospital(p => ({ ...p, is_available: e.target.checked }))} className="w-4 h-4 text-medical-accent rounded" />
@@ -6403,6 +6959,23 @@
                         <button onClick={onClose} className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300">Cancel</button>
                         <button onClick={handleSave} className="medical-button px-4 py-2 text-white rounded-lg relative z-10">Save Changes</button>
                     </div>
+
+                    {pickerOpen && (
+                        <TimeRangePicker
+                            isOpen={true}
+                            onClose={() => setPickerOpen(null)}
+                            onConfirm={({ startTime, endTime }) => {
+                                if(pickerOpen.locId === 1) {
+                                    setHomeClinic(p => ({ ...p, start_time: startTime, end_time: endTime }));
+                                } else {
+                                    setHospital(p => ({ ...p, start_time: startTime, end_time: endTime }));
+                                }
+                                setPickerOpen(null);
+                            }}
+                            initialStartTime={pickerOpen.locId === 1 ? homeClinic.start_time : hospital.start_time}
+                            initialEndTime={pickerOpen.locId === 1 ? homeClinic.end_time : hospital.end_time}
+                        />
+                    )}
                 </div>
             );
         };
@@ -7080,13 +7653,12 @@
                                             onHandwrittenUpload(pid, e.target.files?.[0]);
                                         }} className="w-full" />
                                     </div>
-
                                     <div>
                                         <div className="font-medium mb-2">Prescription editor save</div>
                                         <div className="flex flex-wrap items-center gap-2 mb-2">
                                             <input type="number" placeholder="Patient ID" value={editorPatientId} onChange={(e) => setEditorPatientId(e.target.value)} className="form-input-themed" />
                                         </div>
-                                        <textarea rows="4" placeholder="Paste editor HTML here" value={editorHtml} onChange={(e) => setEditorHtml(e.target.value)} className="form-input-themed"></textarea>
+                                        <textarea rows="4" placeholder="Paste editor HTML here" value={editorHtml} onChange={(e) => setEditorHtml(e.target.value)} className="custom-textarea"></textarea>
                                         <div className="mt-2 flex justify-end">
                                             <button onClick={saveEditor} className="medical-button text-white px-4 py-2 rounded">Save</button>
                                         </div>
@@ -7100,8 +7672,7 @@
                     </div>
                 </>
             );
-        };
-
+        }
         const toast = (msg) => {
             const el = document.createElement('div');
             el.className = 'fixed bottom-4 left-1/2 -translate-x-1/2 bg-medical-dark text-white px-4 py-2 rounded shadow z-[9999]';
@@ -7109,9 +7680,7 @@
             document.body.appendChild(el);
             setTimeout(() => { el.remove(); }, 2500);
         };
-
         ReactDOM.createRoot(document.getElementById('root')).render(<><App /><QuickActions /></>);
     </script>
 </body>
-
 </html>
