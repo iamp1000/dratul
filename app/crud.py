@@ -16,6 +16,7 @@ import asyncio
 from . import models, schemas
 from .security import get_password_hash, verify_password, encryption_service, SecurityConfig
 from fastapi import HTTPException, status
+from app.compliance_logger import compliance_logger
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG) # Force DEBUG level for this logger
@@ -367,7 +368,7 @@ async def create_appointment(
         # --- We only log the appointment creation itself. ---
         try:
             # Log appointment creation
-            create_audit_log(
+            compliance_logger.log_event(
                 db=db,
                 user_id=user_id,
                 action=models.AuditAction.APPOINTMENT_CREATE.value, # Use Enum for consistency
@@ -1013,13 +1014,14 @@ async def emergency_cancel_appointments(db: Session, block_date: date, reason: s
 
     # --- Add Audit Log for Slot Blocking --- 
     try:
-        create_audit_log(
-            db=db,
-            user_id=user_id,
-            action=models.AuditAction.SLOT_EMERGENCY_BLOCK.value, # Use Enum for consistency
+        compliance_logger.log_event(
+            action="SLOT_EMERGENCY_BLOCK",
             category="SLOTS",
+            user_id=user_id,
+            username=str(user_id) if user_id else "System",
+            details=f"Marked {blocked_slot_count} available slots as 'emergency_block' for date {block_date} due to reason: {reason}",
             severity="WARN",
-            details=f"Marked {blocked_slot_count} available slots as 'emergency_block' for date {block_date} due to reason: {reason}"
+            geo_region="IN"
         )
     except Exception as log_error:
         logger.error(f"Failed to create audit log for emergency slot block on {block_date}: {log_error}")
@@ -1118,15 +1120,17 @@ def delete_unavailable_period(db: Session, period_id: int) -> bool:
         # --- Add Audit Log --- 
         try:
             # User ID might not be easily available here, log as System action
-            create_audit_log(
-                db=db, 
-                user_id=None, # Or pass user_id if available from calling context
-                action=models.AuditAction.SLOT_EMERGENCY_UNBLOCK.value, # Use Enum for consistency
+            compliance_logger.log_event(
+                action="SLOT_EMERGENCY_UNBLOCK",
                 category="SLOTS",
-                details=f"System reverted {reverted_count} slots from 'emergency_block' to 'available' due to deletion of unavailable period {period_id}."
+                user_id=None,
+                username="System",
+                details=f"System reverted {reverted_count} slots from 'emergency_block' to 'available' due to deletion of unavailable period {period_id}.",
+                severity="INFO",
+                geo_region="IN"
             )
         except Exception as log_error:
-             logger.error(f"Failed to create audit log for slot revert (unavailable period {period_id}): {log_error}")
+            logger.error(f"Failed to create audit log for slot revert (unavailable period {period_id}): {log_error}")
         # --- End Audit Log ---
         
         # Now delete the period itself
@@ -1473,42 +1477,46 @@ def create_or_update_patient_menstrual_history(db: Session, patient_id: int, his
 
 # ==================== AUDIT LOG CRUD OPERATIONS (NEW) ====================
 
-def create_audit_log(
-    db: Session, 
-    user_id: Optional[int], 
-    action: str, 
-    category: str,
-    severity: str = "INFO",
-    resource_type: Optional[str] = None,
-    resource_id: Optional[int] = None,
-    details: Optional[str] = None,
-    old_values: Optional[dict] = None,
-    new_values: Optional[dict] = None,
-    ip_address: Optional[str] = None
-) -> models.AuditLog:
+# Deprecated create_audit_log replaced by compliance_logger.log_event
+# Legacy shim below
+def create_audit_log(db, user_id=None, action=None, category=None, details=None, **kwargs):
+    try:
+        compliance_logger.log_event(
+            user_id=user_id,
+            username=str(user_id) if user_id else 'System',
+            action=action or 'UNKNOWN',
+            category=category or 'GENERAL',
+            details=details,
+            geo_region='IN',
+            severity=kwargs.get('severity', 'INFO'),
+            resource_type=kwargs.get('resource_type'),
+            resource_id=kwargs.get('resource_id'),
+        )
+    except Exception as e:
+        logger.error(f'[Shim] Failed to log event: {e}')
+
     """Create a new structured audit log entry."""
     try:
         # Denormalize username for audit integrity
         username = db.query(models.User.username).filter(models.User.id == user_id).scalar() if user_id else "System"
         
-        db_log = models.AuditLog(
-            user_id=user_id,
-            username=username,
-            action=action,
-            category=category,
-            severity=severity,
-            resource_type=resource_type,
-            resource_id=resource_id,
-            details=details,
-            old_values=old_values,
-            new_values=new_values,
-            ip_address=ip_address,
-            timestamp=datetime.now(timezone.utc) # <-- Explicitly set timezone-aware UTC timestamp
-        )
-        db.add(db_log)
-        db.commit()
-        db.refresh(db_log)
-        return db_log
+        # Coerce Enums to plain strings for DB safety
+        if hasattr(action, "value"):
+            action = action.value
+        if hasattr(category, "value"):
+            category = category.value
+
+        SAFE_AUDIT_ACTION_MAP = {
+            'LOGIN_SUCCESS': 'LOGIN',
+            'LOGIN_FAILURE': 'LOGIN',
+            'CREATE_USER': 'CREATE',
+            'DELETE_USER': 'DELETE',
+        }
+        action = SAFE_AUDIT_ACTION_MAP.get(str(action).upper(), str(action).upper())
+
+        # Legacy block removed after ComplianceLogger migration
+        compliance_logger.log_event(user_id=user_id, role='system', action=action, category=category, details=f'Audit action executed: {action}', severity='INFO')
+            
     except SQLAlchemyError as e:
         db.rollback()
         logger.error(f"Error creating audit log: {e}")

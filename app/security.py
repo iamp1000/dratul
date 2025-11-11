@@ -22,6 +22,7 @@ import logging
 from ipaddress import ip_address, ip_network
 from .database import get_db
 from . import models, crud
+from app.compliance_logger import compliance_logger
 
 
 # Configure logging for security events
@@ -134,66 +135,6 @@ class EncryptionService:
         if not data:
             return ""
         return hashlib.sha256(data.lower().strip().encode()).hexdigest()
-
-class AuditLogger:
-    """HIPAA-compliant audit logging service"""
-
-    def __init__(self):
-        self.logger = logging.getLogger("hipaa_audit")
-        handler = logging.FileHandler("hipaa_audit.log")
-        formatter = logging.Formatter(
-            '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
-        )
-        handler.setFormatter(formatter)
-        self.logger.addHandler(handler)
-        self.logger.setLevel(logging.INFO)
-
-    def log_access(self, user_id: int, action: str, resource: str, 
-                resource_id: str = None, patient_id: int = None,
-                ip_address: str = None, user_agent: str = None,
-                success: bool = True, details: str = None):
-        """Log access to PHI or system resources"""
-        audit_entry = {
-            "timestamp": datetime.now(timezone.utc).isoformat(),
-            "user_id": user_id,
-            "action": action,
-            "resource": resource,
-            "resource_id": resource_id,
-            "patient_id": patient_id,
-            "ip_address": ip_address,
-            "user_agent": user_agent,
-            "success": success,
-            "details": details
-        }
-
-        self.logger.info(json.dumps(audit_entry))
-    def info(self, message: str, **kwargs):
-        self._log("INFO", message, kwargs)
-
-    def warning(self, message: str, **kwargs):
-        """Log warning level message"""
-        self._log("WARNING", message, kwargs)
-    
-    def error(self, message: str, **kwargs):
-        """Log error level message"""
-        self._log("ERROR", message, kwargs)
-    
-    def _log(self, level: str, message: str, extra_data: dict = None):
-        """Internal logging method"""
-        log_entry = {
-            "timestamp": datetime.now(timezone.utc).isoformat(),
-            "level": level,
-            "message": message,
-            **(extra_data or {})
-        }
-        
-        if level == "INFO":
-            self.logger.info(json.dumps(log_entry))
-        elif level == "WARNING":
-            self.logger.warning(json.dumps(log_entry))
-        elif level == "ERROR":
-            self.logger.error(json.dumps(log_entry))
-
 
 class RateLimiter:
     """Rate limiting service for API endpoints and WhatsApp messages"""
@@ -439,7 +380,6 @@ class IPValidator:
 
 # Initialize services
 encryption_service = EncryptionService()
-audit_logger = AuditLogger()
 rate_limiter = RateLimiter()
 session_manager = SessionManager()
 mfa_service = MFAService()
@@ -555,13 +495,15 @@ async def get_current_user(
     rate_key = f"auth:{client_ip}"
 
     if not rate_limiter.is_allowed(rate_key):
-        audit_logger.log_access(
+        compliance_logger.log_event(
             user_id=None,
+            role=None,
             action="ACCESS_DENIED",
-            resource="authentication",
+            category="AUTHENTICATION",
             ip_address=client_ip,
-            success=False,
-            details="Rate limit exceeded"
+            details="Rate limit exceeded",
+            username=None,
+            user_agent=request.headers.get("User-Agent"),
         )
         raise HTTPException(
             status_code=status.HTTP_429_TOO_MANY_REQUESTS,
@@ -570,13 +512,15 @@ async def get_current_user(
 
     # IP validation
     if not IPValidator.is_allowed_ip(client_ip):
-        audit_logger.log_access(
+        compliance_logger.log_event(
             user_id=None,
+            role=None,
             action="ACCESS_DENIED",
-            resource="authentication",
+            category="AUTHENTICATION",
             ip_address=client_ip,
-            success=False,
-            details="IP address not allowed"
+            details="IP address not allowed",
+            username=None,
+            user_agent=request.headers.get("User-Agent"),
         )
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
@@ -601,13 +545,15 @@ async def get_current_user(
 
     # Check if user is active
     if not user.is_active:
-        audit_logger.log_access(
+        compliance_logger.log_event(
             user_id=user_id,
+            role=None,
             action="ACCESS_DENIED",
-            resource="authentication",
+            category="AUTHENTICATION",
             ip_address=client_ip,
-            success=False,
-            details="User account is inactive"
+            details="User account is inactive",
+            username=username,
+            user_agent=request.headers.get("User-Agent"),
         )
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
@@ -616,28 +562,33 @@ async def get_current_user(
 
     # Check account lockout
     if user.account_locked_until and user.account_locked_until > datetime.now(timezone.utc):
-        audit_logger.log_access(
+        compliance_logger.log_event(
             user_id=user_id,
+            role=None,
             action="ACCESS_DENIED",
-            resource="authentication",
+            category="AUTHENTICATION",
             ip_address=client_ip,
-            success=False,
-            details="Account is locked"
+            details="Account is locked",
+            username=username,
+            user_agent=request.headers.get("User-Agent"),
         )
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Account is temporarily locked"
         )
 
-    # Log successful access
-    audit_logger.log_access(
-        user_id=user_id,
-        action="READ",
-        resource="authentication",
-        ip_address=client_ip,
-        user_agent=request.headers.get("User-Agent"),
-        success=True
-    )
+    # Log only WRITE operations; skip GET/HEAD/OPTIONS noise
+    if request.method in ("POST", "PUT", "PATCH", "DELETE"):
+        compliance_logger.log_event(
+            user_id=user_id,
+            role=None,
+            action="READ",
+            category="AUTHENTICATION",
+            ip_address=client_ip,
+            details=f"Authenticated {request.method} to {request.url.path}",
+            username=username,
+            user_agent=request.headers.get("User-Agent"),
+        )
 
     return user
 
@@ -708,6 +659,56 @@ def add_security_headers(response):
     response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
     return response
 
+def log_event(db: Session,
+              user_id: int | None,
+              category: str,
+              action: str,
+              details: str | None = None,
+              severity: str = "INFO",
+              resource_type: str | None = None,
+              resource_id: int | None = None,
+              patient_id: int | None = None,
+              ip_address: str | None = None,
+              actor_role: str | None = None,
+              consent_reference: str | None = None,
+              geo_region: str = "IN") -> None:
+    """Unified logging: DB audit row + enriched compliance file log (HIPAA+NMC).
+    Imports crud lazily to avoid cycles.
+    """
+    try:
+        # 1) Write structured DB audit (robust to Enum or str)
+        from . import crud
+        crud.create_audit_log(
+            db=db,
+            user_id=user_id,
+            action=action,
+            category=category,
+            severity=severity,
+            resource_type=resource_type,
+            resource_id=resource_id,
+            details=details,
+            old_values=None,
+            new_values=None,
+            ip_address=ip_address,
+        )
+    except Exception as e:
+        security_logger.error(f"DB audit write failed: {e}")
+
+    try:
+        # 2) DB-backed compliance logger (no file writes)
+        compliance_logger.log_event(
+            user_id=user_id,
+            role=actor_role,
+            action=action,
+            category=category,
+            details=details,
+            resource_type=resource_type,
+            resource_id=resource_id,
+            ip_address=ip_address,
+        )
+    except Exception as e:
+        security_logger.error(f"Compliance log failed: {e}")
+
 # Export all security services and utilities
 __all__ = [
     "SecurityConfig",
@@ -736,5 +737,6 @@ __all__ = [
     "require_staff",
     "require_medical_staff",
     "Permissions",
-    "add_security_headers"
+    "add_security_headers",
+    "log_event"
 ]

@@ -5,6 +5,7 @@ from sqlalchemy.orm import Session
 
 from .. import crud, schemas, security, models
 from ..database import get_db
+from app.compliance_logger import compliance_logger
 
 import logging
 
@@ -44,12 +45,13 @@ def login_for_access_token(db: Session = Depends(get_db), form_data: OAuth2Passw
     
     # --- Add Audit Log on Successful Login (Force Reload v1) --- 
     try:
-        crud.create_audit_log(
-            db=db,
+        compliance_logger.log_event(
             user_id=user.id,
-            action=models.AuditAction.LOGIN_SUCCESS, # Use the standardized Enum member
+            role=user.role.value if hasattr(user.role, 'value') else 'unknown',
+            action="LOGIN_SUCCESS",
             category="AUTHENTICATION",
-            details=f"User {user.username} logged in successfully."
+            details=f"User {user.username} logged in successfully.",
+            severity="INFO"
         )
     except Exception as log_error:
         logger.error(f"Failed to create audit log for login event for user {user.username}: {log_error}")
