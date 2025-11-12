@@ -100,3 +100,5 @@ Think of this as “self-healing infrastructure.”
 You’re turning your appointment system into something that can diagnose itself — finding the infection before it spreads.
 
 The best systems aren’t the ones that never fail — they’re the ones that notice when they’ve failed, and tell you clearly why.
+
+this is a test phrase for vs to check if it updates as such man 

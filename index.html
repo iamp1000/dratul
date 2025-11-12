@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Medical Admin Dashboard - Dr. Dhingra's Clinic</title>
+    
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <link href="https://cdn.quilljs.com/1.3.7/quill.snow.css" rel="stylesheet">
+    
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        'medical-blue': '#0B4D6B',
+                        'medical-light': '#E6F3F8',
+                        'medical-accent': '#2196F3',
+                        'medical-success': '#10B981',
+                        'medical-warning': '#F59E0B',
+                        'medical-error': '#EF4444',
+                        'medical-dark': '#1E293B',
+                        'medical-gray': '#64748B',
+                        'medical-light-gray': '#F8FAFC',
+                    },
+                    fontFamily: {
+                        'primary': ['Poppins', 'sans-serif'],
+                        'secondary': ['Inter', 'sans-serif']
+                    },
+                    animation: {
+                        'fade-in': 'fadeIn 0.6s ease-out',
+                        'slide-up': 'slideUp 0.5s ease-out',
+                        'pulse-gentle': 'pulseGentle 2s infinite',
+                        'slide-in-right': 'slideInRight 0.3s ease-out',
+                        'bounce-gentle': 'bounceGentle 0.5s ease-out',
+                    },
+                    keyframes: {
+                        fadeIn: { '0%': { opacity: '0', transform: 'translateY(10px)' }, '100%': { opacity: '1', transform: 'translateY(0)' } },
+                        slideUp: { '0%': { opacity: '0', transform: 'translateY(30px)' }, '100%': { opacity: '1', transform: 'translateY(0)' } },
+                        slideInRight: { '0%': { opacity: '0', transform: 'translateX(20px)' }, '100%': { opacity: '1', transform: 'translateX(0)' } },
+                        bounceGentle: { '0%, 100%': { transform: 'scale(1)' }, '50%': { transform: 'scale(1.05)' } },
+                        pulseGentle: { '0%, 100%': { opacity: '0.4' }, '50%': { opacity: '0.6' } }
+                    }
+                }
+            }
+        }
+    </script>
+    
+    <script src="https://cdn.quilljs.com/1.3.7/quill.js"></script>
+  </head>
+  <body>
+    <div id="root"></div>
+    
+    <script type="module" src="/admin_app/main.jsx"></script>
+  </body>
+</html>

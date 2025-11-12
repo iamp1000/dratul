@@ -12,11 +12,10 @@ dist/
 .venv/
 env/
 
-# Local environment variables and secrets
+
 .env
 config.json
 
-# Dataset and local uploads (ignore root dataset/ and all contents)
 /dataset/
 /dataset/**
 patient_uploads/
