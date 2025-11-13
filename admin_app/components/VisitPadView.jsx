@@ -1,3 +1,5 @@
+import React from 'react';
+
 const VisitPadView = ({ patient, onBack, mode = "consultation" }) => {
 
     const [activeTab, setActiveTab] = React.useState('vitals');
@@ -428,31 +430,64 @@ const VisitPadView = ({ patient, onBack, mode = "consultation" }) => {
         }
         // --- END NEW: Step 1: Save Medical History ---
 
-        // Collect data from Quill editors
-        const visitData = {
-            ...formData,
-
+        // --- Step 2: Collect and Structure Consultation Data ---
+        const consultationPayload = {
+            patient_id: patient.id,
+            appointment_id: patient.appointment_id, // Passed from ConsultationView queue
+            consultation_date: new Date().toISOString(),
+            
+            // Main Text Fields
             advice: adviceEditorRef.current?.root.innerHTML || '',
-            medicalHistory: historyEditorRef.current?.root.innerHTML || '',
-            patientId: mode === 'consultation' ? patient.id : null,
-            visitDate: new Date().toISOString(),
-            doctorId: sessionStorage.getItem('userId')
+            quick_notes: formData.history.detailed_history, // Using detailed history as quick notes
+            
+            // Vitals (Mapping directly)
+            vitals: { 
+                ...formData.vitals,
+                temperature: formData.vitals.temp // Frontend uses 'temp', backend uses 'temperature'
+            },
+            
+            // Diagnoses (Mapping list of {code, description} to list of {diagnosis_name})
+            diagnoses: formData.diagnosis.map(d => ({
+                diagnosis_name: d.description || d.code || 'Unspecified Diagnosis'
+            })),
+            
+            // Medications (Mapping list of prescriptions to list of ConsultationMedicationCreate)
+            medications: formData.prescriptions.map(p => ({
+                type: p.type, // branded/generic
+                medicine_name: p.medicine,
+                dosage: p.dosage,
+                when: p.when,
+                frequency: p.frequency,
+                duration: p.duration,
+                notes: p.instructions,
+                route: p.route
+            })),
+            
+            // Follow-up/Referral Fields
+            next_visit_date: formData.nextVisitDate || null,
+            next_visit_instructions: formData.nextVisitInstructions || null,
+            referral_doctor_name: formData.referral_doctor_name,
+            referral_speciality: formData.referral_speciality,
+            referral_phone: formData.referral_phone,
+            referral_email: formData.referral_email
         };
 
         try {
-            // In production: API call to save data
-            // await saveVisitData(visitData);
+            console.log('Final Consultation Payload:', consultationPayload);
+            
+            // --- Step 3: API Call to Save Consultation ---
+            const savedConsultation = await window.api('/api/v1/consultations/', {
+                method: 'POST',
+                body: JSON.stringify(consultationPayload),
+            });
 
-            console.log('Saving visit data:', visitData);
+            console.log('Consultation Saved:', savedConsultation);
 
-            // Simulate save delay
-            await new Promise(resolve => setTimeout(resolve, 1000));
-
-            alert('Prescription saved successfully! Ready to print.');
+            alert('Consultation saved successfully! Ready to print.');
             setLastSaved(new Date());
         } catch (error) {
-            console.error('Error saving visit data:', error);
-            alert('Error saving data. Please try again.');
+            console.error('Error saving consultation:', error);
+            alert(`Error saving data. Details: ${error.message || 'An unexpected error occurred.'}`);
         } finally {
             setIsSaving(false);
         }
@@ -1532,3 +1567,5 @@ const VisitPadView = ({ patient, onBack, mode = "consultation" }) => {
 };
 
 window.VisitPadView = VisitPadView;
+
+export default VisitPadView;

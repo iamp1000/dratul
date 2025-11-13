@@ -70,3 +70,4 @@ const InvestigationResultsContent = ({ resultsData, setResultsData, testDictiona
   );
 };
 
+export default InvestigationResultsContent;

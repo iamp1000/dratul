@@ -111,3 +111,4 @@ const ScheduleCalendar = ({ homeClinicSchedule, hospitalSchedule, onDateClick, c
   );
 };
 
+export default ScheduleCalendar;

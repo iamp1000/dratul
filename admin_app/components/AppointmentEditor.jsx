@@ -1,3 +1,8 @@
+import React from 'react';
+import LoadingSpinner from '../lib/LoadingSpinner.jsx';
+import DatePicker from './DatePicker.jsx';
+import TimeRangePicker from './TimeRangePicker.jsx';
+
 const AppointmentEditor = ({ appointment, onClose, refreshAppointments, user }) => {
     console.log('[AppointmentEditor] Rendering/Re-rendering...');
     const [patientId, setPatientId] = React.useState(appointment?.patient_id || '');
@@ -22,6 +27,7 @@ const AppointmentEditor = ({ appointment, onClose, refreshAppointments, user }) 
     const [loadingSlots, setLoadingSlots] = React.useState(false);
     const [slotError, setSlotError] = React.useState('');
     const [isWalkIn, setIsWalkIn] = React.useState(false);
+    const [showTimePicker, setShowTimePicker] = React.useState(false);
 
     React.useEffect(() => {
         const fetchPatients = async () => {
@@ -226,15 +232,13 @@ const AppointmentEditor = ({ appointment, onClose, refreshAppointments, user }) 
                             <input type="text" value={lastName} onChange={(e) => setLastName(e.target.value)} className="form-input-themed" placeholder="Enter last name" />
                         </div>
                         <div>
-                            <label className="block text-sm font-medium text-medical-gray mb-2">Date of Birth <span className="text-red-500">*</span></label>
-                            <div className="relative">
-                            <div className="absolute inset-y-0 end-0 top-0 flex items-center pe-3.5 pointer-events-none">
-                                <svg className="w-4 h-4 text-gray-500 dark:text-gray-400" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="currentColor" viewBox="0 0 20 20">
-                                    <path d="M20 4a2 2 0 0 0-2-2h-2V1a1 1 0 0 0-2 0v1h-3V1a1 1 0 0 0-2 0v1H6V1a1 1 0 0 0-2 0v1H2a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V4Zm-2 13H4V8h14v9Z"/>
-                                </svg>
-                            </div>
-                            <input type="date" value={dob} onChange={(e) => setDob(e.target.value)} className="form-input-themed custom-datetime" />
-                        </div>
+                            <DatePicker 
+                                label="Date of Birth"
+                                value={dob} 
+                                onChange={(e) => setDob(e.target.value)}
+                                required={true}
+                                // No minDate/maxDate for DOB
+                            />
                         </div>
                         <div>
                             <label className="block text-sm font-medium text-medical-gray mb-2">City</label>
@@ -320,24 +324,14 @@ const AppointmentEditor = ({ appointment, onClose, refreshAppointments, user }) 
                         </select>
                     </div>
                     { }
-                    <div>
-                        <label className="custom-label required">Date</label>
-                        <div className="relative">
-                            <div className="absolute inset-y-0 end-0 top-0 flex items-center pe-3.5 pointer-events-none">
-                                <svg className="w-4 h-4 text-gray-500 dark:text-gray-400" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="currentColor" viewBox="0 0 20 20">
-                                    <path d="M20 4a2 2 0 0 0-2-2h-2V1a1 1 0 0 0-2 0v1h-3V1a1 1 0 0 0-2 0v1H6V1a1 1 0 0 0-2 0v1H2a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V4Zm-2 13H4V8h14v9Z"/>
-                                </svg>
-                            </div>
-                            <input
-                                type="date"
-                                value={appointmentDate}
-                                onChange={(e) => { const newDate = e.target.value; console.log('[AppointmentEditor] Date changed:', newDate); setAppointmentDate(newDate); }}
-                                className="form-input-themed custom-datetime"
-                                min={new Date().toISOString().split('T')[0]}
-                                disabled={isWalkIn}
-                            />
-                        </div>
-                    </div>
+                    <DatePicker
+                        label="Date"
+                        value={appointmentDate}
+                        onChange={(e) => { const newDate = e.target.value; console.log('[AppointmentEditor] Date changed:', newDate); setAppointmentDate(newDate); }}
+                        minDate={new Date().toISOString().split('T')[0]}
+                        required={true}
+                        disabled={isWalkIn}
+                    />
                     <div className={`md:col-span-3 ${isWalkIn ? 'opacity-50' : ''}`}> { }
                         <label className={`custom-label ${!isWalkIn ? 'required' : ''}`}>Time</label> { }
                         { }
@@ -345,28 +339,34 @@ const AppointmentEditor = ({ appointment, onClose, refreshAppointments, user }) 
                             <LoadingSpinner />
                         ) : slotError ? (
                             <p className="text-medical-error text-sm p-3 bg-red-50 rounded-lg">{slotError}</p>
-                        ) : availableSlots.length > 0 ? (
-                            <div className="grid grid-cols-4 sm:grid-cols-5 md:grid-cols-6 gap-2">
-                                { }
-                                {availableSlots.map(slot => {
-
-                                    const slotTimeStr = slot.start_time.substring(11, 16);
-                                    return (
-                                        <button
-                                            key={slot.id}
-                                            type="button"
-                                            onClick={() => setAppointmentTime(slot.start_time)}
-                                            className={`p-2 rounded-lg border text-xs sm:text-sm transition-all ${appointmentTime === slot.start_time ? 'bg-medical-accent text-white border-medical-accent font-semibold shadow' : 'border-gray-300 hover:border-medical-accent hover:text-medical-accent'} ${isWalkIn ? 'cursor-not-allowed' : ''}`}
-                                            disabled={isWalkIn}
-                                        >
-                                            { }
-                                            {new Date(slot.start_time).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true })}
-                                        </button>
-                                    );
-                                })}
-                            </div>
                         ) : (
-                            <p className="text-medical-gray text-sm p-3 bg-gray-50 rounded-lg">Select date and location to view available times.</p>
+                            <div className="flex flex-col space-y-2">
+                                <div
+                                    onClick={() => !isWalkIn ? setShowTimePicker(true) : null}
+                                    className={`w-full px-3 py-2 border-2 rounded-lg text-sm text-center font-medium transition-all cursor-pointer 
+                                        ${appointmentTime ? 'border-medical-accent bg-blue-50 text-medical-dark' : 'border-gray-300 text-medical-gray hover:border-medical-accent'} 
+                                        ${isWalkIn ? 'bg-gray-100 cursor-not-allowed' : ''}`
+                                    }
+                                >
+                                    {appointmentTime ? new Date(appointmentTime).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true }) : (slotError || 'Select Time Slot')}
+                                </div>
+                                {availableSlots.length > 0 && (
+                                    <p className='text-xs text-medical-gray'>* {availableSlots.length} available slots not shown. Click above to pick a time.</p>
+                                )}
+                            </div>
+                        )}
+
+                        {showTimePicker && (
+                            <TimeRangePicker
+                                isOpen={showTimePicker}
+                                onClose={() => setShowTimePicker(false)}
+                                onConfirm={({ startTime, endTime }) => {
+                                    setAppointmentTime(startTime); 
+                                    setShowTimePicker(false);
+                                }}
+                                initialStartTime={appointmentTime}
+                                initialEndTime={appointmentTime}
+                            />
                         )}
                         { }
                     </div>
@@ -388,3 +388,4 @@ const AppointmentEditor = ({ appointment, onClose, refreshAppointments, user }) 
 };
 
 window.AppointmentEditor = AppointmentEditor;
+export default AppointmentEditor;

@@ -53,3 +53,4 @@ const PermissionCheckboxes = ({ permissions, setPermissions, isSuperAdmin, isEdi
 
 window.PermissionCheckboxes = PermissionCheckboxes;
 
+export default PermissionCheckboxes;

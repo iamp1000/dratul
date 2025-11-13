@@ -180,3 +180,5 @@ const UserEditor = ({ user, onClose, refreshUsers, loggedInUser }) => {
 };
 
 window.UserEditor = UserEditor;
+
+export default UserEditor;

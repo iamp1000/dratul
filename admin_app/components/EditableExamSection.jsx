@@ -81,3 +81,4 @@ const EditableExamSection = ({ sectionData, onFieldChange, onRemove }) => {
   );
 };
 
+export default EditableExamSection;

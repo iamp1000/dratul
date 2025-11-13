@@ -159,3 +159,4 @@ const InvestigationResultsModal = ({ isOpen, onClose, onSave, initialResultsData
   );
 };
 
+export default InvestigationResultsModal;

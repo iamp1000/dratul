@@ -127,3 +127,4 @@ const ConsultationNotesForm = ({ notesData, setNotesData }) => {
   );
 };
 
+export default ConsultationNotesForm;

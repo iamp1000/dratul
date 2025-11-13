@@ -74,3 +74,4 @@ const PatientEditor = ({ patient, onClose, refreshPatients }) => {
 
 window.PatientEditor = PatientEditor;
 
+export default PatientEditor;

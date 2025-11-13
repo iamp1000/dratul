@@ -1,3 +1,8 @@
+import React from 'react';
+import LoadingSpinner from '../lib/LoadingSpinner.jsx';
+import Modal from '../lib/Modal.jsx';
+import UserEditor from '../components/UserEditor.jsx';
+
 const Users = ({ user: loggedInUser }) => {
     const [users, setUsers] = React.useState([]);
 
@@ -180,3 +185,5 @@ const Users = ({ user: loggedInUser }) => {
 };
 
 window.Users = Users;
+
+export default Users;

@@ -80,3 +80,4 @@ const PrescriptionEditor = ({ prescription, onClose, refreshPrescriptions }) => 
 
 window.PrescriptionEditor = PrescriptionEditor;
 
+export default PrescriptionEditor;

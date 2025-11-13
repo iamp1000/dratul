@@ -12,3 +12,4 @@ const FormInput = ({ label, name, value, onChange, placeholder = "" }) => (
   </div>
 );
 
+export default FormInput;

@@ -1,3 +1,6 @@
+import React from 'react';
+import LoadingSpinner from '../lib/LoadingSpinner.jsx';
+
 const LogViewer = ({ user }) => {
     const [logs, setLogs] = React.useState([]);
     const [loading, setLoading] = React.useState(true);
@@ -207,3 +210,5 @@ const LogViewer = ({ user }) => {
 };
 
 window.LogViewer = LogViewer;
+
+export default LogViewer;

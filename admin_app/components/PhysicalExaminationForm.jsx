@@ -71,3 +71,4 @@ const PhysicalExaminationForm = ({ notesData, setNotesData }) => {
   );
 };
 
+export default PhysicalExaminationForm;

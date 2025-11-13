@@ -1,3 +1,5 @@
+import React from 'react';
+
 const Calendar = ({ appointments, onDateClick, onAppointmentClick, currentDate, setCurrentDate }) => {
     const getDaysInMonth = (date) => {
         return new Date(date.getFullYear(), date.getMonth() + 1, 0).getDate();
@@ -106,4 +108,6 @@ const Calendar = ({ appointments, onDateClick, onAppointmentClick, currentDate, 
         </div>
     );
 };
+
+export default Calendar;
 

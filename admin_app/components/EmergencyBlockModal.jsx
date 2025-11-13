@@ -80,3 +80,4 @@ const EmergencyBlockModal = ({ onClose }) => {
 window.EmergencyBlockModal = EmergencyBlockModal;
 
 
+export default EmergencyBlockModal;

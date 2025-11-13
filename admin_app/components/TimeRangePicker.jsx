@@ -116,3 +116,4 @@ const TimeRangePicker = ({ isOpen, onClose, onConfirm, initialStartTime, initial
 };
 
 
+export default TimeRangePicker;

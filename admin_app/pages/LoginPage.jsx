@@ -11,7 +11,9 @@ const LoginPage = ({ onLoginSuccess }) => {
   React.useEffect(() => {
     // Route Guard: If user is already logged in, notify parent
     if (sessionStorage.getItem('accessToken')) {
-      onLoginSuccess();
+      const savedUser = sessionStorage.getItem('user');
+      const userData = savedUser ? JSON.parse(savedUser) : null;
+      onLoginSuccess(userData);
     }
   }, [onLoginSuccess]);
 
@@ -32,8 +34,9 @@ const LoginPage = ({ onLoginSuccess }) => {
     formData.append('username', username);
     formData.append('password', password);
 
+    console.log("Attempting login to:", `${window.API_BASE_URL}/api/v1/auth/token`);
     try {
-      const response = await fetch(`${window.API_BASE_URL}/auth/token`, {
+      const response = await fetch(`${window.API_BASE_URL}/api/v1/auth/token`, {
         method: 'POST',
         body: formData
       });
@@ -43,7 +46,7 @@ const LoginPage = ({ onLoginSuccess }) => {
         sessionStorage.setItem('accessToken', data.access_token);
         sessionStorage.setItem('tokenType', data.token_type);
         sessionStorage.setItem('user', JSON.stringify(data.user));
-        onLoginSuccess(); // <-- causes onLoginSuccess to be called with no argument
+        onLoginSuccess(data.user);
       } else {
         setError('Invalid credentials. Please try again.');
       }

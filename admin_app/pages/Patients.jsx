@@ -1,3 +1,9 @@
+import React from 'react';
+import LoadingSpinner from '../lib/LoadingSpinner.jsx';
+import Modal from '../lib/Modal.jsx';
+import PatientDetails from '../components/PatientDetails.jsx';
+import PatientEditor from '../components/PatientEditor.jsx'; // Assuming this exists
+
 const Patients = ({ user }) => {
     const [patients, setPatients] = React.useState([]);
     const [loading, setLoading] = React.useState(true);
@@ -136,3 +142,4 @@ const Patients = ({ user }) => {
 
 window.Patients = Patients;
 
+export default Patients;

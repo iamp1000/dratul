@@ -40,3 +40,4 @@ const TemplateSearchModal = ({ onClose, onSelectTemplate }) => {
   );
 };
 
+export default TemplateSearchModal;

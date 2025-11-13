@@ -1,24 +1,16 @@
+import './lib/api.js'; // Must be first to initialize window.api
 import React from 'react';
 import ReactDOM from 'react-dom/client';
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import App from './App.jsx';
-import LoginPage from './pages/LoginPage.jsx';
 import './styles.css';
 
-const Root = () => {
-  const isLoggedIn = !!sessionStorage.getItem('accessToken');
-  return (
-    <BrowserRouter>
-      <Routes>
-        <Route path='/' element={isLoggedIn ? <App /> : <Navigate to='/login' />} />
-        <Route path='/login' element={<LoginPage />} />
-      </Routes>
-    </BrowserRouter>
-  );
-};
-
 console.log("Main.jsx initialized");
-ReactDOM.createRoot(document.getElementById('root')).render(<Root />);
+
+ReactDOM.createRoot(document.getElementById('root')).render(
+  <React.StrictMode>
+    <App />
+  </React.StrictMode>
+);
 
 // Original App function (legacy code retained below for reference if needed)
 /*

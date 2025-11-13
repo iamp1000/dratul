@@ -1,3 +1,7 @@
+import React from 'react';
+import DateAppointments from './DateAppointments.jsx';
+import DaySlotsViewer from './DaySlotsViewer.jsx';
+
 const DailyViewModalContent = ({ date, appointmentsForDate }) => {
   const [activeTab, setActiveTab] = React.useState('appointments');
 
@@ -35,3 +39,4 @@ const DailyViewModalContent = ({ date, appointmentsForDate }) => {
   );
 };
 
+export default DailyViewModalContent;

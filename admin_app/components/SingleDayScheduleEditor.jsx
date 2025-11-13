@@ -127,3 +127,4 @@ const SingleDayScheduleEditor = ({ date, scheduleForDay, onClose, refreshSchedul
   );
 };
 
+export default SingleDayScheduleEditor;

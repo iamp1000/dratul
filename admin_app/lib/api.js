@@ -3,7 +3,7 @@ const API_BASE_URL = 'http://127.0.0.1:8000';
 const api = async (url, options = {}) => {
     const token = sessionStorage.getItem('accessToken');
     if (!token) {
-        window.location.href = './admin_login.html';
+        window.location.reload(); // Reloads app, triggering App.jsx to show LoginPage
         return;
     }
 
@@ -20,7 +20,7 @@ const api = async (url, options = {}) => {
         const res = await fetch(API_BASE_URL + url, config);
         if (res.status === 401) {
             sessionStorage.clear();
-            window.location.href = './admin_login.html';
+            window.location.reload();
             return;
         }
         const text = await res.text();

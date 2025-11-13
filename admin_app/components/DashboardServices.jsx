@@ -1,3 +1,6 @@
+import React from 'react';
+import LoadingSpinner from '../lib/LoadingSpinner.jsx';
+
 const DashboardServices = () => {
   const [status, setStatus] = React.useState(null);
   
@@ -32,4 +35,6 @@ const DashboardServices = () => {
     </div>
   );
 };
+
+export default DashboardServices;
 

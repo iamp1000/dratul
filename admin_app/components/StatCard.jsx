@@ -1,3 +1,5 @@
+import React from 'react';
+
 const StatCard = ({ icon, title, value, subtitle, color = "medical-accent" }) => (
   <div className="stat-card p-6 rounded-2xl medical-card animate-slide-up">
     <div className="flex items-center justify-between mb-4">
@@ -12,5 +14,7 @@ const StatCard = ({ icon, title, value, subtitle, color = "medical-accent" }) =>
     <div className="text-medical-gray font-secondary">{title}</div>
   </div>
 );
+
+export default StatCard;
 
 

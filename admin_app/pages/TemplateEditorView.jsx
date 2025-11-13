@@ -1,3 +1,5 @@
+import React from 'react';
+
 const TemplateEditorView = () => {
     return (
         <div className="space-y-6 animate-fade-in">
@@ -40,3 +42,4 @@ const TemplateEditorView = () => {
 
 window.TemplateEditorView = TemplateEditorView;
 
+export default TemplateEditorView;

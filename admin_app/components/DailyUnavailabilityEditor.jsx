@@ -218,3 +218,4 @@ const DailyUnavailabilityEditor = ({ date, onClose, existingClinicBlock, existin
     );
 };
 
+export default DailyUnavailabilityEditor;

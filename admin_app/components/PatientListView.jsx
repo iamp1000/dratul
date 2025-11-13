@@ -1,3 +1,5 @@
+import React from 'react';
+
 const PatientListView = ({
   patients,
   allPatients,
@@ -216,3 +218,4 @@ const PatientListView = ({
   );
 };
 
+export default PatientListView;

@@ -1,3 +1,11 @@
+import React from 'react';
+import LoadingSpinner from '../lib/LoadingSpinner.jsx';
+import Modal from '../lib/Modal.jsx';
+import ScheduleCalendar from '../components/ScheduleCalendar.jsx';
+import DayEditorModal from '../components/DayEditorModal.jsx';
+import EmergencyBlockModal from '../components/EmergencyBlockModal.jsx';
+import ScheduleEditor from '../components/ScheduleEditor.jsx';
+
 const DoctorSchedule = ({ openModal, closeModal, user }) => {
     const [schedules, setSchedules] = React.useState({ 1: {}, 2: {} });
     const [locations, setLocations] = React.useState([]);
@@ -165,3 +173,4 @@ const DoctorSchedule = ({ openModal, closeModal, user }) => {
 
 window.DoctorSchedule = DoctorSchedule;
 
+export default DoctorSchedule;

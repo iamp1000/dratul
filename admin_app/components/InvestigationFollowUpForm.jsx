@@ -168,3 +168,4 @@ const InvestigationFollowUpForm = ({ formData, setFormData }) => {
   );
 };
 
+export default InvestigationFollowUpForm;

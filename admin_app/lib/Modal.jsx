@@ -1,3 +1,5 @@
+import React from 'react';
+
 const Modal = ({ isOpen, onClose, title, children, width = "max-w-2xl" }) => {
   if (!isOpen) return null;
   return (
@@ -15,4 +17,4 @@ const Modal = ({ isOpen, onClose, title, children, width = "max-w-2xl" }) => {
   );
 };
 
-
+export default Modal;

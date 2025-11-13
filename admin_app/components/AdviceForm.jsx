@@ -49,3 +49,4 @@ const AdviceForm = ({ adviceData, setAdviceData }) => {
   );
 };
 
+export default AdviceForm;

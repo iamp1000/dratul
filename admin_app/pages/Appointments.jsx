@@ -1,3 +1,11 @@
+import React from 'react';
+import LoadingSpinner from '../lib/LoadingSpinner.jsx';
+import Calendar from '../components/Calendar.jsx';
+import Modal from '../lib/Modal.jsx';
+import AppointmentDetails from '../components/AppointmentDetails.jsx';
+import DailyViewModalContent from '../components/DailyViewModalContent.jsx';
+import AppointmentEditor from '../components/AppointmentEditor.jsx';
+
 const Appointments = ({ openModal, closeModal, user }) => {
   const [appointments, setAppointments] = React.useState([]);
   const [loading, setLoading] = React.useState(true);
@@ -51,8 +59,8 @@ const Appointments = ({ openModal, closeModal, user }) => {
     <div className="space-y-8">
       <div className="flex items-center justify-between">
         <h2 className="text-lg sm:text-xl lg:text-2xl font-bold text-medical-dark font-primary">Appointments</h2>
-        {openModal && window.AppointmentEditor && (
-          <button onClick={() => openModal('Create New Appointment', <window.AppointmentEditor onClose={closeModal} user={user} refreshAppointments={fetchAppointments} />)} className="medical-button px-6 py-3 text-white rounded-xl font-secondary flex flex-wrap items-center gap-2 relative z-10">
+        {openModal && AppointmentEditor && (
+          <button onClick={() => openModal('Create New Appointment', <AppointmentEditor onClose={closeModal} user={user} refreshAppointments={fetchAppointments} />)} className="medical-button px-6 py-3 text-white rounded-xl font-secondary flex flex-wrap items-center gap-2 relative z-10">
             <i className="fas fa-plus"></i>
             <span>New Appointment</span>
           </button>
@@ -93,4 +101,5 @@ const Appointments = ({ openModal, closeModal, user }) => {
 };
 
 window.Appointments = Appointments;
+export default Appointments;
 

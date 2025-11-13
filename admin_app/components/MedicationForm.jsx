@@ -90,3 +90,4 @@ const MedicationForm = ({ medicationsData, setMedicationsData }) => {
   );
 };
 
+export default MedicationForm;

@@ -164,3 +164,4 @@ const InvestigationSelectModal = ({ isOpen, onClose, onConfirm }) => {
   );
 };
 
+export default InvestigationSelectModal;

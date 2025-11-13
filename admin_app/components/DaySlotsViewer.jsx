@@ -1,3 +1,6 @@
+import React from 'react';
+import LoadingSpinner from '../lib/LoadingSpinner.jsx';
+
 const DaySlotsViewer = ({ date }) => {
   const [selectedLocationId, setSelectedLocationId] = React.useState(1);
   const [slots, setSlots] = React.useState([]);
@@ -156,4 +159,6 @@ const DaySlotsViewer = ({ date }) => {
     </div>
   );
 };
+
+export default DaySlotsViewer;
 

@@ -161,3 +161,5 @@ const QuickActions = () => {
 }
 
 window.QuickActions = QuickActions;
+
+export default QuickActions;

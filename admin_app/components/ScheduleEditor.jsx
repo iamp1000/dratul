@@ -271,3 +271,4 @@ const ScheduleEditor = ({ schedules, locations, onSaveSuccess, onClose }) => {
   );
 };
 
+export default ScheduleEditor;

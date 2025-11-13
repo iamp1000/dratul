@@ -1,3 +1,8 @@
+import React from 'react';
+import LoadingSpinner from '../lib/LoadingSpinner.jsx';
+import StatCard from '../components/StatCard.jsx';
+import DashboardServices from '../components/DashboardServices.jsx';
+
 const Dashboard = ({ openModal, closeModal }) => {
   const [stats, setStats] = React.useState(null);
   const [recentPresc, setRecentPresc] = React.useState([]);

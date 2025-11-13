@@ -1,3 +1,5 @@
+import React from 'react';
+
 const Sidebar = ({ currentView, setCurrentView, user, isMobileMenuOpen, setIsMobileMenuOpen }) => {
   const menuItems = [
     { id: 'dashboard', label: 'Dashboard', icon: 'fas fa-home' },
@@ -63,8 +65,6 @@ const Sidebar = ({ currentView, setCurrentView, user, isMobileMenuOpen, setIsMob
               key={item.id}
               onClick={() => {
                 setCurrentView(item.id);
-                setTimeout(() => setState => {}, 0);
-                setIsMed && null;
                 setIsMobileMenuOpen(false);
               }}
               className={`nav-item w-full text-left px-3 py-3 rounded-xl flex items-center space-x-3 ${

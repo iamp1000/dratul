@@ -1,3 +1,5 @@
+import FormInput from "./FormInput";
+
 const FormTextArea = ({ label, name, value, onChange, placeholder = "", rows = 3 }) => (
   <div>
     <label className="block text-sm font-semibold text-gray-700 mb-2">{label}</label>
@@ -12,3 +14,4 @@ const FormTextArea = ({ label, name, value, onChange, placeholder = "", rows = 3
   </div>
 );
 
+export default FormTextArea;

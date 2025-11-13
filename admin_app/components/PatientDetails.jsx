@@ -260,3 +260,4 @@ const PatientDetails = ({ patient, user }) => {
   );
 };
 
+export default PatientDetails;

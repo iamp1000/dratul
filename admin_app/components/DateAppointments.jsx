@@ -1,3 +1,5 @@
+import React from 'react';
+
 const DateAppointments = ({ date, appointments }) => (
   <div className="space-y-4">
     <h4 className="font-semibold text-medical-dark">
@@ -40,3 +42,4 @@ const DateAppointments = ({ date, appointments }) => (
   </div>
 );
 
+export default DateAppointments;

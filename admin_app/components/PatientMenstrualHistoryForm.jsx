@@ -100,3 +100,4 @@ const PatientMenstrualHistoryForm = ({ patientId }) => {
   );
 };
 
+export default PatientMenstrualHistoryForm;

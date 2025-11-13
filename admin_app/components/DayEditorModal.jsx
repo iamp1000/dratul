@@ -39,3 +39,4 @@ const DayEditorModal = ({ date, scheduleForDay, onClose, refreshSchedules, exist
   );
 };
 
+export default DayEditorModal;
