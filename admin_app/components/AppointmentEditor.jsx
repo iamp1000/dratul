@@ -27,7 +27,7 @@ const AppointmentEditor = ({ appointment, onClose, refreshAppointments, user }) 
     const [loadingSlots, setLoadingSlots] = React.useState(false);
     const [slotError, setSlotError] = React.useState('');
     const [isWalkIn, setIsWalkIn] = React.useState(false);
-    const [showSlotModal, setShowSlotModal] = React.useState(false);
+    
 
     React.useEffect(() => {
         const fetchPatients = async () => {
@@ -112,9 +112,14 @@ const AppointmentEditor = ({ appointment, onClose, refreshAppointments, user }) 
     };
 
     const handleSelectSlot = (slot) => {
-        if (slot.status !== 'available') return; 
-        setSelectedSlot(slot);
-        setShowSlotModal(false);
+        if (slot.status !== 'available') return;
+        
+        // Allow deselecting
+        if (selectedSlot?.start_time === slot.start_time) {
+            setSelectedSlot(null);
+        } else {
+            setSelectedSlot(slot);
+        }
     };
 
     const handleSubmit = async () => {
@@ -197,6 +202,8 @@ const AppointmentEditor = ({ appointment, onClose, refreshAppointments, user }) 
         }
     };
 
+    const renderAsList = allSlots.length > 15;
+
     return (
         <div className="space-y-6">
             {errors.length > 0 && (
@@ -242,6 +249,7 @@ const AppointmentEditor = ({ appointment, onClose, refreshAppointments, user }) 
                                 value={dob} 
                                 onChange={(e) => setDob(e.target.value)}
                                 required={true}
+                                maxDate={new Date().toISOString().split('T')[0]}
                             />
                         </div>
                         <div>
@@ -343,57 +351,46 @@ const AppointmentEditor = ({ appointment, onClose, refreshAppointments, user }) 
                             <LoadingSpinner />
                         ) : ( 
                             <div className="flex flex-col space-y-2">
-                                <button
-                                    type="button"
-                                    onClick={() => !isWalkIn ? setShowSlotModal(true) : null}
-                                    disabled={isWalkIn || !!slotError}
-                                    className={`w-full px-3 py-2 border-2 rounded-lg text-sm text-center font-medium transition-all 
-                                        ${selectedSlot ? 'border-medical-accent bg-blue-50 text-medical-dark' : 'border-gray-300 text-medical-gray hover:border-medical-accent'}
-                                        ${isWalkIn ? 'bg-gray-100 cursor-not-allowed' : ''}
-                                        ${slotError && !loadingSlots ? 'bg-red-50 border-red-300 text-red-700 cursor-not-allowed' : ''}`
-                                    }
-                                >
-                                    {selectedSlot 
-                                        ? new Date(selectedSlot.start_time).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true })
-                                        : (slotError || 'Select Time Slot')
-                                    }
-                                </button>
-                                {allSlots.length > 0 && !slotError && (
-                                    <p className='text-xs text-medical-gray'>
-                                        * {allSlots.filter(s => s.status === 'available').length} available slots. Click above to pick a time.
-                                    </p>
+                                {/* This is the new inline slot list */}
+                                {slotError && (
+                                    <p className="text-medical-error text-sm p-3 bg-red-50 rounded-lg">{slotError}</p>
                                 )}
-                            </div>
-                        )}
-
-                        {showSlotModal && (
-                            <div className="absolute z-50 top-full left-0 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-60 overflow-y-auto">
-                                <div className="grid grid-cols-4 gap-2 p-4">
-                                    {allSlots.map(slot => {
-                                        const isBooked = slot.status !== 'available';
-                                        const isSelected = selectedSlot?.start_time === slot.start_time;
-                                        return (
-                                            <button
+                                <div className={`w-full ${isWalkIn ? 'opacity-50 cursor-not-allowed' : ''} ${renderAsList ? 'max-h-48 overflow-y-auto' : ''}`}>
+                                    <div className={`grid ${renderAsList ? 'grid-cols-1 gap-1.5' : 'grid-cols-4 gap-2'}`}>
+                                        {allSlots.map(slot => {
+                                            const isBooked = slot.status !== 'available';
+                                            const isSelected = selectedSlot?.start_time === slot.start_time;
+                                            return (
+                                                <button
                                                 type="button"
                                                 key={slot.start_time}
                                                 onClick={() => handleSelectSlot(slot)}
-                                                disabled={isBooked}
-                                                className={`px-2 py-2 text-sm rounded-lg font-medium border-2 transition-all 
-                                                    ${isBooked 
-                                                        ? 'bg-gray-100 text-gray-400 border-gray-200 line-through cursor-not-allowed'
-                                                        : isSelected
-                                                            ? 'bg-medical-accent text-white border-medical-accent'
-                                                            : 'bg-white text-medical-gray border-gray-300 hover:border-medical-accent'
-                                                    }
+                                                disabled={isBooked || isWalkIn}
+                                                className={`flex ${renderAsList ? 'flex-row justify-between items-center p-2 text-sm' : 'flex-col items-center justify-center p-2 text-xs'} rounded-lg font-semibold transition-all shadow-sm
+                                                ${isBooked
+                                                ? 'bg-red-100 text-red-700 border border-red-200 line-through cursor-not-allowed'
+                                                : isSelected
+                                                ? 'bg-medical-accent text-white border border-medical-accent'
+                                                : isWalkIn
+                                                ? 'bg-gray-100 text-gray-400 border border-gray-200 cursor-not-allowed'
+                                                : 'bg-green-100 text-green-800 border border-green-200 hover:bg-green-200'}
                                                 `}
-                                            >
-                                                {new Date(slot.start_time).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false })}
+                                                >
+                                                <span>
+                                                    {new Date(slot.start_time).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false })}
+                                                </span>
+                                                <span className={`text-xs font-medium ${renderAsList ? '' : 'text-[0.6rem] mt-0.5'}`}>
+                                                {isBooked ? 'Booked' : 'Available'}
+                                                </span>
                                             </button>
-                                        );
-                                    })}
+                                            );
+                                        })}
+                                    </div>
                                 </div>
                             </div>
                         )}
+
+
                         { }
                     </div>
                 </div>

@@ -16,6 +16,8 @@ class UserRole(str, enum.Enum):
     staff = "staff" 
     doctor = "doctor"
     viewer = "viewer"
+    receptionist = "receptionist"
+    manager = "manager"
     
     @property
     def mfa_enabled(self):

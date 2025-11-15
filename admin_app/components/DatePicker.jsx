@@ -25,7 +25,7 @@ const MONTH_NAMES = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Se
 const getStartYearOfDecade = (date) => date.getFullYear() - (date.getFullYear() % 10);
 
 // --- Main Component ---
-const DatePicker = ({ label, value, onChange, minDate, required = false, disabled = false, placeholder = 'Select Date' }) => {
+const DatePicker = ({ label, value, onChange, minDate, maxDate, required = false, disabled = false, placeholder = 'Select Date' }) => {
   const [open, setOpen] = useState(false);
   const initialDate = parseISO(value) || new Date();
   const [visDate, setVisDate] = useState(initialDate);
@@ -102,9 +102,16 @@ const DatePicker = ({ label, value, onChange, minDate, required = false, disable
     return toISO(d) < toISO(min);
   }, [minDate]);
 
+  const isAfterMax = useCallback((d) => {
+    if (!maxDate) return false;
+    const max = parseISO(maxDate);
+    if (!max) return false;
+    return toISO(d) > toISO(max);
+  }, [maxDate]);
+
   // --- Selection Handlers ---
   const handleDaySelect = (d) => {
-    if (disabled || isBeforeMin(d)) return;
+    if (disabled || isBeforeMin(d) || isAfterMax(d)) return;
     const iso = toISO(d);
     if (onChange) {
       onChange({ target: { value: iso } });
@@ -147,7 +154,7 @@ const DatePicker = ({ label, value, onChange, minDate, required = false, disable
       const date = new Date(visDate.getFullYear(), visDate.getMonth(), day);
       const isSelected = isSameDay(selectedDate, date);
       const isToday = isSameDay(today, date);
-      const disabledDay = isBeforeMin(date) || disabled;
+      const disabledDay = isBeforeMin(date) || isAfterMax(date) || disabled;
 
       let buttonClass = 'text-gray-700 hover:bg-gray-100';
       if (disabledDay) buttonClass = 'text-gray-300 cursor-not-allowed';
@@ -173,11 +180,19 @@ const DatePicker = ({ label, value, onChange, minDate, required = false, disable
 
   const renderMonthGrid = () => {
     const selectedYear = visDate.getFullYear();
+    const max = parseISO(maxDate);
+    const min = parseISO(minDate);
     return MONTH_NAMES.map((month, index) => {
       const isCurrentMonth = selectedYear === new Date().getFullYear() && index === new Date().getMonth();
       const isSelectedMonth = selectedYear === (parseISO(value)?.getFullYear()) && index === (parseISO(value)?.getMonth());
 
       let buttonClass = 'text-gray-700 hover:bg-gray-100';
+      let monthDisabled = false;
+      if (max && selectedYear === max.getFullYear() && index > max.getMonth()) monthDisabled = true;
+      if (max && selectedYear > max.getFullYear()) monthDisabled = true;
+      if (min && selectedYear === min.getFullYear() && index < min.getMonth()) monthDisabled = true;
+      if (min && selectedYear < min.getFullYear()) monthDisabled = true;
+
       if (isSelectedMonth) buttonClass = 'bg-blue-500 text-white font-semibold shadow-sm';
       else if (isCurrentMonth) buttonClass = 'text-blue-500 font-semibold border border-blue-500/50 hover:bg-blue-500/10';
 
@@ -185,7 +200,8 @@ const DatePicker = ({ label, value, onChange, minDate, required = false, disable
         <button
           key={month}
           onClick={() => handleMonthSelect(index)}
-          className={`w-full h-full text-sm flex items-center justify-center rounded-lg transition-all focus:outline-none focus:ring-2 focus:ring-blue-400 ${buttonClass}`}
+          className={`w-full h-full text-sm flex items-center justify-center rounded-lg transition-all focus:outline-none focus:ring-2 focus:ring-blue-400 ${monthDisabled ? 'text-gray-300 cursor-not-allowed' : buttonClass}`}
+          disabled={monthDisabled}
         >
           {month}
         </button>
@@ -204,9 +220,14 @@ const DatePicker = ({ label, value, onChange, minDate, required = false, disable
     
     const selectedYear = parseISO(value)?.getFullYear();
     const currentFullYear = new Date().getFullYear();
+    const maxYear = maxDate ? parseISO(maxDate).getFullYear() : null;
+    const minYear = minDate ? parseISO(minDate).getFullYear() : null;
 
     return allYears.map((year, index) => {
-      const isPaddingYear = index === 0 || index === allYears.length - 1; 
+      const isPaddingYear = index === 0 || index === allYears.length - 1;
+      let yearDisabled = false;
+      if (maxYear && year > maxYear) yearDisabled = true;
+      if (minYear && year < minYear) yearDisabled = true;
       const isCurrentYear = year === currentFullYear;
       const isSelectedYear = year === selectedYear;
       
@@ -219,8 +240,8 @@ const DatePicker = ({ label, value, onChange, minDate, required = false, disable
         <button
           key={year}
           onClick={() => handleYearSelect(year)}
-          className={`w-full h-full text-sm flex items-center justify-center rounded-lg transition-all focus:outline-none focus:ring-2 focus:ring-blue-400 ${buttonClass}`}
-          disabled={isPaddingYear}
+          className={`w-full h-full text-sm flex items-center justify-center rounded-lg transition-all focus:outline-none focus:ring-2 focus:ring-blue-400 ${yearDisabled ? 'text-gray-300 cursor-not-allowed' : buttonClass}`}
+          disabled={isPaddingYear || yearDisabled}
         >
           {year}
         </button>
@@ -320,7 +341,7 @@ const DatePicker = ({ label, value, onChange, minDate, required = false, disable
         // FIX 1: Make main body wrapper stretch vertically to fill fixed pop-up height
         <div className="p-2 flex flex-col h-full"> 
           <div className="grid grid-cols-7 gap-0 text-center text-xs font-medium text-medical-gray mb-1">
-            {['S', 'M', 'T', 'W', 'T', 'F', 'S'].map(d => <div key={d} className="text-gray-500 text-xs font-medium">{d}</div>)}
+            {['S', 'M', 'T', 'W', 'T', 'F', 'S'].map((d, index) => <div key={`${d}-${index}`} className="text-gray-500 text-xs font-medium">{d}</div>)}
           </div>
           {/* FIX 2: Inner grid stretches with content-evenly to space out 6 rows of dates evenly */}
           <div className="grid grid-cols-7 gap-0 justify-items-center flex-grow content-evenly">
