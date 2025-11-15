@@ -1,20 +1,26 @@
-const ScheduleEditor = ({ schedules, locations, onSaveSuccess, onClose }) => {
-  const [localSchedules, setLocalSchedules] = React.useState({});
-  const [saveError, setSaveError] = React.useState('');
-  const [isSaving, setIsSaving] = React.useState(false);
-  const [pickerOpen, setPickerOpen] = React.useState(null);
-  const [activeLocationId, setActiveLocationId] = React.useState(locations[0]?.id || 1);
+import React from 'react';
+import TimeRangePicker from './TimeRangePicker.jsx';
 
-  React.useEffect(() => {
+const ScheduleEditor = ({ schedules, locations, onSaveSuccess, onClose }) => {
+  const [localSchedules, setLocalSchedules] = React.useState(() => {
     if (schedules && Object.keys(schedules).length > 0) {
       const newLocalSchedules = JSON.parse(JSON.stringify(schedules));
       if (!newLocalSchedules[1]) newLocalSchedules[1] = {};
       if (!newLocalSchedules[2]) newLocalSchedules[2] = {};
-      setLocalSchedules(newLocalSchedules);
-    } else {
-      setLocalSchedules({ 1: {}, 2: {} });
+      return newLocalSchedules;
     }
-  }, [schedules]);
+    return { 1: {}, 2: {} };
+  });
+  const [saveError, setSaveError] = React.useState('');
+  const [isSaving, setIsSaving] = React.useState(false);
+  const [pickerOpen, setPickerOpen] = React.useState(null);
+  const [activeLocationId, setActiveLocationId] = React.useState(null);
+
+  React.useEffect(() => {
+    if (!activeLocationId && locations.length > 0) {
+      setActiveLocationId(locations[0].id);
+    }
+  }, [locations, activeLocationId]);
 
   const handleTimeChange = (locationId, dayIndex, field, value) => {
     setSaveError('');
@@ -102,6 +108,14 @@ const ScheduleEditor = ({ schedules, locations, onSaveSuccess, onClose }) => {
     });
   };
 
+  if (!activeLocationId || !localSchedules[activeLocationId]) {
+    return (
+      <div className="flex justify-center items-center h-64">
+        <p className="text-medical-gray">Loading schedule data...</p>
+      </div>
+    );
+  }
+
   const activeSchedule = localSchedules[activeLocationId] || {};
 
   const handleSaveClick = async () => {
@@ -170,41 +184,77 @@ const ScheduleEditor = ({ schedules, locations, onSaveSuccess, onClose }) => {
         const dayData = activeSchedule[dayIndex] || {};
 
         return (
-          <div key={dayIndex} className="grid grid-cols-6 gap-4 items-center p-3 border-b">
-            <h4 className="font-semibold text-medical-dark">{dayName}</h4>
-            <div>
-              <label className="block text-xs font-medium text-medical-gray mb-1">Start Time</label>
-              <div className="relative">
-                <div className="absolute inset-y-0 end-0 top-0 flex items-center pe-3.5 pointer-events-none">
-                  <svg className="w-4 h-4 text-gray-500 dark:text-gray-400" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="currentColor" viewBox="0 0 24 24">
-                    <path fillRule="evenodd" d="M2 12C2 6.477 6.477 2 12 2s10 4.477 10 10-4.477 10-10 10S2 17.523 2 12Zm11-4a1 1 0 1 0-2 0v4a1 1 0 0 0 .293.707l3 3a1 1 0 0 0 1.414-1.414L13 11.586V8Z" clipRule="evenodd"/>
-                  </svg>
+          <div key={dayIndex} className="grid grid-cols-12 items-center p-1 border-b">
+            {/* Col 1: Day Name (Span 2) */}
+            <h4 className="col-span-2 font-semibold text-medical-dark pl-2">{dayName}</h4>
+
+            {/* Col 2: Time Pair (Span 4) */}
+            <div className="col-span-4 grid grid-cols-2 gap-1 p-2 rounded-lg border border-gray-100 bg-gray-50 mr-1">
+              <div>
+                <label className="block text-xs font-medium text-medical-gray mb-1">Start Time</label>
+                <div className="relative">
+                  <div className="absolute inset-y-0 end-0 top-0 flex items-center pe-3.5 pointer-events-none">
+                    <svg className="w-4 h-4 text-gray-400" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="currentColor" viewBox="0 0 24 24">
+                      <path fillRule="evenodd" d="M2 12C2 6.477 6.477 2 12 2s10 4.477 10 10-4.477 10-10 10S2 17.523 2 12Zm11-4a1 1 0 1 0-2 0v4a1 1 0 0 0 .293.707l3 3a1 1 0 0 0 1.414-1.414L13 11.586V8Z" clipRule="evenodd" />
+                    </svg>
+                  </div>
+                  <div
+                    onClick={() => !dayData?.is_available ? null : setPickerOpen({ dayIndex, locId: activeLocationId })}
+                    className={`form-input-themed custom-datetime ${!dayData?.is_available ? 'bg-gray-100 cursor-not-allowed' : 'cursor-pointer'}`}
+                  >
+                    {dayData?.start_time?.substring(0, 5) || 'Start'}
+                  </div>
                 </div>
-                <div
-                  onClick={() => !dayData?.is_available ? null : setPickerOpen({ dayIndex, locId: activeLocationId })}
-                  className={`form-input-themed custom-datetime ${!dayData?.is_available ? 'bg-gray-100 cursor-not-allowed' : 'cursor-pointer'}`}
-                >
-                  {dayData?.start_time?.substring(0, 5) || 'Start time'}
+              </div>
+              {/* Align End Time label with Start Time label's height implicitly */}
+              <div className="-mt-px">
+                <label className="block text-xs font-medium text-medical-gray mb-1">End Time</label>
+                <div className="relative">
+                  <div className="absolute inset-y-0 end-0 top-0 flex items-center pe-3.5 pointer-events-none">
+                    <svg className="w-4 h-4 text-gray-500" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="currentColor" viewBox="0 0 24 24">
+                      <path fillRule="evenodd" d="M2 12C2 6.477 6.477 2 12 2s10 4.477 10 10-4.477 10-10 10S2 17.523 2 12Zm11-4a1 1 0 1 0-2 0v4a1 1 0 0 0 .293.707l3 3a1 1 0 0 0 1.414-1.414L13 11.586V8Z" clipRule="evenodd" />
+                    </svg>
+                  </div>
+                  <div
+                    onClick={() => !dayData?.is_available ? null : setPickerOpen({ dayIndex, locId: activeLocationId })}
+                    className={`form-input-themed custom-datetime ${!dayData?.is_available ? 'bg-gray-100 cursor-not-allowed' : 'cursor-pointer'}`}
+                  >
+                    {dayData?.end_time?.substring(0, 5) || 'End'}
+                  </div>
                 </div>
               </div>
             </div>
-            <div>
-              <label className="block text-xs font-medium text-medical-gray mb-1">End Time</label>
-              <div className="relative">
-                <div className="absolute inset-y-0 end-0 top-0 flex items-center pe-3.5 pointer-events-none">
-                  <svg className="w-4 h-4 text-gray-500 dark:text-gray-400" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="currentColor" viewBox="0 0 24 24">
-                    <path fillRule="evenodd" d="M2 12C2 6.477 6.477 2 12 2s10 4.477 10 10-4.477 10-10 10S2 17.523 2 12Zm11-4a1 1 0 1 0-2 0v4a1 1 0 0 0 .293.707l3 3a1 1 0 0 0 1.414-1.414L13 11.586V8Z" clipRule="evenodd"/>
-                  </svg>
-                </div>
-                <div
-                  onClick={() => !dayData?.is_available ? null : setPickerOpen({ dayIndex, locId: activeLocationId })}
-                  className={`form-input-themed custom-datetime ${!dayData?.is_available ? 'bg-gray-100 cursor-not-allowed' : 'cursor-pointer'}`}
-                >
-                  {dayData?.end_time?.substring(0, 5) || 'End time'}
-                </div>
+
+            {/* Col 3: Soft Separator REMOVED */}
+
+            {/* Col 4: Capacity Pair (Span 4) */}
+            <div className="col-span-4 grid grid-cols-2 gap-1 p-2 rounded-lg border border-gray-100 ml-1">
+              <div>
+                <label className="block text-xs font-medium text-gray-400 mb-1">Duration (min)</label>
+                <input
+                  type="number"
+                  value={dayData?.appointment_duration ?? ''}
+                  onChange={(e) => handleNumericChange(activeLocationId, dayIndex, 'appointment_duration', e.target.value)}
+                  className="form-input-themed w-full"
+                  min="5" max="60" step="5" placeholder="30"
+                  disabled={!dayData?.is_available}
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-400 mb-1">Max Appts</label>
+                <input
+                  type="number"
+                  value={dayData?.max_appointments ?? ''}
+                  onChange={(e) => handleNumericChange(activeLocationId, dayIndex, 'max_appointments', e.target.value)}
+                  className="form-input-themed w-full"
+                  min="0" placeholder="None"
+                  disabled={!dayData?.is_available}
+                />
               </div>
             </div>
-            <div className="flex items-center justify-center">
+
+            {/* Col 5: Available (Span 2) */}
+            <div className="col-span-2 flex items-center justify-center">
               <label className="flex flex-wrap items-center gap-2 cursor-pointer">
                 <input
                   type="checkbox"
@@ -214,32 +264,6 @@ const ScheduleEditor = ({ schedules, locations, onSaveSuccess, onClose }) => {
                 />
                 <span>Available</span>
               </label>
-            </div>
-            <div>
-              <label className="block text-xs font-medium text-medical-gray mb-1">Duration (min)</label>
-              <input
-                type="number"
-                value={dayData?.appointment_duration ?? ''}
-                onChange={(e) => handleNumericChange(activeLocationId, dayIndex, 'appointment_duration', e.target.value)}
-                className="form-input-themed w-20"
-                min="5"
-                max="60"
-                step="5"
-                placeholder="e.g., 30"
-                disabled={!dayData?.is_available}
-              />
-            </div>
-            <div>
-              <label className="block text-xs font-medium text-medical-gray mb-1">Max Appts</label>
-              <input
-                type="number"
-                value={dayData?.max_appointments ?? ''}
-                onChange={(e) => handleNumericChange(activeLocationId, dayIndex, 'max_appointments', e.target.value)}
-                className="form-input-themed w-20"
-                min="0"
-                placeholder="None"
-                disabled={!dayData?.is_available}
-              />
             </div>
           </div>
         )
@@ -254,19 +278,19 @@ const ScheduleEditor = ({ schedules, locations, onSaveSuccess, onClose }) => {
         </button>
       </div>
 
-      {pickerOpen && pickerOpen.locId === activeLocationId && (
-        <TimeRangePicker
-          isOpen={true}
-          onClose={() => setPickerOpen(null)}
-          onConfirm={({ startTime, endTime }) => {
+      <TimeRangePicker
+        isOpen={pickerOpen && pickerOpen.locId === activeLocationId}
+        onClose={() => setPickerOpen(null)}
+        onConfirm={({ startTime, endTime }) => {
+          if (pickerOpen) {
             handleTimeChange(activeLocationId, pickerOpen.dayIndex, 'start_time', startTime);
             handleTimeChange(activeLocationId, pickerOpen.dayIndex, 'end_time', endTime);
-            setPickerOpen(null);
-          }}
-          initialStartTime={activeSchedule[pickerOpen.dayIndex]?.start_time}
-          initialEndTime={activeSchedule[pickerOpen.dayIndex]?.end_time}
-        />
-      )}
+          }
+          setPickerOpen(null);
+        }}
+        initialStartTime={pickerOpen ? activeSchedule[pickerOpen.dayIndex]?.start_time : null}
+        initialEndTime={pickerOpen ? activeSchedule[pickerOpen.dayIndex]?.end_time : null}
+      />
     </div>
   );
 };

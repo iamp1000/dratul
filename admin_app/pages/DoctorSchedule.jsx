@@ -10,11 +10,9 @@ const DoctorSchedule = ({ openModal, closeModal, user }) => {
     const [schedules, setSchedules] = React.useState({ 1: {}, 2: {} });
     const [locations, setLocations] = React.useState([]);
     const [loading, setLoading] = React.useState(true);
-    const [showModal, setShowModal] = React.useState(false);
-    const [modalContent, setModalContent] = React.useState(null);
+    const [modal, setModal] = React.useState({ type: null, data: null, title: '' });
     const [currentDate, setCurrentDate] = React.useState(new Date());
     const [unavailablePeriods, setUnavailablePeriods] = React.useState({ 1: [], 2: [] });
-    const [modalTitle, setModalTitle] = React.useState('');
 
     const fetchSchedulesAndLocations = async () => {
         setLoading(true);
@@ -75,14 +73,12 @@ const DoctorSchedule = ({ openModal, closeModal, user }) => {
     }, [currentDate]);
 
     const handleModalCloseAndRefresh = () => {
-        setShowModal(false);
+        setModal({ type: null, data: null, title: '' });
         setCurrentDate(new Date(currentDate.getTime()));
         fetchSchedulesAndLocations();
     };
 
     const handleDateClick = (date, scheduleForDay) => {
-        setModalTitle(`Edit Day: ${date.toLocaleDateString()}`);
-
         const findBlockForDate = (periods, clickedDate) => {
             if (!periods) return null;
             const checkDate = new Date(clickedDate.getFullYear(), clickedDate.getMonth(), clickedDate.getDate());
@@ -103,17 +99,16 @@ const DoctorSchedule = ({ openModal, closeModal, user }) => {
         const existingClinicBlock = findBlockForDate(unavailablePeriods[1], date);
         const existingHospitalBlock = findBlockForDate(unavailablePeriods[2], date);
 
-        setModalContent(
-            <DayEditorModal
-                date={date}
-                scheduleForDay={scheduleForDay}
-                onClose={handleModalCloseAndRefresh}
-                refreshSchedules={fetchSchedulesAndLocations}
-                existingClinicBlock={existingClinicBlock}
-                existingHospitalBlock={existingHospitalBlock}
-            />
-        );
-        setShowModal(true);
+        setModal({
+            type: 'dayEditor',
+            title: `Edit Day: ${date.toLocaleDateString()}`,
+            data: {
+                date,
+                scheduleForDay,
+                existingClinicBlock,
+                existingHospitalBlock
+            }
+        });
     };
 
     if (loading) return <LoadingSpinner />;
@@ -126,9 +121,7 @@ const DoctorSchedule = ({ openModal, closeModal, user }) => {
                     <div className="flex space-x-2 sm:space-x-4">
                         <button
                             onClick={() => {
-                                setModalTitle('Emergency Day Block');
-                                setModalContent(<EmergencyBlockModal onClose={handleModalCloseAndRefresh} />);
-                                setShowModal(true);
+                                setModal({ type: 'emergencyBlock', title: 'Emergency Day Block' });
                             }}
                             className="bg-red-600 hover:bg-red-700 px-6 py-3 text-white rounded-xl font-secondary flex flex-wrap items-center gap-2 relative z-10 transition-all duration-300 transform hover:scale-105"
                         >
@@ -137,9 +130,7 @@ const DoctorSchedule = ({ openModal, closeModal, user }) => {
                         </button>
                         <button
                             onClick={() => {
-                                setModalTitle('Edit Weekly Schedule');
-                                setModalContent(<ScheduleEditor schedules={schedules} locations={locations} onSaveSuccess={fetchSchedulesAndLocations} onClose={handleModalCloseAndRefresh} />);
-                                setShowModal(true);
+                                setModal({ type: 'scheduleEditor', title: 'Edit Weekly Schedule' });
                             }}
                             className="medical-button px-6 py-3 text-white rounded-xl font-secondary flex flex-wrap items-center gap-2 relative z-10"
                         >
@@ -160,12 +151,32 @@ const DoctorSchedule = ({ openModal, closeModal, user }) => {
             />
 
             <Modal
-                isOpen={showModal}
+                isOpen={!!modal.type}
                 onClose={handleModalCloseAndRefresh}
-                title={modalTitle}
+                title={modal.title}
                 width="max-w-4xl"
             >
-                {modalContent}
+                {modal.type === 'dayEditor' && (
+                    <DayEditorModal
+                        date={modal.data.date}
+                        scheduleForDay={modal.data.scheduleForDay}
+                        onClose={handleModalCloseAndRefresh}
+                        refreshSchedules={fetchSchedulesAndLocations}
+                        existingClinicBlock={modal.data.existingClinicBlock}
+                        existingHospitalBlock={modal.data.existingHospitalBlock}
+                    />
+                )}
+                {modal.type === 'emergencyBlock' && (
+                    <EmergencyBlockModal onClose={handleModalCloseAndRefresh} />
+                )}
+                {modal.type === 'scheduleEditor' && (
+                    <ScheduleEditor
+                        schedules={schedules}
+                        locations={locations}
+                        onSaveSuccess={handleModalCloseAndRefresh}
+                        onClose={handleModalCloseAndRefresh}
+                    />
+                )}
             </Modal>
         </div>
     );

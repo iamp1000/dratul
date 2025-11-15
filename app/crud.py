@@ -542,13 +542,7 @@ def update_schedules_for_location(db: Session, location_id: int, schedules: List
     logger.debug(f"[update_schedules_for_location] START for loc {location_id}. Received {len(schedules)} schedule entries.")
     logger.debug(f"[update_schedules_for_location] Incoming data: {schedules}")
     try:
-        # --- OVERLAP VALIDATION --- START ---
-        logger.debug(f"[update_schedules_for_location] Checking for overlaps with other location...")
-        # Determine the other location's ID (assuming 1 and 2 are the only locations)
-        other_location_id = 2 if location_id == 1 else 1
-        other_schedules = get_schedules_for_location(db, other_location_id)
-        other_schedules_map = {s.day_of_week: s for s in other_schedules}
-        day_names_list = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
+
 
         for new_day_schedule in schedules:
             if not new_day_schedule.is_available:
@@ -566,7 +560,7 @@ def update_schedules_for_location(db: Session, location_id: int, schedules: List
                     logger.warning(f"Skipping overlap check for {day_name_str} due to invalid time data.")
                     continue # Skip check if data is corrupt
 
-                # Check for overlap: (StartA < EndB) and (EndA > StartB)
+
                 overlap = (new_day_schedule.start_time < other_day_schedule.end_time) and \
                           (new_day_schedule.end_time > other_day_schedule.start_time)
                 
@@ -582,13 +576,7 @@ def update_schedules_for_location(db: Session, location_id: int, schedules: List
         logger.debug("[update_schedules_for_location] No location overlaps found.")
         # --- OVERLAP VALIDATION --- END ---
 
-        # --- OVERLAP VALIDATION --- START ---
-        logger.debug(f"[update_schedules_for_location] Checking for overlaps with other location...")
-        # Determine the other location's ID (assuming 1 and 2 are the only locations)
-        other_location_id = 2 if location_id == 1 else 1
-        other_schedules = get_schedules_for_location(db, other_location_id)
-        other_schedules_map = {s.day_of_week: s for s in other_schedules}
-        day_names_list = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
+
 
         for new_day_schedule in schedules:
             if not new_day_schedule.is_available:
@@ -1481,16 +1469,18 @@ def create_or_update_patient_menstrual_history(db: Session, patient_id: int, his
 # Legacy shim below
 def create_audit_log(db, user_id=None, action=None, category=None, details=None, **kwargs):
     try:
+        # Look up username from ID for logging
+        username_str = db.query(models.User.username).filter(models.User.id == user_id).scalar() if user_id else "System"
         compliance_logger.log_event(
             user_id=user_id,
-            username=str(user_id) if user_id else 'System',
+            username=username_str,
             action=action or 'UNKNOWN',
             category=category or 'GENERAL',
             details=details,
             geo_region='IN',
             severity=kwargs.get('severity', 'INFO'),
             resource_type=kwargs.get('resource_type'),
-            resource_id=kwargs.get('resource_id'),
+            resource_id=kwargs.get('resource_id')
         )
     except Exception as e:
         logger.error(f'[Shim] Failed to log event: {e}')
@@ -1948,8 +1938,6 @@ def fix_consistency_issues(db: Session) -> schemas.ConsistencyFixReport:
                 db.rollback()
                 fix_report.errors.append(f"Error fixing slot {issue['slot_id']} (Check 2): {str(e)}")
                 db.begin()
-
-        # Fix 3: Strict counter mismatch -> Update to correct count
         for issue in issues_report["status_counter_mismatches"]:
             try:
                 # Re-calculate the actual count just to be safe

@@ -46,7 +46,7 @@ app.add_middleware(
     CORSMiddleware,
     # REFACTORED: Be explicit about the front-end origin (http://127.0.0.1:5501) and localhost for robust local development.
     # We also keep "*" in the original list for simplicity if other origins were intended.
-    allow_origins=["http://127.0.0.1:5501", "http://localhost:5173", "*"],
+    allow_origins=["http://127.0.0.1:5501", "http://localhost:5173"],
     allow_credentials=True,
     allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS", "HEAD"],
     allow_headers=["*"],

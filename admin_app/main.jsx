@@ -1,4 +1,4 @@
-import './lib/api.js'; // Must be first to initialize window.api
+import './lib/api.js'; 
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 import App from './App.jsx';

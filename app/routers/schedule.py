@@ -71,7 +71,8 @@ def update_schedules_for_location(
                 location_id=location_id, 
                 start_date=start_date, 
                 end_date=end_date, 
-                weekly_schedules=updated_schedules # Pass the updated ORM models
+                weekly_schedules=updated_schedules, # Pass the updated ORM models
+                user_id=current_user.id # Pass the user ID for logging
             )
             print(f"Successfully regenerated slots for location {location_id} after full schedule update.")
         except Exception as slot_error:
@@ -169,7 +170,8 @@ def update_day_schedule(
                     location_id=location_id, 
                     start_date=start_date, 
                     end_date=end_date, 
-                    weekly_schedules=full_weekly_schedule
+                    weekly_schedules=full_weekly_schedule,
+                    user_id=current_user.id # Pass the user ID for logging
                 )
                 print(f"Successfully regenerated slots for location {location_id} after updating day {day_of_week}.")
             else:

@@ -237,7 +237,6 @@ const AppointmentEditor = ({ appointment, onClose, refreshAppointments, user }) 
                                 value={dob} 
                                 onChange={(e) => setDob(e.target.value)}
                                 required={true}
-                                // No minDate/maxDate for DOB
                             />
                         </div>
                         <div>

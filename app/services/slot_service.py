@@ -106,7 +106,7 @@ def delete_slots_for_period(db: Session, location_id: int, start_dt_ist: datetim
     return count
 
 
-def regenerate_slots_for_location(db: Session, location_id: int, start_date: date, end_date: date, weekly_schedules: List[models.LocationSchedule]):
+def regenerate_slots_for_location(db: Session, location_id: int, start_date: date, end_date: date, weekly_schedules: List[models.LocationSchedule], user_id: Optional[int] = None):
     """
     REWRITTEN: Smartly reconciles future slots for a location based on new schedule rules (using IST).
     - Deletes 'available'/'emergency_block'/'unavailable' slots that are no longer in schedule.
@@ -116,7 +116,7 @@ def regenerate_slots_for_location(db: Session, location_id: int, start_date: dat
     print(f"--- SMART RECONCILIATION for Loc {location_id} from {start_date} to {end_date} (IST) ---")
 
     try:
-        crud.create_audit_log(db=db, user_id=None, action="Started Slot Reconciliation", category="SLOTS")
+        crud.create_audit_log(db=db, user_id=user_id, action="Started Slot Reconciliation", category="SLOTS")
     except Exception as log_error:
         print(f"ERROR: Failed to create audit log for start of slot reconciliation: {log_error}")
 
@@ -226,7 +226,7 @@ def regenerate_slots_for_location(db: Session, location_id: int, start_date: dat
         print(f"Reconciliation complete: {total_created} slots created, {total_deleted} slots deleted.")
 
         try:
-            crud.create_audit_log(db=db, user_id=None, action="Finished Slot Reconciliation", category="SLOTS")
+            crud.create_audit_log(db=db, user_id=user_id, action="Finished Slot Reconciliation", category="SLOTS")
         except Exception as log_error:
             print(f"ERROR: Failed to create audit log for end of slot reconciliation: {log_error}")
 
@@ -234,7 +234,7 @@ def regenerate_slots_for_location(db: Session, location_id: int, start_date: dat
         db.rollback()
         print(f"Error during slot reconciliation: {e}")
         try:
-            crud.create_audit_log(db=db, user_id=None, action="Failed Slot Reconciliation", category="SLOTS", severity="ERROR")
+            crud.create_audit_log(db=db, user_id=user_id, action="Failed Slot Reconciliation", category="SLOTS", severity="ERROR")
         except Exception:
             pass
         raise

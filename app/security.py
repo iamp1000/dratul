@@ -46,7 +46,7 @@ REFRESH_TOKEN_EXPIRE_DAYS = 7
 MFA_TOKEN_EXPIRE_MINUTES = 5
 
 # OAuth2 schemes
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="api/v1/auth/token")
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/v1/auth/token")
 bearer_scheme = HTTPBearer(auto_error=False)
 
 # Redis for session management and rate limiting
@@ -473,15 +473,6 @@ async def get_current_user(
     token: str = Depends(oauth2_scheme),
     db: Session = Depends(get_db)
 ) -> models.User:
-    security_logger.info(f"get_current_user called for path: {request.url.path}")
-    security_logger.info(f"Received token: {token[:30]}...") # Log first 30 chars for safety
-    security_logger.info(f"Request headers: {dict(request.headers)}")
-    security_logger.info(f"get_current_user called for path: {request.url.path}")
-    security_logger.info(f"Received token: {token[:30]}...") # Log first 30 chars for safety
-    security_logger.info(f"Request headers: {dict(request.headers)}")
-    security_logger.info(f"get_current_user called for path: {request.url.path}")
-    security_logger.info(f"Received token: {token[:30]}...") # Log first 30 chars for safety
-    security_logger.info(f"Request headers: {dict(request.headers)}")
     """Get current authenticated user with comprehensive security checks"""
 
     credentials_exception = HTTPException(
@@ -578,17 +569,21 @@ async def get_current_user(
         )
 
     # Log only WRITE operations; skip GET/HEAD/OPTIONS noise
-    if request.method in ("POST", "PUT", "PATCH", "DELETE"):
-        compliance_logger.log_event(
-            user_id=user_id,
-            role=None,
-            action="READ",
-            category="AUTHENTICATION",
-            ip_address=client_ip,
-            details=f"Authenticated {request.method} to {request.url.path}",
-            username=username,
-            user_agent=request.headers.get("User-Agent"),
-        )
+    if request.method not in ("POST", "PUT", "PATCH", "DELETE"):
+        # Return early for GET, HEAD, OPTIONS, etc.
+        return user
+
+    # Correctly log WRITE operations
+    compliance_logger.log_event(
+        user_id=user_id,
+        role=user.role.value if hasattr(user.role, "value") else None, # Add role
+        action="WRITE", # FIX: Was "READ"
+        category="AUTHENTICATION",
+        ip_address=client_ip,
+        details=f"Authenticated {request.method} to {request.url.path}",
+        username=username,
+        user_agent=request.headers.get("User-Agent"),
+    )
 
     return user
 
