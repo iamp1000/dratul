@@ -8,7 +8,7 @@ const AppointmentEditor = ({ appointment, onClose, refreshAppointments, user }) 
     const [patientId, setPatientId] = React.useState(appointment?.patient_id || '');
     const [locationId, setLocationId] = React.useState(appointment?.location_id || 1);
     const [appointmentDate, setAppointmentDate] = React.useState(appointment ? new Date(appointment.start_time).toISOString().split('T')[0] : new Date().toISOString().split('T')[0]);
-    const [appointmentTime, setAppointmentTime] = React.useState(appointment ? new Date(appointment.start_time).toTimeString().substring(0, 5) : '');
+    const [selectedSlot, setSelectedSlot] = React.useState(null);
     const [reason, setReason] = React.useState(appointment?.reason || '');
     const [patients, setPatients] = React.useState([]);
     const [errors, setErrors] = React.useState([]);
@@ -23,11 +23,11 @@ const AppointmentEditor = ({ appointment, onClose, refreshAppointments, user }) 
 
     const [patientSearch, setPatientSearch] = React.useState('');
     const [filteredPatients, setFilteredPatients] = React.useState([]);
-    const [availableSlots, setAvailableSlots] = React.useState([]);
+    const [allSlots, setAllSlots] = React.useState([]);
     const [loadingSlots, setLoadingSlots] = React.useState(false);
     const [slotError, setSlotError] = React.useState('');
     const [isWalkIn, setIsWalkIn] = React.useState(false);
-    const [showTimePicker, setShowTimePicker] = React.useState(false);
+    const [showSlotModal, setShowSlotModal] = React.useState(false);
 
     React.useEffect(() => {
         const fetchPatients = async () => {
@@ -45,16 +45,15 @@ const AppointmentEditor = ({ appointment, onClose, refreshAppointments, user }) 
         const fetchSlots = async () => {
 
             if (!appointmentDate || !locationId) {
-                setAvailableSlots([]);
+                setAllSlots([]);
                 setSlotError('Please select a date and location.');
                 return;
             }
 
             setLoadingSlots(true);
             setSlotError('');
-            setAvailableSlots([]);
-
-            setAppointmentTime('');
+            setAllSlots([]);
+            setSelectedSlot(null); 
 
             const toISODate = (d) => {
                 if (!d) return '';
@@ -67,20 +66,21 @@ const AppointmentEditor = ({ appointment, onClose, refreshAppointments, user }) 
                 console.log(`[AppointmentEditor] Fetching slots for Loc ${locationId} on ${formattedDate}`);
                 const fetchedSlots = await api(`/api/v1/slots/${locationId}/${formattedDate}`);
 
-                const availableOnly = Array.isArray(fetchedSlots) ? fetchedSlots.filter(slot => slot.status === 'available') : [];
-
                 console.log(`[AppointmentEditor] Received slots:`, fetchedSlots);
-                console.log(`[AppointmentEditor] Filtered available slots:`, availableOnly);
 
-                setAvailableSlots(availableOnly);
-                if (availableOnly.length === 0) {
+                setAllSlots(Array.isArray(fetchedSlots) ? fetchedSlots : []);
+                
+                // Check if any slots are available
+                const anyAvailable = Array.isArray(fetchedSlots) && fetchedSlots.some(slot => slot.status === 'available');
+                
+                if (!anyAvailable) {
                     setSlotError('No available slots found for this day and location.');
                 }
 
             } catch (err) {
                 console.error(`[AppointmentEditor] Error fetching slots for ${formattedDate}:`, err);
                 setSlotError(`Failed to load slots: ${err.message}`);
-                setAvailableSlots([]);
+                setAllSlots([]);
             } finally {
                 setLoadingSlots(false);
             }
@@ -111,6 +111,12 @@ const AppointmentEditor = ({ appointment, onClose, refreshAppointments, user }) 
         setFilteredPatients([]);
     };
 
+    const handleSelectSlot = (slot) => {
+        if (slot.status !== 'available') return; 
+        setSelectedSlot(slot);
+        setShowSlotModal(false);
+    };
+
     const handleSubmit = async () => {
 
         setErrors([]);
@@ -123,7 +129,7 @@ const AppointmentEditor = ({ appointment, onClose, refreshAppointments, user }) 
         }
         if (!isWalkIn) {
             if (!appointmentDate) validationErrors.push('Appointment Date is required.');
-            if (!appointmentTime) validationErrors.push('Appointment Time is required.');
+            if (!selectedSlot) validationErrors.push('A time slot must be selected.');
         }
 
         if (validationErrors.length > 0) {
@@ -135,7 +141,6 @@ const AppointmentEditor = ({ appointment, onClose, refreshAppointments, user }) 
         let formattedStartTime = null;
         let formattedEndTime = null;
         if (!isWalkIn) {
-            const selectedSlot = availableSlots.find(s => s.start_time === appointmentTime);
             if (!selectedSlot) {
                 setErrors(['Invalid time slot selected. Please select again.']);
                 return;
@@ -331,41 +336,63 @@ const AppointmentEditor = ({ appointment, onClose, refreshAppointments, user }) 
                         required={true}
                         disabled={isWalkIn}
                     />
-                    <div className={`md:col-span-3 ${isWalkIn ? 'opacity-50' : ''}`}> { }
+                    <div className={`md:col-span-3 ${isWalkIn ? 'opacity-50' : ''} relative`}> { }
                         <label className={`custom-label ${!isWalkIn ? 'required' : ''}`}>Time</label> { }
                         { }
                         {loadingSlots ? (
                             <LoadingSpinner />
-                        ) : slotError ? (
-                            <p className="text-medical-error text-sm p-3 bg-red-50 rounded-lg">{slotError}</p>
-                        ) : (
+                        ) : ( 
                             <div className="flex flex-col space-y-2">
-                                <div
-                                    onClick={() => !isWalkIn ? setShowTimePicker(true) : null}
-                                    className={`w-full px-3 py-2 border-2 rounded-lg text-sm text-center font-medium transition-all cursor-pointer 
-                                        ${appointmentTime ? 'border-medical-accent bg-blue-50 text-medical-dark' : 'border-gray-300 text-medical-gray hover:border-medical-accent'} 
-                                        ${isWalkIn ? 'bg-gray-100 cursor-not-allowed' : ''}`
+                                <button
+                                    type="button"
+                                    onClick={() => !isWalkIn ? setShowSlotModal(true) : null}
+                                    disabled={isWalkIn || !!slotError}
+                                    className={`w-full px-3 py-2 border-2 rounded-lg text-sm text-center font-medium transition-all 
+                                        ${selectedSlot ? 'border-medical-accent bg-blue-50 text-medical-dark' : 'border-gray-300 text-medical-gray hover:border-medical-accent'}
+                                        ${isWalkIn ? 'bg-gray-100 cursor-not-allowed' : ''}
+                                        ${slotError && !loadingSlots ? 'bg-red-50 border-red-300 text-red-700 cursor-not-allowed' : ''}`
                                     }
                                 >
-                                    {appointmentTime ? new Date(appointmentTime).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true }) : (slotError || 'Select Time Slot')}
-                                </div>
-                                {availableSlots.length > 0 && (
-                                    <p className='text-xs text-medical-gray'>* {availableSlots.length} available slots not shown. Click above to pick a time.</p>
+                                    {selectedSlot 
+                                        ? new Date(selectedSlot.start_time).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true })
+                                        : (slotError || 'Select Time Slot')
+                                    }
+                                </button>
+                                {allSlots.length > 0 && !slotError && (
+                                    <p className='text-xs text-medical-gray'>
+                                        * {allSlots.filter(s => s.status === 'available').length} available slots. Click above to pick a time.
+                                    </p>
                                 )}
                             </div>
                         )}
 
-                        {showTimePicker && (
-                            <TimeRangePicker
-                                isOpen={showTimePicker}
-                                onClose={() => setShowTimePicker(false)}
-                                onConfirm={({ startTime, endTime }) => {
-                                    setAppointmentTime(startTime); 
-                                    setShowTimePicker(false);
-                                }}
-                                initialStartTime={appointmentTime}
-                                initialEndTime={appointmentTime}
-                            />
+                        {showSlotModal && (
+                            <div className="absolute z-50 top-full left-0 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-60 overflow-y-auto">
+                                <div className="grid grid-cols-4 gap-2 p-4">
+                                    {allSlots.map(slot => {
+                                        const isBooked = slot.status !== 'available';
+                                        const isSelected = selectedSlot?.start_time === slot.start_time;
+                                        return (
+                                            <button
+                                                type="button"
+                                                key={slot.start_time}
+                                                onClick={() => handleSelectSlot(slot)}
+                                                disabled={isBooked}
+                                                className={`px-2 py-2 text-sm rounded-lg font-medium border-2 transition-all 
+                                                    ${isBooked 
+                                                        ? 'bg-gray-100 text-gray-400 border-gray-200 line-through cursor-not-allowed'
+                                                        : isSelected
+                                                            ? 'bg-medical-accent text-white border-medical-accent'
+                                                            : 'bg-white text-medical-gray border-gray-300 hover:border-medical-accent'
+                                                    }
+                                                `}
+                                            >
+                                                {new Date(slot.start_time).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false })}
+                                            </button>
+                                        );
+                                    })}
+                                </div>
+                            </div>
                         )}
                         { }
                     </div>

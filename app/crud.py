@@ -1451,11 +1451,23 @@ def create_or_update_patient_menstrual_history(db: Session, patient_id: int, his
 # Legacy shim below
 def create_audit_log(db, user_id=None, action=None, category=None, details=None, **kwargs):
     try:
-        # Look up username from ID for logging
-        username_str = db.query(models.User.username).filter(models.User.id == user_id).scalar() if user_id else "System"
+        username_str = "System"
+        role_str = "system"  # Default role
+        
+        if user_id:
+            user = db.query(models.User).filter(models.User.id == user_id).first()
+            if user:
+                username_str = user.username
+                # Check if role is an enum and get its value
+                if hasattr(user.role, 'value'):
+                    role_str = user.role.value
+                else:
+                    role_str = str(user.role) # Fallback
+            
         compliance_logger.log_event(
             user_id=user_id,
             username=username_str,
+            role=role_str,
             action=action or 'UNKNOWN',
             category=category or 'GENERAL',
             details=details,
@@ -1467,32 +1479,9 @@ def create_audit_log(db, user_id=None, action=None, category=None, details=None,
     except Exception as e:
         logger.error(f'[Shim] Failed to log event: {e}')
 
-    """Create a new structured audit log entry."""
-    try:
-        # Denormalize username for audit integrity
-        username = db.query(models.User.username).filter(models.User.id == user_id).scalar() if user_id else "System"
-        
-        # Coerce Enums to plain strings for DB safety
-        if hasattr(action, "value"):
-            action = action.value
-        if hasattr(category, "value"):
-            category = category.value
 
-        SAFE_AUDIT_ACTION_MAP = {
-            'LOGIN_SUCCESS': 'LOGIN',
-            'LOGIN_FAILURE': 'LOGIN',
-            'CREATE_USER': 'CREATE',
-            'DELETE_USER': 'DELETE',
-        }
-        action = SAFE_AUDIT_ACTION_MAP.get(str(action).upper(), str(action).upper())
 
-        # Legacy block removed after ComplianceLogger migration
-        compliance_logger.log_event(user_id=user_id, role='system', action=action, category=category, details=f'Audit action executed: {action}', severity='INFO')
-            
-    except SQLAlchemyError as e:
-        db.rollback()
-        logger.error(f"Error creating audit log: {e}")
-        # Don't re-raise CRUDError, as logging failure should not crash main operations
+# app/crud.py (Replacement for the existing get_audit_logs function)
 
 def get_audit_logs(
     db: Session, 
@@ -1504,9 +1493,35 @@ def get_audit_logs(
     start_date: Optional[date] = None,
     end_date: Optional[date] = None
 ) -> List[models.AuditLog]:
-    """Retrieve audit logs with filtering.""" 
+    """Retrieve audit logs with filtering and eagerly load username.""" 
     try:
-        query = db.query(models.AuditLog).options(joinedload(models.AuditLog.user))
+        # Use left outer join to include logs even if the user has been deleted (user_id is NULL)
+        query = db.query(models.AuditLog).outerjoin(models.User).options(
+            # Eagerly load the User relationship
+            joinedload(models.AuditLog.user)
+        )
+        
+        # Add a conditional clause to populate the AuditLog.username field 
+        # from the joined User.username if AuditLog.username is NULL.
+        # This fixes logs where the username wasn't saved initially.
+        query = query.with_entities(
+            models.AuditLog.id,
+            models.AuditLog.user_id,
+            # Use COALESCE to prioritize AuditLog.username (if saved during login) 
+            # and fall back to User.username via join.
+            func.coalesce(models.AuditLog.username, models.User.username).label('username'),
+            models.AuditLog.action,
+            models.AuditLog.category,
+            models.AuditLog.severity,
+            models.AuditLog.resource_type,
+            models.AuditLog.resource_id,
+            models.AuditLog.details,
+            models.AuditLog.old_values,
+            models.AuditLog.new_values,
+            models.AuditLog.ip_address,
+            models.AuditLog.user_agent,
+            models.AuditLog.timestamp,
+        )
         
         if user_id:
             query = query.filter(models.AuditLog.user_id == user_id)
@@ -1520,9 +1535,38 @@ def get_audit_logs(
             # Add one day to end_date to include the entire day
             query = query.filter(models.AuditLog.timestamp < (end_date + timedelta(days=1)))
             
-        return query.order_by(models.AuditLog.timestamp.desc()).offset(skip).limit(limit).all()
+        # The query now returns tuples, so we map them back to the AuditLog model structure manually for the Pydantic parser.
+        raw_logs = query.order_by(models.AuditLog.timestamp.desc()).offset(skip).limit(limit).all()
+        
+        # Manually reconstruct objects needed by the Pydantic AuditLogResponse schema
+        reconstructed_logs = []
+        for raw_log in raw_logs:
+            # Create a dictionary representing the AuditLog model instance
+            log_dict = {
+                'id': raw_log.id,
+                'user_id': raw_log.user_id,
+                'username': raw_log.username, # Now populated by COALESCE
+                'action': raw_log.action,
+                'category': raw_log.category,
+                'severity': raw_log.severity,
+                'resource_type': raw_log.resource_type,
+                'resource_id': raw_log.resource_id,
+                'details': raw_log.details,
+                'old_values': raw_log.old_values,
+                'new_values': raw_log.new_values,
+                'ip_address': raw_log.ip_address,
+                'user_agent': raw_log.user_agent,
+                'timestamp': raw_log.timestamp,
+            }
+            # The Pydantic model AuditLogResponse relies on the presence of these fields.
+            reconstructed_logs.append(log_dict)
+
+        # The reconstructed dictionaries should now be correctly mapped by the Pydantic response model.
+        return reconstructed_logs
+        
     except SQLAlchemyError as e:
         logger.error(f"Error fetching audit logs: {e}")
+        # Re-raise the error as a CRUDError, which is handled by FastAPI
         raise CRUDError("A database error occurred while fetching audit logs.")
 
 

@@ -19,7 +19,6 @@ router = APIRouter(
 )
 
 @router.post("/appointments", response_model=schemas.AppointmentResponse)
-@limiter.limit("5/minute")
 async def create_new_appointment(
     appointment: schemas.AppointmentCreate,
     request: Request,
