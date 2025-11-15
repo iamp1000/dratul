@@ -542,7 +542,17 @@ def update_schedules_for_location(db: Session, location_id: int, schedules: List
     logger.debug(f"[update_schedules_for_location] START for loc {location_id}. Received {len(schedules)} schedule entries.")
     logger.debug(f"[update_schedules_for_location] Incoming data: {schedules}")
     try:
-
+        # --- FIX 1: ADDED THIS BLOCK to define 'other_schedules_map' ---
+        # --- OVERLAP VALIDATION --- START ---
+        # This logic checks if the schedule for one location overlaps with the other.
+        other_location_id = 2 if location_id == 1 else 1
+        day_names_list = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
+        
+        # Fetch the other location's schedules and put them in a map for easy lookup
+        other_schedules_list = get_schedules_for_location(db=db, location_id=other_location_id)
+        other_schedules_map = {s.day_of_week: s for s in other_schedules_list}
+        logger.debug(f"[update_schedules_for_location] Checking for overlaps against location {other_location_id}. Found {len(other_schedules_map)} schedules.")
+        # --- END FIX 1 ---
 
         for new_day_schedule in schedules:
             if not new_day_schedule.is_available:
@@ -577,38 +587,10 @@ def update_schedules_for_location(db: Session, location_id: int, schedules: List
         # --- OVERLAP VALIDATION --- END ---
 
 
+        # --- FIX 2: REMOVED DUPLICATE BROKEN BLOCK ---
+        # The entire (and broken) overlap check block that was here has been removed.
+        # --- END FIX 2 ---
 
-        for new_day_schedule in schedules:
-            if not new_day_schedule.is_available:
-                continue # This day is off, no conflict possible
-
-            other_day_schedule = other_schedules_map.get(new_day_schedule.day_of_week)
-            
-            # Check if the other location is also available on this day
-            if other_day_schedule and other_day_schedule.is_available:
-                day_name_str = day_names_list[new_day_schedule.day_of_week]
-                
-                # Ensure times are valid time objects (Pydantic should handle this, but checking is safe)
-                if not isinstance(new_day_schedule.start_time, time) or not isinstance(new_day_schedule.end_time, time) or \
-                   not isinstance(other_day_schedule.start_time, time) or not isinstance(other_day_schedule.end_time, time):
-                    logger.warning(f"Skipping overlap check for {day_name_str} due to invalid time data.")
-                    continue # Skip check if data is corrupt
-
-                # Check for overlap: (StartA < EndB) and (EndA > StartB)
-                overlap = (new_day_schedule.start_time < other_day_schedule.end_time) and \
-                          (new_day_schedule.end_time > other_day_schedule.start_time)
-                
-                if overlap:
-                    logger.warning(f"Overlap detected for {day_name_str} between loc {location_id} and {other_location_id}")
-                    other_loc_name = "Hospital" if other_location_id == 2 else "Clinic"
-                    current_loc_name = "Clinic" if location_id == 1 else "Hospital"
-                    raise CRUDError(
-                        f"Schedule Conflict for {day_name_str}: The time {new_day_schedule.start_time.strftime('%H:%M')}-{new_day_schedule.end_time.strftime('%H:%M')} "
-                        f"at {current_loc_name} conflicts with the schedule {other_day_schedule.start_time.strftime('%H:%M')}-{other_day_schedule.end_time.strftime('%H:%M')} "
-                        f"at the {other_loc_name}."
-                    )
-        logger.debug("[update_schedules_for_location] No location overlaps found.")
-        # --- OVERLAP VALIDATION --- END ---
 
         # --- VALIDATION --- START ---
         logger.debug("[update_schedules_for_location] Validating max_appointments...")
@@ -2007,4 +1989,3 @@ def set_system_config(
     db.commit()
     db.refresh(entry)
     return entry
-        

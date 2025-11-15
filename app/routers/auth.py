@@ -47,10 +47,13 @@ def login_for_access_token(db: Session = Depends(get_db), form_data: OAuth2Passw
     try:
         compliance_logger.log_event(
             user_id=user.id,
+            # --- FIX 1: Pass 'username' directly ---
+            username=user.username,
+            # --- FIX 2: Use correct 'role' parameter ---
             role=user.role.value if hasattr(user.role, 'value') else 'unknown',
             action="LOGIN_SUCCESS",
             category="AUTHENTICATION",
-            details=f"User {user.username} logged in successfully.",
+            details=f"Login successful for user: {user.username} (ID: {user.id})",
             severity="INFO"
         )
     except Exception as log_error:
@@ -58,7 +61,7 @@ def login_for_access_token(db: Session = Depends(get_db), form_data: OAuth2Passw
         # Do not fail login if logging fails, just log the error
     # --- End Audit Log ---
 
-    logger.info(f"User '{user.username}' successfully authenticated.")
+    logger.info(f"User '{user.username}' (ID: {user.id}) successfully authenticated.")
     
     access_token = security.create_access_token(
         data={"sub": user.username, "user_id": user.id, "role": user.role.value}

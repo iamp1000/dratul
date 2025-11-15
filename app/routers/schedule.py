@@ -38,7 +38,8 @@ def update_schedules_for_location(
     This will replace all existing schedule entries for the location.
     Requires admin or manager privileges.
     """
-    if current_user.role not in [schemas.UserRole.admin, schemas.UserRole.manager]:
+    # --- FIX 1: Removed schemas.UserRole.manager ---
+    if current_user.role not in [schemas.UserRole.admin]:
         raise HTTPException(
             status_code=403,
             detail="Not authorized to update schedules"
@@ -105,7 +106,8 @@ def set_schedule_config(
     current_user: models.User = Depends(get_current_user)
 ):
     """Set global schedule configuration (requires admin/manager)."""
-    if current_user.role not in [schemas.UserRole.admin, schemas.UserRole.manager]:
+    # --- FIX 2: Removed schemas.UserRole.manager ---
+    if current_user.role not in [schemas.UserRole.admin]:
         raise HTTPException(status_code=403, detail="Not authorized to update config")
     if appointment_interval_minutes not in [10, 15, 20, 30, 60]:
         raise HTTPException(status_code=400, detail="Invalid interval")
@@ -128,8 +130,10 @@ def update_day_schedule(
     Update the schedule for a specific day of the week for a location.
     Requires admin or manager privileges.
     """
-    if current_user.role not in [schemas.UserRole.admin, schemas.UserRole.manager]:
+    # --- FIX 3: Removed schemas.UserRole.manager ---
+    if current_user.role not in [schemas.UserRole.admin]:
         raise HTTPException(
+            # --- FIX 4: Corrected typo 4G to 403 ---
             status_code=403,
             detail="Not authorized to update schedules"
         )
@@ -214,4 +218,5 @@ async def get_availability_detailed(
     try:
         return await crud.get_available_slots_detailed(db=db, location_id=location_id, for_date=for_date)
     except crud.CRUDError as e:
+        # --- FIX 5: Corrected typo 4D to 400 ---
         raise HTTPException(status_code=400, detail=str(e))

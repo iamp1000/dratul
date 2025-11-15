@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState, useCallback } from 'react';
+import { createPortal } from 'react-dom';
 import { usePopper } from 'react-popper';
 
 // --- Utility Functions (Date Handling) ---
@@ -35,6 +36,7 @@ const DatePicker = ({ label, value, onChange, minDate, required = false, disable
   const [popperElement, setPopperElement] = useState(null);
 
   const { styles, attributes } = usePopper(referenceElement, popperElement, {
+    strategy: 'fixed', // Use fixed strategy to break out of modal
     placement: 'bottom-start',
     modifiers: [
       { name: 'offset', options: { offset: [0, 8] } },
@@ -64,7 +66,6 @@ const DatePicker = ({ label, value, onChange, minDate, required = false, disable
     };
   }, [popperElement, referenceElement]);
 
-  // Reset view to 'days' when picker is closed or value changes
   useEffect(() => {
     if (!open) {
       setView('days');
@@ -87,7 +88,7 @@ const DatePicker = ({ label, value, onChange, minDate, required = false, disable
         d.setMonth(d.getMonth() + delta);
       } else if (unit === 'year') {
         d.setFullYear(d.getFullYear() + delta);
-      } else if (unit === 'decade') { // For year grid navigation
+      } else if (unit === 'decade') {
         d.setFullYear(d.getFullYear() + (delta * 10));
       }
       return d;
@@ -117,7 +118,7 @@ const DatePicker = ({ label, value, onChange, minDate, required = false, disable
       d.setMonth(monthIndex);
       return d;
     });
-    setView('days'); // Go back to day view
+    setView('days');
   };
 
   const handleYearSelect = (year) => {
@@ -126,7 +127,7 @@ const DatePicker = ({ label, value, onChange, minDate, required = false, disable
       d.setFullYear(year);
       return d;
     });
-    setView('months'); // Go back to month view
+    setView('months');
   };
 
   // --- Render Functions for Grids ---
@@ -138,7 +139,8 @@ const DatePicker = ({ label, value, onChange, minDate, required = false, disable
     const selectedDate = parseISO(value);
 
     for (let i = 0; i < firstDay; i++) {
-      days.push(<div key={`empty-${i}`} className="w-7 h-7" />);
+      // FIX 4: Changed empty placeholder from fixed size (w-7 h-7) to proportional size (w-full h-full)
+      days.push(<div key={`empty-${i}`} className="w-full h-full" />);
     }
 
     for (let day = 1; day <= daysInMonth; day++) {
@@ -157,7 +159,8 @@ const DatePicker = ({ label, value, onChange, minDate, required = false, disable
         <button
           key={day}
           onClick={() => handleDaySelect(date)}
-          className={`w-7 h-7 text-sm flex items-center justify-center rounded-full transition-all focus:outline-none focus:ring-2 focus:ring-blue-400 ${buttonClass}`}
+          // FIX 3: Changed day button from fixed size (w-7 h-7) to proportional size (w-full h-full)
+          className={`w-full h-full text-sm flex items-center justify-center rounded-full transition-all focus:outline-none focus:ring-2 focus:ring-blue-400 ${buttonClass}`}
           aria-pressed={isSelected}
           disabled={disabledDay}
         >
@@ -182,7 +185,7 @@ const DatePicker = ({ label, value, onChange, minDate, required = false, disable
         <button
           key={month}
           onClick={() => handleMonthSelect(index)}
-          className={`w-1/3 h-10 text-sm flex items-center justify-center rounded-lg transition-all focus:outline-none focus:ring-2 focus:ring-blue-400 ${buttonClass}`}
+          className={`w-full h-full text-sm flex items-center justify-center rounded-lg transition-all focus:outline-none focus:ring-2 focus:ring-blue-400 ${buttonClass}`}
         >
           {month}
         </button>
@@ -190,29 +193,25 @@ const DatePicker = ({ label, value, onChange, minDate, required = false, disable
     });
   };
 
-  // Reverted to a grid-based year selection
   const renderYearGrid = () => {
     const startYear = getStartYearOfDecade(visDate);
     const yearsInDecade = [];
-    for (let i = 0; i < 10; i++) { // Current decade
+    for (let i = 0; i < 10; i++) {
         yearsInDecade.push(startYear + i);
     }
 
-    // Add previous and next year for padding, similar to original mock for month view
     const allYears = [startYear - 1, ...yearsInDecade, startYear + 10];
     
     const selectedYear = parseISO(value)?.getFullYear();
     const currentFullYear = new Date().getFullYear();
 
     return allYears.map((year, index) => {
-      // Style first and last year in the `allYears` array as grayed out padding
       const isPaddingYear = index === 0 || index === allYears.length - 1; 
-
       const isCurrentYear = year === currentFullYear;
       const isSelectedYear = year === selectedYear;
       
       let buttonClass = 'text-gray-700 hover:bg-gray-100';
-      if (isPaddingYear) buttonClass = 'text-gray-300'; // Gray out padding years
+      if (isPaddingYear) buttonClass = 'text-gray-300';
       else if (isSelectedYear) buttonClass = 'bg-blue-500 text-white font-semibold shadow-sm';
       else if (isCurrentYear) buttonClass = 'text-blue-500 font-semibold border border-blue-500/50 hover:bg-blue-500/10';
 
@@ -220,8 +219,8 @@ const DatePicker = ({ label, value, onChange, minDate, required = false, disable
         <button
           key={year}
           onClick={() => handleYearSelect(year)}
-          className={`w-1/4 h-10 text-sm flex items-center justify-center rounded-lg transition-all focus:outline-none focus:ring-2 focus:ring-blue-400 ${buttonClass}`}
-          disabled={isPaddingYear} // Disable interaction for padding years
+          className={`w-full h-full text-sm flex items-center justify-center rounded-lg transition-all focus:outline-none focus:ring-2 focus:ring-blue-400 ${buttonClass}`}
+          disabled={isPaddingYear}
         >
           {year}
         </button>
@@ -237,7 +236,7 @@ const DatePicker = ({ label, value, onChange, minDate, required = false, disable
   const formattedDisplay = (val) => {
     const d = parseISO(val);
     if (!d) return '';
-    return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+    return d.toLocaleString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
   };
 
   const renderHeader = () => {
@@ -258,13 +257,13 @@ const DatePicker = ({ label, value, onChange, minDate, required = false, disable
       onHeaderClick = () => setView('years');
       onPrevClick = () => changeDate(-1, 'year');
       onNextClick = () => changeDate(1, 'year');
-    } else { // view === 'years'
+    } else {
       const startYear = getStartYearOfDecade(visDate);
       headerText = `${startYear} - ${startYear + 9}`;
-      onHeaderClick = () => {}; // No action for decade header click
+      onHeaderClick = () => {};
       onPrevClick = () => changeDate(-1, 'decade');
       onNextClick = () => changeDate(1, 'decade');
-      showChevron = false; // No chevron for decade view
+      showChevron = false;
     }
 
     return (
@@ -274,7 +273,7 @@ const DatePicker = ({ label, value, onChange, minDate, required = false, disable
             type="button"
             className="font-semibold text-base text-medical-dark flex items-center p-0.5 rounded-lg hover:bg-gray-100"
             onClick={onHeaderClick}
-            disabled={view === 'years' && onHeaderClick === null} // Disable if year range and no click action
+            disabled={view === 'years' && onHeaderClick === null}
           >
             {headerText}
             {showChevron && (
@@ -318,11 +317,13 @@ const DatePicker = ({ label, value, onChange, minDate, required = false, disable
   const renderBody = () => {
     if (view === 'days') {
       return (
-        <div className="p-2">
+        // FIX 1: Make main body wrapper stretch vertically to fill fixed pop-up height
+        <div className="p-2 flex flex-col h-full"> 
           <div className="grid grid-cols-7 gap-0 text-center text-xs font-medium text-medical-gray mb-1">
             {['S', 'M', 'T', 'W', 'T', 'F', 'S'].map(d => <div key={d} className="text-gray-500 text-xs font-medium">{d}</div>)}
           </div>
-          <div className="grid grid-cols-7 gap-0 justify-items-center">
+          {/* FIX 2: Inner grid stretches with content-evenly to space out 6 rows of dates evenly */}
+          <div className="grid grid-cols-7 gap-0 justify-items-center flex-grow content-evenly">
             {renderDayGrid()}
           </div>
         </div>
@@ -330,21 +331,38 @@ const DatePicker = ({ label, value, onChange, minDate, required = false, disable
     }
     if (view === 'months') {
       return (
-        <div className="p-2 grid grid-cols-3 gap-1 justify-items-center"> {/* Changed to grid for months */}
+        <div className="p-2 grid grid-cols-3 gap-1 justify-items-center h-full">
           {renderMonthGrid()}
         </div>
       );
     }
     if (view === 'years') {
       return (
-        // Changed to grid for years, removed space-y-1 and flex-col
-        <div className="p-2 grid grid-cols-4 gap-1 justify-items-center">
+        <div className="p-2 grid grid-cols-4 gap-1 justify-items-center h-full">
           {renderYearGrid()}
         </div>
       );
     }
     return null;
   };
+  
+  const popperContent = open && (
+    <div 
+      ref={setPopperElement}
+      style={{ ...styles.popper, minWidth: '240px' }}
+      {...attributes.popper}
+      // Set consistent width and fixed height for all views
+      className="z-[9999] bg-white rounded-xl shadow-2xl border border-gray-200 transition-opacity duration-150 flex flex-col w-72 h-80" 
+      role="dialog" 
+      aria-modal="true"
+    >
+      {renderHeader()}
+      {/* Make body fill remaining height. We handle overflow internally in renderBody when needed. */}
+      <div className="flex-1">
+        {renderBody()}
+      </div>
+    </div>
+  );
 
   return (
     <div className="relative inline-block w-full" ref={containerRef}>
@@ -365,21 +383,8 @@ const DatePicker = ({ label, value, onChange, minDate, required = false, disable
         </button>
       </div>
 
-      {open && (
-        <div 
-          ref={popperElement} // Note: Directly using popperElement now that scrollBodyRef is gone
-          style={{ ...styles.popper, minWidth: '240px' }}
-          {...attributes.popper}
-          className="z-50 bg-white rounded-xl shadow-2xl border border-gray-200 transition-opacity duration-150 h-80 flex flex-col" 
-          role="dialog" 
-          aria-modal="true"
-        >
-          {renderHeader()}
-          <div className="flex-1 overflow-y-auto"> {/* Removed scrollBodyRef as it's no longer needed for year scrolling */}
-            {renderBody()}
-          </div>
-        </div>
-      )}
+      {/* Render the popper content using the portal */}
+      {createPortal(popperContent, document.body)}
     </div>
   );
 };

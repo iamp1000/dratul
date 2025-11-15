@@ -68,6 +68,10 @@ class ComplianceLogger:
 			else:
 				action_db = 'READ'
 
+		# --- FIX: Add check to stop READ logs ---
+		if action_db == 'READ':
+			return  # Do not log READ actions
+
 		db = SessionLocal()
 		try:
 			# Coerce action to Enum if possible
@@ -77,7 +81,7 @@ class ComplianceLogger:
 				try:
 					action_enum = models.AuditAction(action_db)  # allow direct value lookup
 				except Exception:
-					action_enum = models.AuditAction.READ
+					action_enum = models.AuditAction.READ # Fallback, though we should return above
 
 			db_log = models.AuditLog(
 				user_id=user_id,
@@ -112,10 +116,11 @@ class ComplianceLogger:
 		**kwargs: Any
 	) -> None:
 		"""Logs a data access event into the AuditLog table."""
+		# This function will now also be filtered by the 'READ' check in log_event
 		self.log_event(
 			user_id=user_id,
 			role=role,
-			action='ACCESS',
+			action='ACCESS', # This will be normalized to 'READ' and stopped
 			category='DATA_ACCESS',
 			details=f"Accessed {resource_type}:{resource_id} for {purpose}",
 			severity=severity,
